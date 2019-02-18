@@ -1,0 +1,87 @@
+version: '3'
+services:
+  server:
+    build:
+      context: ./server
+      args:
+        # Change according to your details
+        REPOSITORY_URL: https://github.com/OpenSlides/OpenSlides.git
+        BRANCH: master
+        COMMIT_HASH: ea7bff89ea4bab326c425d35561f4cd182b36bfd
+    image: os-server
+    command: bash -c "
+              echo 'sleeping for 15 seconds...' &&
+              sleep 15 &&
+              echo 'running migrations' &&
+              python manage.py migrate &&
+              echo 'executing server' &&
+              DJANGO_SETTINGS_MODULE=settings
+              PYTHONPATH=personal_data/var/
+              daphne -b 0.0.0.0 -p 8000 openslides.asgi:application"
+              # alternatively you may use:
+              #gunicorn -w 4 -b 0.0.0.0:8000 -k uvicorn.workers.UvicornWorker openslides.asgi:application"
+    restart: always
+    links:
+      - redis
+      - postgres
+    volumes:
+      - "personaldata:/app/personal_data"
+      - "staticfiles:/app/openslides/static"
+    networks:
+      - back
+  redis:
+    image: redis:alpine
+    restart: always
+    volumes:
+      - "redisdata:/data"
+    networks:
+      - back
+  client:
+    image: nginx
+    restart: always
+    volumes:
+      - "staticfiles:/usr/share/nginx/html"
+      - "./client/nginx.conf:/etc/nginx/nginx.conf"
+    environment:
+      # Change according to your details
+      VIRTUAL_HOST: 'localhost'
+      LETSENCRYPT_HOST: 'localhost'
+      LETSENCRYPT_EMAIL: 'localhost'
+      LETSENCRYPT_TEST: 'true'
+    depends_on:
+      - server
+    networks:
+      - back
+  postgres:
+    image: sameersbn/postgresql:10
+    restart: always
+    volumes:
+      - "dbdata:/var/lib/postgresql"
+    environment:
+      - DB_USER=openslides
+      - DB_PASS=openslides
+      - DB_NAME=openslides
+    ports:
+      - "5432:5432"
+    networks:
+      - front
+      - back
+  postfix:
+    build: ./postfix
+    image: postfix
+    restart: always
+    environment:
+      - maildomain=localhost
+      - smtp_user=openslides:openslides
+    volumes:
+      - "certs:/etc/postfix/certs:ro"
+    networks:
+      - back
+volumes:
+  dbdata:
+  personaldata:
+  redisdata:
+  staticfiles:
+networks:
+  front:
+  back:
