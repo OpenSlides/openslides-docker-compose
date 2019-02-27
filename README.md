@@ -25,6 +25,10 @@ The suite consists of the following...
 * ```redisdata``` (files of ```redis```)
 
 
+## ```handle_instance.sh```
+
+The ```handle_instance.sh``` script wraps the most important functions. Invoke it with ```-h``` the get some help-text.
+
 ## How To Use
 
 To specify a special git repository of OpenSlides, a certain Branch and/or a certain commit, you should change the following entries at the ```server`` service:
