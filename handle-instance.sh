@@ -55,10 +55,15 @@ function update {
     echo "removing staticfiles volume:"
     volume=$(docker volume ls -q | grep $volumename)
     docker volume rm $volume
+    docker-compose scale server=1 client=1
+}
+
+function flushredis {
+    docker-compose scale server=0
     echo "flushing redis"
     rediscontainer=$(docker-compose ps | grep redis | awk '{print $1}')
     docker exec -it $rediscontainer redis-cli flushall
-    docker-compose scale server=1 client=1
+    docker-compose scale server=1
 }
 
 function startfunction {
@@ -77,6 +82,8 @@ function startfunction {
             echo "You didn't provide a commit sha with \"-c\""
             quit
         fi;
+    elif [ $1 == "flushredis" ]; then
+        flushredis
     else
         echo "Command \"$1\" not recognized"
         printhelp
@@ -91,6 +98,7 @@ function printhelp {
     echo "  down: let the instance shut down completely"
     echo "  rm: shut down the instance and remove all data"
     echo "  update: updates the instance to the given commit \"-c\""
+    echo "  flushredis: flushes the redis cache and restarts server"
     echo "The command prefacing docker, will not affect the instance, but docker itself"
     echo "  docker-cleanup: cleans up all stopped containers and unusued images"
 }
@@ -112,11 +120,10 @@ while getopts "h?vf:c:" opt; do
 done
 shift $((OPTIND-1))
 if [[ $function = *[!\ ]* ]]; then
-    update
+    startfunction $function
 else
     echo "You didn't provide a command sha with \"-f\""
     printhelp
     quit
 fi;
-startfunction $function
 exit
