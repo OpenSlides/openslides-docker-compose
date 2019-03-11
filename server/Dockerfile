@@ -12,13 +12,12 @@ RUN useradd -m openslides
 RUN chown -R openslides /app
 WORKDIR /app
 
-ARG BRANCH
 ARG REPOSITORY_URL
 ARG COMMIT_HASH
 
 USER openslides
-RUN git clone -b $BRANCH $REPOSITORY_URL .
-RUN git reset --hard $COMMIT_HASH
+RUN git clone --no-checkout -- $REPOSITORY_URL .
+RUN git checkout $COMMIT_HASH
 RUN rm -rf .git
 
 USER root
