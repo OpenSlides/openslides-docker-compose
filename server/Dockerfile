@@ -2,11 +2,11 @@ FROM python:3.7-slim
 
 RUN mkdir /app
 
-RUN apt -y update && \
-  apt -y upgrade && \
-  apt install -y libpq-dev curl wget xz-utils bzip2 git gcc gnupg2 make g++
+RUN apt-get -y update && \
+  apt-get -y upgrade && \
+  apt-get install -y libpq-dev curl wget xz-utils bzip2 git gcc gnupg2 make g++
 RUN curl -sL https://deb.nodesource.com/setup_11.x | bash -
-RUN apt -y install nodejs
+RUN apt-get -y install nodejs
 RUN npm install -g @angular/cli@latest
 RUN useradd -m openslides
 RUN chown -R openslides /app
