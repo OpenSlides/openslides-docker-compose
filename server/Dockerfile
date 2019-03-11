@@ -1,5 +1,10 @@
 FROM python:3.7-slim
 
+ENV DEBIAN_FRONTEND noninteractive
+ENV DEBIAN_PRIORITY critical
+ENV DEBCONF_NOWARNINGS yes
+ENV APT_KEY_DONT_WARN_ON_DANGEROUS_USAGE 1
+
 RUN mkdir /app
 
 RUN apt-get -y update && apt-get -y upgrade && \
