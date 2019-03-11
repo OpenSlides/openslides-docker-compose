@@ -2,11 +2,29 @@ FROM python:3.7-slim
 
 RUN mkdir /app
 
-RUN apt-get -y update && \
-  apt-get -y upgrade && \
-  apt-get install -y libpq-dev curl wget xz-utils bzip2 git gcc gnupg2 make g++
-RUN curl -sL https://deb.nodesource.com/setup_11.x | bash -
-RUN apt-get -y install nodejs
+RUN apt-get -y update && apt-get -y upgrade && \
+  apt-get install -y \
+    apt-transport-https \
+    bzip2 \
+    curl \
+    g++ \
+    gcc \
+    git \
+    gnupg2 \
+    libpq-dev \
+    make \
+    wget \
+    xz-utils
+
+# NodeJS
+# Add included apt config and OpenPGP key for increased reproducibility (avoids
+# curl/bash invocation (see below))
+COPY node-apt/nodesource.list /etc/apt/sources.list.d/
+COPY node-apt/nodesource.gpg.key /root/
+RUN apt-key add /root/nodesource.gpg.key
+# RUN curl -sL https://deb.nodesource.com/setup_11.x | bash -
+RUN apt-get update && apt-get -y install nodejs
+
 RUN npm install -g @angular/cli@latest
 RUN useradd -m openslides
 RUN chown -R openslides /app
