@@ -36,13 +36,19 @@ RUN cd client && \
   rm -fr /app/client/node_modules
 
 RUN python manage.py createsettings
-RUN sed -i "s/EMAIL_HOST = 'localhost'/EMAIL_HOST = 'postfix'/" personal_data/var/settings.py
-RUN sed -i 's/EMAIL_PORT = 587/EMAIL_PORT = 25/' personal_data/var/settings.py
-RUN sed -i "s/EMAIL_HOST_USER = ''/EMAIL_HOST_USER = 'openslides'/" personal_data/var/settings.py
-RUN sed -i "s/EMAIL_HOST_PASSWORD = ''/EMAIL_HOST_PASSWORD = 'openslides'/" personal_data/var/settings.py
-RUN sed -i 's/use_redis = False/use_redis= True/' personal_data/var/settings.py
-RUN sed -i 's#"hosts": \[("localhost"#"hosts": \[("redis"#' personal_data/var/settings.py
-RUN sed -i 's#redis://127.0.0.1#redis://redis:6379/0#' personal_data/var/settings.py
-RUN sed -i "s/'host': '127.0.0.1',/'host': 'redis',/" personal_data/var/settings.py
-RUN sed -i "s/'ENGINE': 'django.db.backends.sqlite3',/'ENGINE': 'django.db.backends.postgresql',/" personal_data/var/settings.py
-RUN sed -i "s/'NAME': os.path.join(OPENSLIDES_USER_DATA_DIR, 'db.sqlite3'),/'NAME': 'openslides',\n        'USER': 'openslides',\n        'PASSWORD': 'openslides',\n        'HOST': 'postgres',\n        'PORT': '5432'/" personal_data/var/settings.py
+RUN sed -i \
+  -e "/EMAIL_HOST\ /s/localhost/postfix/" \
+  -e "/EMAIL_PORT/s/587/25/" \
+  -e "/EMAIL_HOST_USER/s/''/'openslides'/" \
+  -e "/EMAIL_HOST_PASSWORD/s/''/'openslides'/" \
+  -e "/use_redis/s/False/True/" \
+  -e "/\"hosts\":.*6379/s/localhost/redis/" \
+  -e "/'host':/s/127\.0\.0\.1/redis/" \
+  -e "/REDIS_ADDRESS/s/127\.0\.0\.1/redis:6379\/0/" \
+  -e "/'ENGINE':\ 'django\.db\.backends/s/sqlite3/postgresql/" \
+  -e "/^\s*'NAME'/s/\(^.*'NAME':\).*/\1\ 'openslides',/" \
+  -e "/^\s*'NAME'/a\ \ \ \ \ \ \ \ 'USER': 'openslides',\n\ \
+       'PASSWORD': 'openslides',\n\ \
+       'HOST': 'postgres',\n\ \
+       'PORT': '5432'" \
+  personal_data/var/settings.py
