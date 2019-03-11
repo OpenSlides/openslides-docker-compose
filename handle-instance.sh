@@ -29,11 +29,13 @@ function rm {
     echo "removing containers"
     docker-compose rm
     volumes=$(docker volume ls -q | grep $instancename)
-    echo "deleting volumes: "
-    if [ $verbose == 1 ]; then
-        echo "$volumes"
-    fi;
-    docker volume rm $volumes
+    if [[ -n "$volumes" ]]; then
+        echo "deleting volumes: "
+        if [ $verbose == 1 ]; then
+            echo "$volumes"
+        fi;
+        docker volume rm $volumes
+    fi
 }
 
 function dockercleanup {
@@ -41,7 +43,6 @@ function dockercleanup {
     docker rm $(docker ps -aq)
     echo "removing unused images"
     docker rmi $(docker images | grep "^<none>" | awk "{print $3}")
-    
 }
 
 function update {
