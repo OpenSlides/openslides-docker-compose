@@ -1,12 +1,14 @@
 # Docker-Compose based OpenSlides Suite
 
-The ```docker-compose.yml``` describes a full system setup with every component detached from the other.
+The ```docker-compose.yml``` describes a full system setup with every component
+detached from the other.
 
 The suite consists of the following...
 
 ...services:
 
-* ```server``` (Server of OpenSlides, the base image, database migration and creation of the settings is created here)
+* ```server``` (Server of OpenSlides, the base image, database migration and
+  creation of the settings is created here)
 * ```client``` (Client of OpenSlides)
 * ```postgres``` (Database)
 * ```redis``` (Cache Database)
@@ -27,11 +29,14 @@ The suite consists of the following...
 
 ## ```handle_instance.sh```
 
-The ```handle_instance.sh``` script wraps the most important functions. Invoke it with ```-h``` the get some help-text.
+The ```handle_instance.sh``` script wraps the most important functions. Invoke
+it with ```-h``` the get some help-text.
 
 ## How To Use
 
-To specify a special git repository of OpenSlides, a certain Branch and/or a certain commit, you should change the following entries at the ```server`` service:
+To specify a special git repository of OpenSlides, a certain Branch and/or
+a certain commit, you should change the following entries at the ```server``
+service:
 
     args:
       # Change according to your details
@@ -39,7 +44,8 @@ To specify a special git repository of OpenSlides, a certain Branch and/or a cer
       BRANCH: master
       COMMIT_SHA: f9c4f01f06bba0ab911735d383ac85b693203161
 
-Comming up, you should build the environment with, where ```$PROJECT_NAME``` is the name of this instance. If you want to run multiple instance on one machine,
+Comming up, you should build the environment with, where ```$PROJECT_NAME``` is
+the name of this instance. If you want to run multiple instance on one machine,
 
     docker-compose build
 
@@ -47,11 +53,14 @@ When that has run through, you can start OpenSlides with
 
     docker-compose up -d 
 
-The volumes listed above will hold your persistant data, so you may want to link or mount them to different parts of your system. To find out where they have been linked in your filesystem. You can list the volumes with
+The volumes listed above will hold your persistant data, so you may want to
+link or mount them to different parts of your system. To find out where they
+have been linked in your filesystem. You can list the volumes with
 
     docker volume ls
 
-Your output will look like this (or ```$PROJECT_NAME_certs```... if you specified a project name)
+Your output will look like this (or ```$PROJECT_NAME_certs```... if you
+specified a project name)
 
     # docker volume ls
     DRIVER              VOLUME NAME
@@ -63,7 +72,8 @@ Your output will look like this (or ```$PROJECT_NAME_certs```... if you specifie
     local               openslidesdocker_dbdata
     local               openslidesdocker_staticfiles
 
-Where the buttom three are the ones of interest. You can read the ```Mountpoint``` in your local filesystem via
+Where the buttom three are the ones of interest. You can read the
+```Mountpoint``` in your local filesystem via
 
     # docker volume inspect openslidesdocker_dbdata
     [
@@ -81,7 +91,8 @@ Where the buttom three are the ones of interest. You can read the ```Mountpoint`
       }
     ]
 
-Use the directory from the ```Mountpoint``` to make your backups or any further handling with the files.
+Use the directory from the ```Mountpoint``` to make your backups or any further
+handling with the files.
 
 To shut down the instance you simply type
 
