@@ -41,8 +41,8 @@ function rm {
 function dockercleanup {
     echo "removing stopped containers"
     docker rm $(docker ps -aq)
-    echo "removing unused images"
-    docker rmi $(docker images | grep "^<none>" | awk '{print $3}')
+    echo "prune images"
+    docker image prune
 }
 
 function update {
