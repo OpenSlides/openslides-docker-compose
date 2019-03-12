@@ -52,8 +52,7 @@ service:
     args:
       # Change according to your details
       REPOSITORY_URL: https://github.com/OpenSlides/OpenSlides.git
-      BRANCH: master
-      COMMIT_SHA: f9c4f01f06bba0ab911735d383ac85b693203161
+      GIT_CHECKOUT: f9c4f01f06bba0ab911735d383ac85b693203161
 
 To build and start the instance, run:
 
