@@ -41,6 +41,10 @@ your project name (also $PROJECT_NAME below).  By choosing descriptive names,
 e.g., the URL of the instance, it should be relatively easy to find containers
 and volumes belonging to a particular instance.
 
+Next, create a docker-compose.yml from the template:
+
+    cp docker-compose.yml.example docker-compose.yml
+
 To specify a special git repository of OpenSlides, a certain Branch and/or
 a certain commit, you should change the following entries at the ```server``
 service:
