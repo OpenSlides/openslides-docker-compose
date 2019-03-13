@@ -47,7 +47,7 @@ services:
     networks:
       - front
     ports:
-      - "61000:80"
+      - "127.0.0.1:61000:80"
   postgres:
     image: sameersbn/postgresql:10
     restart: always
