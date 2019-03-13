@@ -1,11 +1,23 @@
 FROM python:3.7-slim
 
+MAINTAINER Gernot Schulz <gernot@intevation>
+
+ARG REPOSITORY_URL
+ARG GIT_CHECKOUT
+
 ENV DEBIAN_FRONTEND noninteractive
 ENV DEBIAN_PRIORITY critical
 ENV DEBCONF_NOWARNINGS yes
 ENV APT_KEY_DONT_WARN_ON_DANGEROUS_USAGE 1
 
+# Variables relevant for CMD
+ENV DJANGO_SETTINGS_MODULE settings
+ENV PYTHONPATH personal_data/var/
+
 RUN mkdir /app
+WORKDIR /app
+RUN useradd -m openslides
+RUN chown openslides /app
 
 RUN apt-get -y update && apt-get -y upgrade && \
   apt-get install -y \
@@ -29,26 +41,20 @@ COPY node-apt/nodesource.gpg.key /root/
 RUN apt-key add /root/nodesource.gpg.key
 # RUN curl -sL https://deb.nodesource.com/setup_11.x | bash -
 RUN apt-get update && apt-get -y install nodejs
+RUN rm -rf /var/lib/apt/lists/*
 
 RUN npm install -g @angular/cli@latest
-RUN useradd -m openslides
-RUN chown -R openslides /app
-WORKDIR /app
-
-ARG REPOSITORY_URL
-ARG GIT_CHECKOUT
 
 USER openslides
+
 RUN git clone --no-checkout -- $REPOSITORY_URL .
 RUN git checkout $GIT_CHECKOUT
 RUN rm -rf .git
 
 USER root
 RUN pip install -r requirements.txt
-RUN rm -rf /var/lib/apt/lists/*
 
 USER openslides
-
 RUN ng config -g cli.warnings.versionMismatch false && \
   cd client && \
   npm install
@@ -75,9 +81,6 @@ RUN sed -i \
        'HOST': 'postgres',\n\ \
        'PORT': '5432'" \
   personal_data/var/settings.py
-
-ENV DJANGO_SETTINGS_MODULE settings
-ENV PYTHONPATH personal_data/var/
 
 COPY entrypoint /usr/local/bin/
 ENTRYPOINT ["/usr/local/bin/entrypoint"]
