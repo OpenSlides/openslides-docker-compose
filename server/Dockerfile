@@ -84,9 +84,9 @@ RUN sed -i \
   -e "/REDIS_ADDRESS/s/127\.0\.0\.1/redis:6379\/0/" \
   -e "/'ENGINE':\ 'django\.db\.backends/s/sqlite3/postgresql/" \
   -e "/^\s*'NAME'/s/\(^.*'NAME':\).*/\1\ 'openslides',/" \
-  -e "/^\s*'NAME'/a\ \ \ \ \ \ \ \ 'USER': 'openslides',\n\ \
-       'PASSWORD': 'openslides',\n\ \
-       'HOST': 'postgres',\n\ \
+  -e "/^\s*'NAME'/a\ \ \ \ \ \ \ \ 'USER': 'openslides',\n \
+       'PASSWORD': 'openslides',\n \
+       'HOST': 'postgres',\n \
        'PORT': '5432'" \
   personal_data/var/settings.py
 
