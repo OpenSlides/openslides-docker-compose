@@ -33,6 +33,13 @@ RUN apt-get -y update && apt-get -y upgrade && \
     wget \
     xz-utils
 
+# Install basic debugging tools
+RUN apt-get install --no-install-recommends -y \
+  dnsutils \
+  iputils-ping \
+  netcat \
+  traceroute
+
 # NodeJS
 # Add included apt config and OpenPGP key for increased reproducibility (avoids
 # curl/bash invocation (see below))
