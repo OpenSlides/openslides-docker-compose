@@ -4,12 +4,12 @@
 
 set -e
 
-echo 'sleeping for 15 seconds...'
-sleep 15
+wait-for-it --timeout=5 postgres:5432
+
 echo 'running migrations'
 python manage.py migrate
-echo 'executing server'
 
+echo 'executing server'
 printf 'INFO: Running CMD: "%s".\n' "$*"
 
 # Expected commands are one of:

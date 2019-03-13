@@ -30,6 +30,7 @@ RUN apt-get -y update && apt-get -y upgrade && \
     gnupg2 \
     libpq-dev \
     make \
+    wait-for-it \
     wget \
     xz-utils
 
