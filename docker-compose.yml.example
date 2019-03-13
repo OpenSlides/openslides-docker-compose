@@ -16,6 +16,10 @@ services:
     volumes:
       - "personaldata:/app/personal_data"
       - "staticfiles:/app/openslides/static"
+    depends_on:
+      - postfix
+      - postgres
+      - redis
     networks:
       - front
       - back
@@ -66,3 +70,5 @@ volumes:
 networks:
   front:
   back:
+
+# vim: set ft=yaml sw=2 et:
