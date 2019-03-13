@@ -27,6 +27,7 @@ services:
       - "personaldata:/app/personal_data"
       - "staticfiles:/app/openslides/static"
     networks:
+      - front
       - back
   redis:
     image: redis:alpine
@@ -44,7 +45,7 @@ services:
     depends_on:
       - server
     networks:
-      - back
+      - front
     ports:
       - "61000:80"
   postgres:
@@ -57,7 +58,6 @@ services:
       - DB_PASS=openslides
       - DB_NAME=openslides
     networks:
-      - front
       - back
   postfix:
     build: ./postfix
