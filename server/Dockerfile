@@ -20,7 +20,7 @@ RUN useradd -m openslides
 RUN chown openslides /app
 
 RUN apt-get -y update && apt-get -y upgrade && \
-  apt-get install -y \
+  apt-get install --no-install-recommends -y \
     apt-transport-https \
     bzip2 \
     curl \
@@ -52,7 +52,7 @@ RUN git checkout $GIT_CHECKOUT
 RUN rm -rf .git
 
 USER root
-RUN pip install -r requirements.txt
+RUN pip install -r requirements/production.txt -r requirements/big_mode.txt
 
 USER openslides
 RUN ng config -g cli.warnings.versionMismatch false && \
