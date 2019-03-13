@@ -1,0 +1,19 @@
+#!/bin/bash
+
+# Entrypoint script for OpenSlides server component
+
+set -e
+
+echo 'sleeping for 15 seconds...'
+sleep 15
+echo 'running migrations'
+python manage.py migrate
+echo 'executing server'
+
+printf 'INFO: Running CMD: "%s".\n' "$*"
+
+# Expected commands are one of:
+# - daphne -b 0.0.0.0 -p 8000 openslides.asgi:application
+# - gunicorn -w 4 -b 0.0.0.0:8000 -k uvicorn.workers.UvicornWorker \
+#   openslides.asgi:application
+exec $*

@@ -8,17 +8,10 @@ services:
         REPOSITORY_URL: https://github.com/OpenSlides/OpenSlides.git
         GIT_CHECKOUT: 6eea0648627d15996f9701ff5183714b8eb8b90a
     image: os-server
-    command: bash -c "
-              echo 'sleeping for 15 seconds...' &&
-              sleep 15 &&
-              echo 'running migrations' &&
-              python manage.py migrate &&
-              echo 'executing server' &&
-              DJANGO_SETTINGS_MODULE=settings
-              PYTHONPATH=personal_data/var/
-              daphne -b 0.0.0.0 -p 8000 openslides.asgi:application"
-              # alternatively you may use:
-              #gunicorn -w 4 -b 0.0.0.0:8000 -k uvicorn.workers.UvicornWorker openslides.asgi:application"
+    # By default, daphne is run as command.  Uncomment the command below to use
+    # gunicorn instead:
+    # command: "gunicorn -w 4 -b 0.0.0.0:8000 -k uvicorn.workers.UvicornWorker
+    #   openslides.asgi:application"
     restart: always
     volumes:
       - "personaldata:/app/personal_data"

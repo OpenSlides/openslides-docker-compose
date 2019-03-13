@@ -75,3 +75,10 @@ RUN sed -i \
        'HOST': 'postgres',\n\ \
        'PORT': '5432'" \
   personal_data/var/settings.py
+
+ENV DJANGO_SETTINGS_MODULE settings
+ENV PYTHONPATH personal_data/var/
+
+COPY entrypoint /usr/local/bin/
+ENTRYPOINT ["/usr/local/bin/entrypoint"]
+CMD ["daphne", "-b", "0.0.0.0", "-p", "8000", "openslides.asgi:application"]
