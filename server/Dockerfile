@@ -2,9 +2,6 @@ FROM python:3.7-slim
 
 MAINTAINER Gernot Schulz <gernot@intevation>
 
-ARG REPOSITORY_URL
-ARG GIT_CHECKOUT
-
 ENV DEBIAN_FRONTEND noninteractive
 ENV DEBIAN_PRIORITY critical
 ENV DEBCONF_NOWARNINGS yes
@@ -56,6 +53,8 @@ RUN npm install -g @angular/cli@latest
 
 USER openslides
 
+ARG REPOSITORY_URL
+ARG GIT_CHECKOUT
 RUN git clone --no-checkout -- $REPOSITORY_URL .
 RUN git checkout $GIT_CHECKOUT
 RUN rm -rf .git
