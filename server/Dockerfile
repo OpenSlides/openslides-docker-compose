@@ -1,7 +1,5 @@
 FROM python:3.7-slim
 
-MAINTAINER Gernot Schulz <gernot@intevation>
-
 ENV DEBIAN_FRONTEND noninteractive
 ENV DEBIAN_PRIORITY critical
 ENV DEBCONF_NOWARNINGS yes
