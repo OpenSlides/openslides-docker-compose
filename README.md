@@ -103,3 +103,11 @@ You can read the mount point in the local filesystem:
         "Scope": "local"
       }
     ]
+
+## Additional management scripts
+
+```contrib``` contains tools that should come in handy if you are running
+multiple OpenSlides instances:
+
+  - osinstancectl.sh: one-step instance creation
+  - openlides-docker-pg-dump.sh: creates SQL dumps for all instances
