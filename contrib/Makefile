@@ -13,3 +13,5 @@ all:
 install:
 	$(INSTALL) -d $(dest_bindir)
 	$(INSTALL) -pm 0755 osinstancectl.sh $(dest_bindir)/osinstancectl
+	$(INSTALL) -pm 0755 openlides-docker-pg-dump.sh \
+	  $(dest_bindir)/openlides-docker-pg-dump
