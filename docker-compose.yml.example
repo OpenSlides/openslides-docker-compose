@@ -45,6 +45,8 @@ services:
       - "127.0.0.1:61000:80"
   postgres:
     image: sameersbn/postgresql:10
+    labels:
+      org.openslides.role: "postgres"
     restart: always
     volumes:
       - "dbdata:/var/lib/postgresql"
