@@ -23,6 +23,9 @@ services:
     networks:
       - front
       - back
+    # sysctls:
+    #   net.core.somaxconn: 1024
+    #   net.ipv4.ip_local_port_range: 1024 60999
   redis:
     image: redis:alpine
     restart: always

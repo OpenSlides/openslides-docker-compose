@@ -103,3 +103,13 @@ You can read the mount point in the local filesystem:
         "Scope": "local"
       }
     ]
+
+## Performance Optimizations
+
+[openslides-performance](https://github.com/OpenSlides/openslides-performance)
+is a stress testing tool for OpenSlides instances.  You may find that the
+"server" service needs to be tweaked to handle very large numbers of
+connections.
+
+```docker-compose.yml``` contains example ```sysctls``` settings that you can
+enable and experiment with.
