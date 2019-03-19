@@ -5,8 +5,6 @@
 # This script makes some assumptions and would need more options to become more
 # flexible
 
-# TODO: nginx template into TEMPLATE_REPO; read it from PROJECT_DIR
-
 set -eu
 
 TEMPLATE_REPO="/srv/openslides/openslides-docker-compose"
@@ -14,7 +12,7 @@ TEMPLATE_REPO="/srv/openslides/openslides-docker-compose"
 OSDIR="/srv/openslides"
 INSTANCES="${OSDIR}/docker-instances"
 
-NGINX_TEMPLATE="/etc/nginx/sites-available/docker-compose-setup-template"
+NGINX_TEMPLATE=
 PROJECT_NAME=
 PROJECT_DIR=
 PORT=
@@ -73,6 +71,7 @@ done
 PROJECT_NAME="$1"
 PROJECT_DIR="${INSTANCES}/${PROJECT_NAME}"
 DCCONFIG="${PROJECT_DIR}/docker-compose.yml"
+NGINX_TEMPLATE="${PROJECT_DIR}/contrib/docker-compose-setup-template"
 echo $PROJECT_NAME
 
 # Remove instance instead of setting it up
