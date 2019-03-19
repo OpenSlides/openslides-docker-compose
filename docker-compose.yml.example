@@ -1,6 +1,11 @@
-version: '3'
+version: '3.1'
+secrets:
+  os_admin:
+    file: ./secrets/adminsecret.env
 services:
   server:
+    secrets:
+      - os_admin
     build:
       context: ./server
       args:

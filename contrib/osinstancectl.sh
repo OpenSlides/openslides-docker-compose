@@ -6,6 +6,7 @@
 # flexible
 
 set -eu
+set -o noclobber
 
 TEMPLATE_REPO="/srv/openslides/openslides-docker-compose"
 # TEMPLATE_REPO="https://github.com/OpenSlides/openslides-docker-compose"
@@ -20,6 +21,7 @@ MODE=list
 VERBOSE=
 FILTER=
 GIT_CHECKOUT=
+SECRETS_FILE="adminsecret.env"
 
 # Color and formatting settings
 NCOLORS=
@@ -113,6 +115,15 @@ create_instance_dir() {
     $2 == 61000 { $2 = port }
     1
   ' "${DCCONFIG}".example > "${DCCONFIG}"
+}
+
+create_secrets_file() {
+  # Create admin login credentials file
+  PW="$(pwgen -s 15 1)"
+  (
+    umask 077
+    printf "OPENSLIDES_ADMIN_PASSWORD=%s\n" "$PW" > "${PROJECT_DIR}/${SECRETS_FILE}"
+  )
 }
 
 update_nginx_config() {
@@ -308,6 +319,7 @@ case "$MODE" in
     verify_domain
     PORT=$(next_free_port)
     create_instance_dir
+    create_secrets_file
     update_nginx_config
     ;;
   list)
