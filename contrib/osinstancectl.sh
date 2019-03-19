@@ -71,7 +71,7 @@ done
 PROJECT_NAME="$1"
 PROJECT_DIR="${INSTANCES}/${PROJECT_NAME}"
 DCCONFIG="${PROJECT_DIR}/docker-compose.yml"
-NGINX_TEMPLATE="${PROJECT_DIR}/contrib/docker-compose-setup-template"
+NGINX_TEMPLATE="${PROJECT_DIR}/contrib/nginx.conf.in"
 echo $PROJECT_NAME
 
 # Remove instance instead of setting it up
