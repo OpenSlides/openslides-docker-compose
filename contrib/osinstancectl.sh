@@ -31,6 +31,13 @@ Options:
 EOF
 }
 
+arg_check() {
+  [[ -d "$OSDIR" ]] || { echo "ERROR: $OSDIR not found!"; return 2; }
+  [[ -n "$PROJECT_NAME" ]] || {
+    echo "ERROR: Please specify a project name"; return 2;
+  }
+}
+
 verify_domain() {
   # Verify provided domain
   HOSTNAME=$(hostname -f)
@@ -145,12 +152,13 @@ NGINX_TEMPLATE="${PROJECT_DIR}/contrib/nginx.conf.in"
 
 case "$MODE" in
   remove)
+    arg_check || { usage; exit 2; }
     remove "$PROJECT_NAME"
     exit 0
     ;;
   create)
+    arg_check || { usage; exit 2; }
     echo "Creating new instance: $PROJECT_NAME"
-    [[ -d "$OSDIR" ]] || { echo "ERROR: $OSDIR not found!"; exit 2; }
     verify_domain
     PORT=$(next_free_port)
     create_instance_dir
