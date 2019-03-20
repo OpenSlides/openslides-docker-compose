@@ -49,7 +49,7 @@ function update {
     if [ $verbose == 1 ]; then
         echo "setting commit to $commit"
     fi;
-    sed -i "s/COMMIT_HASH: .*$/COMMIT_HASH: $commit/" docker-compose.yml
+    sed -i "s/GIT_CHECKOUT: .*$/GIT_CHECKOUT: $commit/" docker-compose.yml
     docker-compose build
     docker-compose scale server=0 client=0
     volumename="$instancename\_staticfiles"
