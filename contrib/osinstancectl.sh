@@ -31,6 +31,12 @@ Options:
 EOF
 }
 
+check_for_dependency () {
+    [[ -n "$1" ]] || return 0
+    which "$1" > /dev/null || { echo "ERROR: Dependency not found: $1"; return 1; }
+}
+
+
 arg_check() {
   [[ -d "$OSDIR" ]] || { echo "ERROR: $OSDIR not found!"; return 2; }
   [[ -n "$PROJECT_NAME" ]] || {
@@ -151,6 +157,15 @@ while true; do
 done
 
 [[ -n "$MODE" ]] || { usage; exit 2; }
+
+DEPS=(
+  gawk
+  acmetool
+)
+# Check dependencies
+for i in "${DEPS[@]}"; do
+    check_for_dependency "$i"
+done
 
 PROJECT_NAME="$1"
 PROJECT_DIR="${INSTANCES}/${PROJECT_NAME}"
