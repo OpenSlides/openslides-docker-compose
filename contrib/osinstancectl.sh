@@ -30,6 +30,65 @@ Options:
 EOF
 }
 
+verify_domain() {
+  # Verify provided domain
+  HOSTNAME=$(hostname -f)
+  IP=$(host "$HOSTNAME" | awk '/has address/ { print $4; exit; } /has IPv6 address/ { print $5}')
+  host "$PROJECT_NAME" | grep -q "$IP" || {
+    echo "ERROR: $PROJECT_NAME does not point to this host?"
+    return 3
+  }
+}
+
+
+next_free_port() {
+  # Select new port
+  local HIGHEST_PORT_IN_USE=$(
+    find "${INSTANCES}" -type f -name docker-compose.yml -print0 |
+    xargs -0 grep -h -o "127.0.0.1:61[0-9]\{3\}:80"|
+    cut -d: -f2 | sort -rn | head -1
+  )
+  [[ -n "$HIGHEST_PORT_IN_USE" ]] || HIGHEST_PORT_IN_USE=61000
+  local PORT=$((HIGHEST_PORT_IN_USE + 1))
+
+  # Check if port is actually free
+  #  try to find the next free port (this situation can occur if there are test
+  #  instances outside of the regular instances directory)
+  n=0
+  while ! ss -tnHl | awk -v port="$PORT" '$4 ~ port { exit 2 }'; do
+    [[ $n -lt 5 ]] || { echo "ERROR: Could not find free port"; exit 3; }
+    ((PORT+=1))
+    ((n+=1))
+  done
+  echo "$PORT"
+}
+
+create_instance_dir() {
+  # Update yaml
+  git clone "${TEMPLATE_REPO}" "${PROJECT_DIR}"
+  cp -v "${DCCONFIG}"{.example,}
+  ex -s +"%s/127.0.0.1:\zs61000\ze:80/${PORT}/" +x "$DCCONFIG"
+}
+
+update_nginx_config() {
+# Create Nginx configs
+  # First, without TLS
+  sed -e "s/<INSTANCE>/${PROJECT_NAME}/" "$NGINX_TEMPLATE" \
+    -e "/proxy_pass/s/61000/${PORT}/" \
+    > /etc/nginx/sites-available/"${PROJECT_NAME}".conf
+  ln -s ../sites-available/"${PROJECT_NAME}".conf /etc/nginx/sites-enabled/ || true
+  systemctl reload nginx
+
+  # Generate Let's Encrypt certificate
+  acmetool want "${PROJECT_NAME}"
+  echo "Got certificate."
+
+  # Update Nginx to use TLS certs
+  ex -s +"g/ssl-cert-snakeoil/d" +"g/ssl_certificate/s/#\ //" +x \
+    /etc/nginx/sites-available/"${PROJECT_NAME}".conf
+  systemctl reload nginx
+}
+
 remove() {
   local PROJECT_NAME="$1"
   echo "Stopping and removing containers..."
@@ -47,8 +106,8 @@ remove() {
   echo "Done."
 }
 
-shortopt="hr"
-longopt="help,remove"
+shortopt="har"
+longopt="help,add,remove"
 
 ARGS=$(getopt -o "$shortopt" -l "$longopt" -- "$@")
 if [ $? -ne 0 ]; then usage; exit 1; fi
@@ -58,6 +117,10 @@ eval set -- "$ARGS";
 
 while true; do
     case "$1" in
+        -a|--add)
+          MODE=create
+          shift 1
+          ;;
         -r|--remove)
           MODE=remove
           shift 1
@@ -68,73 +131,27 @@ while true; do
     esac
 done
 
+[[ -n "$MODE" ]] || { usage; exit 2; }
+
 PROJECT_NAME="$1"
 PROJECT_DIR="${INSTANCES}/${PROJECT_NAME}"
 DCCONFIG="${PROJECT_DIR}/docker-compose.yml"
 NGINX_TEMPLATE="${PROJECT_DIR}/contrib/nginx.conf.in"
-echo $PROJECT_NAME
 
-# Remove instance instead of setting it up
-if [[ "$MODE" = "remove" ]]; then
-  remove "$PROJECT_NAME"
-  exit 0
-fi
-
-# Begin setup
-# ===========
-
-[[ -d "$OSDIR" ]] || { echo "ERROR: $OSDIR not found!"; exit 2; }
-
-# Verify provided domain
-HOSTNAME=$(hostname -f)
-IP=$(host "$HOSTNAME" | awk '/has address/ { print $4; exit; } /has IPv6 address/ { print $5}')
-host "$PROJECT_NAME" | grep -q "$IP" || {
-  echo "ERROR: $PROJECT_NAME does not point to this host?"
-  exit 3
-}
-
-# Select new port
-HIGHEST_PORT_IN_USE=$(
-  find "${INSTANCES}" -type f -name docker-compose.yml -print0 |
-  xargs -0 grep -h -o "127.0.0.1:61[0-9]\{3\}:80"|
-  cut -d: -f2 | sort -rn | head -1
-)
-[[ -n "$HIGHEST_PORT_IN_USE" ]] || HIGHEST_PORT_IN_USE=61000
-PORT=$((HIGHEST_PORT_IN_USE + 1))
-
-# Check if port is actually free
-#  try to find the next free port (this situation can occur if there are test
-#  instances outside of the regular instances directory)
-n=0
-while ! ss -tnHl | awk -v port="$PORT" '$4 ~ port { exit 2 }'; do
-  [[ $n -lt 5 ]] || { echo "ERROR: Could not find free port"; exit 3; }
-  ((PORT+=1))
-  ((n+=1))
-done
-echo "INFO: Choosing port: $PORT"
-
-# Update yaml
-git clone "${TEMPLATE_REPO}" "${PROJECT_DIR}"
-cp -v "${DCCONFIG}"{.example,}
-ex -s +"%s/127.0.0.1:\zs61000\ze:80/${PORT}/" +x "$DCCONFIG"
-
-# Create Nginx configs
-
-# First, without TLS
-sed -e "s/<INSTANCE>/${PROJECT_NAME}/" "$NGINX_TEMPLATE" \
-  -e "/proxy_pass/s/61000/${PORT}/" \
-  > /etc/nginx/sites-available/"${PROJECT_NAME}".conf
-ln -s ../sites-available/"${PROJECT_NAME}".conf /etc/nginx/sites-enabled/ || true
-systemctl reload nginx
-
-# Generate Let's Encrypt certificate
-acmetool want "${PROJECT_NAME}"
-echo "Got certificate."
-
-# Update Nginx to use TLS certs
-ex -s +"g/ssl-cert-snakeoil/d" +"g/ssl_certificate/s/#\ //" +x \
-  /etc/nginx/sites-available/"${PROJECT_NAME}".conf
-systemctl reload nginx
+case "$MODE" in
+  remove)
+    remove "$PROJECT_NAME"
+    exit 0
+    ;;
+  create)
+    echo "Creating new instance: $PROJECT_NAME"
+    [[ -d "$OSDIR" ]] || { echo "ERROR: $OSDIR not found!"; exit 2; }
+    verify_domain
+    PORT=$(next_free_port)
+    create_instance_dir
+    update_nginx_config
+    ;;
+esac
 
 # Start containers
 cd "${PROJECT_DIR}"
