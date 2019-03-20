@@ -99,6 +99,13 @@ update_nginx_config() {
 
 remove() {
   local PROJECT_NAME="$1"
+  # Ask for confirmation
+  local ANS=
+  echo "Delete the following instance including all its data and configuration?"
+  echo "  $PROJECT_DIR"
+  read -p "Really delete? (uppercase YES to confirm) " ANS
+  [[ "$ANS" = "YES" ]] || return 0
+
   echo "Stopping and removing containers..."
   cd "${PROJECT_DIR}" &&
     ./handle-instance.sh -f rm
