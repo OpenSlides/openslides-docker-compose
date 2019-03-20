@@ -17,6 +17,7 @@ PROJECT_NAME=
 PROJECT_DIR=
 PORT=
 MODE=
+START=
 
 usage() {
 cat <<EOF
@@ -106,8 +107,8 @@ remove() {
   echo "Done."
 }
 
-shortopt="har"
-longopt="help,add,remove"
+shortopt="hars"
+longopt="help,add,remove,start"
 
 ARGS=$(getopt -o "$shortopt" -l "$longopt" -- "$@")
 if [ $? -ne 0 ]; then usage; exit 1; fi
@@ -123,6 +124,10 @@ while true; do
           ;;
         -r|--remove)
           MODE=remove
+          shift 1
+          ;;
+        -s|--start)
+          START=1
           shift 1
           ;;
         -h|--help) usage; exit 0 ;;
@@ -154,5 +159,9 @@ case "$MODE" in
 esac
 
 # Start containers
-cd "${PROJECT_DIR}"
-./handle-instance.sh -f run
+if [[ -n "$START" ]]; then
+  cd "${PROJECT_DIR}"
+  ./handle-instance.sh -f run
+else
+  echo "INFO: Not automatically starting containers."
+fi
