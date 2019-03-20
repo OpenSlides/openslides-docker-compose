@@ -16,18 +16,37 @@ NGINX_TEMPLATE=
 PROJECT_NAME=
 PROJECT_DIR=
 PORT=
-MODE=
+MODE=list
 START=
+
+# Color and formatting settings
+NCOLORS=
+COL_NORMAL=""
+COL_RED=""
+COL_GREEN=""
+BULLET='●'
+SYM_NORMAL="_"
+SYM_ERROR="X"
+if [[ -t 1 ]]; then
+  NCOLORS=$(tput colors) # no. of colors
+  if [[ -n "$NCOLORS" ]] && [[ "$NCOLORS" -ge 8 ]]; then
+    COL_NORMAL="$(tput sgr0)"
+    COL_RED="$(tput setaf 1)"
+    COL_GREEN="$(tput setaf 2)"
+  fi
+fi
 
 usage() {
 cat <<EOF
-Usage: ${BASH_SOURCE[0]} [-r|--remove] <instance_domain>
+Usage: ${BASH_SOURCE[0]} <action> <instance_domain>
 
-Set up a new docker-compose-based OpenSlides instance (unless --remove is
-used).  Expects a FQDN.
+Manage docker-compose-based OpenSlides instances.
 
-Options:
-  -r, --remove    Remove the instance instance_domain
+Action:
+  -a, --add       Add a new instance for the given domain (requires FQDN).
+  -l, --list      List instances and their status.  <instance_domain> is a search
+                  pattern in this case.
+  -r, --remove    Remove the instance instance_domain (requires FQDN).
 EOF
 }
 
@@ -127,14 +146,48 @@ remove() {
   echo "Done."
 }
 
-shortopt="hars"
-longopt="help,add,remove,start"
+ping_instance() {
+  local instance="$1"
+  local_port=$(grep -A1 ports: "${instance}/docker-compose.yml" | tail -1 | cut -d: -f2)
+  # retrieve version string
+  curl -s "http://127.0.0.1:${local_port}/apps/core/version/" |
+  gawk 'BEGIN { FPAT = "\"[^\"]*\"" } { gsub(/"/, "", $2); print $2}'
+}
+
+
+list_instances() {
+  a=($(find "${INSTANCES}" -mindepth 1 -maxdepth 1 -type d -iname \
+    "*${PROJECT_NAME}*" -print))
+  for instance in "${a[@]}"; do
+    local shortname=$(basename "$instance")
+    local version=$(ping_instance "$instance")
+    local sym="$SYM_NORMAL"
+    if [[ -z "$version" ]]; then
+      version="DOWN"
+      local sym="$SYM_ERROR"
+    fi
+    printf "%s  %s\t%s\n" "$sym" "$shortname" "$version"
+  done | sort -k2 |
+  column -s'	' -t |
+  # Colorize the status indicators
+  if [[ -n "$NCOLORS" ]]; then
+    sed "
+      s/^${SYM_NORMAL}/${COL_GREEN}${BULLET}${COL_NORMAL}/;
+      s/^${SYM_ERROR}/${COL_RED}${BULLET}${COL_NORMAL}/
+    "
+  else
+    cat
+  fi
+}
+
+shortopt="harsl"
+longopt="help,add,remove,start,list"
 
 ARGS=$(getopt -o "$shortopt" -l "$longopt" -- "$@")
 if [ $? -ne 0 ]; then usage; exit 1; fi
 eval set -- "$ARGS";
 
-[[ $# -gt 1 ]] || { usage; exit 2; }
+# [[ $# -gt 1 ]] || { usage; exit 2; }
 
 while true; do
     case "$1" in
@@ -144,6 +197,10 @@ while true; do
           ;;
         -r|--remove)
           MODE=remove
+          shift 1
+          ;;
+        -l|--list)
+          MODE=list
           shift 1
           ;;
         -s|--start)
@@ -167,7 +224,7 @@ for i in "${DEPS[@]}"; do
     check_for_dependency "$i"
 done
 
-PROJECT_NAME="$1"
+PROJECT_NAME="${1-""}"
 PROJECT_DIR="${INSTANCES}/${PROJECT_NAME}"
 DCCONFIG="${PROJECT_DIR}/docker-compose.yml"
 NGINX_TEMPLATE="${PROJECT_DIR}/contrib/nginx.conf.in"
@@ -186,6 +243,9 @@ case "$MODE" in
     create_instance_dir
     update_nginx_config
     ;;
+  list)
+    list_instances
+    exit 0
 esac
 
 # Start containers
