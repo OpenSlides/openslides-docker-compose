@@ -17,7 +17,6 @@ PROJECT_NAME=
 PROJECT_DIR=
 PORT=
 MODE=list
-START=
 VERBOSE=
 FILTER=
 GIT_CHECKOUT=
@@ -226,7 +225,7 @@ list_instances() {
 }
 
 shortopt="harslvnfc:"
-longopt="help,add,checkout:,remove,start,list,verbose,online,offline"
+longopt="help,add,checkout:,remove,list,verbose,online,offline"
 
 ARGS=$(getopt -o "$shortopt" -l "$longopt" -- "$@")
 if [ $? -ne 0 ]; then usage; exit 1; fi
@@ -250,10 +249,6 @@ while true; do
           ;;
         -l|--list)
           MODE=list
-          shift 1
-          ;;
-        -s|--start)
-          START=1
           shift 1
           ;;
         -v|--verbose)
@@ -309,10 +304,12 @@ case "$MODE" in
     exit 0
 esac
 
-# Start containers
-if [[ -n "$START" ]]; then
-  cd "${PROJECT_DIR}"
-  ./handle-instance.sh -f run
-else
-  echo "INFO: Not automatically starting containers."
-fi
+START=
+read -p "Start containers? [Y/n] " START
+case "$START" in
+  Y|y|Yes|yes|YES|"")
+    cd "${PROJECT_DIR}" &&
+    ./handle-instance.sh -f run ;;
+  *)
+    echo "Not starting containers." ;;
+esac
