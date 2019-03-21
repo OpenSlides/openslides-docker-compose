@@ -20,6 +20,7 @@ MODE=list
 START=
 VERBOSE=
 FILTER=
+GIT_CHECKOUT=
 
 # Color and formatting settings
 NCOLORS=
@@ -54,6 +55,7 @@ Options:
   -v, --verbose   Increase verbosity
   -n, --online    In list view, show only online instances
   -f, --offline   In list view, show only offline instances
+  -c, --checkout  The server version to check out (for use with --add)
 EOF
 }
 
@@ -106,8 +108,12 @@ next_free_port() {
 create_instance_dir() {
   # Update yaml
   git clone "${TEMPLATE_REPO}" "${PROJECT_DIR}"
-  cp -v "${DCCONFIG}"{.example,}
-  ex -s +"%s/127.0.0.1:\zs61000\ze:80/${PORT}/" +x "$DCCONFIG"
+  gawk -v port="${PORT}" -v git="$GIT_CHECKOUT" '
+    BEGIN {FS=":"; OFS=FS}
+    git != "" && $1 ~ /GIT_CHECKOUT/ { $2 = " " git }
+    $2 == 61000 { $2 = port }
+    1
+  ' "${DCCONFIG}".example > "${DCCONFIG}"
 }
 
 update_nginx_config() {
@@ -199,8 +205,8 @@ list_instances() {
   fi
 }
 
-shortopt="harslvnf"
-longopt="help,add,remove,start,list,verbose,online,offline"
+shortopt="harslvnfc:"
+longopt="help,add,checkout:,remove,start,list,verbose,online,offline"
 
 ARGS=$(getopt -o "$shortopt" -l "$longopt" -- "$@")
 if [ $? -ne 0 ]; then usage; exit 1; fi
@@ -213,6 +219,10 @@ while true; do
         -a|--add)
           MODE=create
           shift 1
+          ;;
+        -c|--checkout)
+          GIT_CHECKOUT="$2"
+          shift 2
           ;;
         -r|--remove)
           MODE=remove
