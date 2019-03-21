@@ -188,10 +188,30 @@ list_instances() {
         [[ "$version" = "DOWN" ]] || continue ;;
       *) ;;
     esac
-    printf "%s  %s\n" "$sym" "$shortname"
+
+    # Parse metadata
+    local metadata=()
+    local has_metadata=
+    readarray metadata < <(
+      gawk '
+        $0 == "# OPENSLIDES METADATA" { next }
+        $1 != "#" { exit; }
+        $1 == "#" {
+          $1 = ""
+          $2 = ""
+          sub(/^\ */, "")
+          print
+        }' "${instance}/docker-compose.yml"
+    )
+    [[ ${#metadata[@]} -ge 1 ]] && has_metadata='#' || true
+
+    printf "%s  %s\t\t%s\n" "$sym" "$shortname" "$has_metadata"
     if [[ -n "$VERBOSE" ]]; then
       printf "     - %-10s %s\n" "Version:" "$version"
       printf "     - %-10s %s\n" "Login:" "<password>"
+      for m in "${metadata[@]}"; do
+        printf "     - %s" "$m"
+      done
     fi
   done |
   # Colorize the status indicators
