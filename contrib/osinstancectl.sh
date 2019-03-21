@@ -136,6 +136,10 @@ update_nginx_config() {
 
 remove() {
   local PROJECT_NAME="$1"
+  [[ -d "$PROJECT_DIR" ]] || {
+    echo "ERROR: $PROJECT_DIR does not exist."
+    return 2
+  }
   # Ask for confirmation
   local ANS=
   echo "Delete the following instance including all its data and configuration?"
