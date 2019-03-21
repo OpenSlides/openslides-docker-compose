@@ -18,6 +18,7 @@ PROJECT_DIR=
 PORT=
 MODE=list
 START=
+VERBOSE=
 
 # Color and formatting settings
 NCOLORS=
@@ -38,7 +39,7 @@ fi
 
 usage() {
 cat <<EOF
-Usage: ${BASH_SOURCE[0]} <action> <instance_domain>
+Usage: ${BASH_SOURCE[0]} [options] <action> <instance_domain>
 
 Manage docker-compose-based OpenSlides instances.
 
@@ -47,6 +48,9 @@ Action:
   -l, --list      List instances and their status.  <instance_domain> is a search
                   pattern in this case.
   -r, --remove    Remove the instance instance_domain (requires FQDN).
+
+Options:
+  -v, --verbose   Increase verbosity
 EOF
 }
 
@@ -157,7 +161,7 @@ ping_instance() {
 
 list_instances() {
   a=($(find "${INSTANCES}" -mindepth 1 -maxdepth 1 -type d -iname \
-    "*${PROJECT_NAME}*" -print))
+    "*${PROJECT_NAME}*" -print | sort))
   for instance in "${a[@]}"; do
     local shortname=$(basename "$instance")
     local version=$(ping_instance "$instance")
@@ -166,9 +170,12 @@ list_instances() {
       version="DOWN"
       local sym="$SYM_ERROR"
     fi
-    printf "%s  %s\t%s\n" "$sym" "$shortname" "$version"
-  done | sort -k2 |
-  column -s'	' -t |
+    printf "%s  %s\n" "$sym" "$shortname"
+    if [[ -n "$VERBOSE" ]]; then
+      printf "     - %-10s %s\n" "Version:" "$version"
+      printf "     - %-10s %s\n" "Login:" "<password>"
+    fi
+  done |
   # Colorize the status indicators
   if [[ -n "$NCOLORS" ]]; then
     sed "
@@ -180,8 +187,8 @@ list_instances() {
   fi
 }
 
-shortopt="harsl"
-longopt="help,add,remove,start,list"
+shortopt="harslv"
+longopt="help,add,remove,start,list,verbose"
 
 ARGS=$(getopt -o "$shortopt" -l "$longopt" -- "$@")
 if [ $? -ne 0 ]; then usage; exit 1; fi
@@ -205,6 +212,10 @@ while true; do
           ;;
         -s|--start)
           START=1
+          shift 1
+          ;;
+        -v|--verbose)
+          VERBOSE=1
           shift 1
           ;;
         -h|--help) usage; exit 0 ;;
