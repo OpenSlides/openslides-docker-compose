@@ -19,6 +19,7 @@ PORT=
 MODE=list
 START=
 VERBOSE=
+FILTER=
 
 # Color and formatting settings
 NCOLORS=
@@ -51,6 +52,8 @@ Action:
 
 Options:
   -v, --verbose   Increase verbosity
+  -n, --online    In list view, show only online instances
+  -f, --offline   In list view, show only offline instances
 EOF
 }
 
@@ -167,9 +170,18 @@ list_instances() {
     local version=$(ping_instance "$instance")
     local sym="$SYM_NORMAL"
     if [[ -z "$version" ]]; then
+      # Register as error
       version="DOWN"
       local sym="$SYM_ERROR"
     fi
+    # Fiter online/offline instances
+    case "$FILTER" in
+      online)
+        [[ "$version" != "DOWN" ]] || continue ;;
+      offline)
+        [[ "$version" = "DOWN" ]] || continue ;;
+      *) ;;
+    esac
     printf "%s  %s\n" "$sym" "$shortname"
     if [[ -n "$VERBOSE" ]]; then
       printf "     - %-10s %s\n" "Version:" "$version"
@@ -187,8 +199,8 @@ list_instances() {
   fi
 }
 
-shortopt="harslv"
-longopt="help,add,remove,start,list,verbose"
+shortopt="harslvnf"
+longopt="help,add,remove,start,list,verbose,online,offline"
 
 ARGS=$(getopt -o "$shortopt" -l "$longopt" -- "$@")
 if [ $? -ne 0 ]; then usage; exit 1; fi
@@ -216,6 +228,14 @@ while true; do
           ;;
         -v|--verbose)
           VERBOSE=1
+          shift 1
+          ;;
+        -n|--online)
+          FILTER="online"
+          shift 1
+          ;;
+        -f|--offline)
+          FILTER="offline"
           shift 1
           ;;
         -h|--help) usage; exit 0 ;;
