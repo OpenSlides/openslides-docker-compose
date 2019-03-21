@@ -118,8 +118,8 @@ create_instance_dir() {
 }
 
 create_secrets_file() {
-  # Create admin login credentials file
-  PW="$(pwgen -s 15 1)"
+  echo "Generating password..."
+  read -r -n 15 PW < <(LC_ALL=C tr -dc "[:alnum:]" < /dev/urandom)
   (
     umask 077
     printf "OPENSLIDES_ADMIN_PASSWORD=%s\n" "$PW" > "${PROJECT_DIR}/${SECRETS_FILE}"
