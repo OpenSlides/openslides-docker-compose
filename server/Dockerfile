@@ -90,4 +90,5 @@ RUN sed -i \
 
 COPY entrypoint /usr/local/bin/
 ENTRYPOINT ["/usr/local/bin/entrypoint"]
-CMD ["daphne", "-b", "0.0.0.0", "-p", "8000", "openslides.asgi:application"]
+CMD ["gunicorn", "-w", "8", "-b", "0.0.0.0:8000", "-k", \
+  "uvicorn.workers.UvicornWorker", "openslides.asgi:application"]
