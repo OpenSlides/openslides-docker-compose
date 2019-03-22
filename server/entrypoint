@@ -4,21 +4,23 @@
 
 set -e
 
-echo "Retrieving secure admin password"
-source /run/secrets/os_admin
-
-[[ -n "${OPENSLIDES_ADMIN_PASSWORD}" ]] || {
-  echo "ERROR: OpenSlides admin password not set.  Aborting."
-  exit 2
-}
-
 wait-for-it --timeout=5 postgres:5432
 
 echo 'running migrations'
 python manage.py migrate
 
-echo 'change admin password'
-python manage.py insecurechangepassword admin "${OPENSLIDES_ADMIN_PASSWORD}"
+if [[ ! -f /app/personal_data/admin-password-set ]]; then
+  echo "Retrieving secure admin password"
+  source /run/secrets/os_admin
+  [[ -n "${OPENSLIDES_ADMIN_PASSWORD}" ]] || {
+    echo "ERROR: OpenSlides admin password not set.  Aborting."
+    exit 2
+  }
+  echo 'change admin password'
+  python manage.py insecurechangepassword admin "${OPENSLIDES_ADMIN_PASSWORD}"
+  # Note password change in persistent volume
+  touch /app/personal_data/admin-password-set
+fi
 
 echo 'executing server'
 printf 'INFO: Running CMD: "%s".\n' "$*"
