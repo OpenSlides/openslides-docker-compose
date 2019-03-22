@@ -106,10 +106,11 @@ You can read the mount point in the local filesystem:
 
 ## Performance Optimizations
 
+This setup tries to find good defaults for fairly large instances/events but
+other configurations are possible.  See, for example, the "command" and
+"sysctl" settings in the server configuraion in docker-compose.yml.
+
 [openslides-performance](https://github.com/OpenSlides/openslides-performance)
 is a stress testing tool for OpenSlides instances.  You may find that the
 "server" service needs to be tweaked to handle very large numbers of
 connections.
-
-```docker-compose.yml``` contains example ```sysctls``` settings that you can
-enable and experiment with.
