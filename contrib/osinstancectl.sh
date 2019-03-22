@@ -19,9 +19,13 @@ PROJECT_DIR=
 PORT=
 MODE=list
 VERBOSE=
+OPT_ADD_ACCOUNT=
 FILTER=
 GIT_CHECKOUT=
-SECRETS_FILE="adminsecret.env"
+ADMIN_SECRETS_FILE="adminsecret.env"
+USER_SECRETS_FILE="usersecret.env"
+OPENSLIDES_USER_FIRSTNAME=
+OPENSLIDES_USER_LASTNAME=
 
 # Color and formatting settings
 NCOLORS=
@@ -57,6 +61,7 @@ Options:
   -n, --online    In list view, show only online instances
   -f, --offline   In list view, show only offline instances
   -c, --checkout  The server version to check out (for use with --add)
+  --add-account   Add an additional, customized local admin account
 EOF
 }
 
@@ -71,6 +76,14 @@ arg_check() {
   [[ -n "$PROJECT_NAME" ]] || {
     echo "ERROR: Please specify a project name"; return 2;
   }
+}
+
+query_user_account_name() {
+  if [[ -n "$OPT_ADD_ACCOUNT" ]]; then
+    echo "Create local admin account for:"
+    read -p "First name: " OPENSLIDES_USER_FIRSTNAME
+    read -p "Last name: " OPENSLIDES_USER_LASTNAME
+  fi
 }
 
 verify_domain() {
@@ -115,14 +128,42 @@ create_instance_dir() {
     $2 == 61000 { $2 = port }
     1
   ' "${DCCONFIG}".example > "${DCCONFIG}"
+  # prepare secrets files
+  [[ -d "${PROJECT_DIR}/secrets" ]] ||
+    mkdir -m 700 "${PROJECT_DIR}/secrets"
+  touch "${PROJECT_DIR}/secrets/${ADMIN_SECRETS_FILE}" \
+    "${PROJECT_DIR}/secrets/${USER_SECRETS_FILE}"
 }
 
-create_secrets_file() {
-  echo "Generating password..."
+gen_pw() {
   read -r -n 15 PW < <(LC_ALL=C tr -dc "[:alnum:]" < /dev/urandom)
-  mkdir -m 700 "${PROJECT_DIR}/secrets"
-  printf "OPENSLIDES_ADMIN_PASSWORD=%s\n" "$PW" > "${PROJECT_DIR}/secrets/${SECRETS_FILE}"
+  echo "$PW"
 }
+
+create_admin_secrets_file() {
+  echo "Generating admin password..."
+  [[ -d "${PROJECT_DIR}/secrets" ]] ||
+    mkdir -m 700 "${PROJECT_DIR}/secrets"
+  printf "OPENSLIDES_ADMIN_PASSWORD=%s\n" "$(gen_pw)" \
+    >> "${PROJECT_DIR}/secrets/${ADMIN_SECRETS_FILE}"
+}
+
+create_user_secrets_file() {
+  if [[ -n "$OPT_ADD_ACCOUNT" ]]; then
+    echo "Generating user credentials..."
+    [[ -d "${PROJECT_DIR}/secrets" ]] ||
+      mkdir -m 700 "${PROJECT_DIR}/secrets"
+    local first_name="$1"
+    local last_name="$2"
+    local PW="$(gen_pw)"
+    cat << EOF >> "${PROJECT_DIR}/secrets/${USER_SECRETS_FILE}"
+OPENSLIDES_USER_FIRSTNAME=$first_name
+OPENSLIDES_USER_LASTNAME=$last_name
+OPENSLIDES_USER_PASSWORD=$PW
+EOF
+  fi
+}
+
 
 update_nginx_config() {
 # Create Nginx configs
@@ -207,10 +248,20 @@ list_instances() {
         "${instance}/docker-compose.yml"
       )
 
-    # Parse credentials file
+    # Parse admin credentials file
     local OPENSLIDES_ADMIN_PASSWORD="—"
-    if [[ -r "${instance}/secrets/${SECRETS_FILE}" ]]; then
-      source "${instance}/secrets/${SECRETS_FILE}"
+    if [[ -r "${instance}/secrets/${ADMIN_SECRETS_FILE}" ]]; then
+      source "${instance}/secrets/${ADMIN_SECRETS_FILE}"
+    fi
+
+    # Parse user credentials file
+    local OPENSLIDES_USER_FIRSTNAME=
+    local OPENSLIDES_USER_LASTNAME=
+    local OPENSLIDES_USER_PASSWORD=
+    local user_name=
+    if [[ -r "${instance}/secrets/${USER_SECRETS_FILE}" ]]; then
+      source "${instance}/secrets/${USER_SECRETS_FILE}"
+      local user_name="${OPENSLIDES_USER_FIRSTNAME} ${OPENSLIDES_USER_LASTNAME}"
     fi
 
     # Parse metadata file
@@ -235,9 +286,15 @@ list_instances() {
 
     printf "%s  %s\t\t%s\n" "$sym" "$shortname" "$first_metadatum"
     if [[ -n "$VERBOSE" ]]; then
-      printf "     - %-10s %s\n" "Version:" "$version"
-      printf "     - %-10s %s\n" "GIT_COMMIT:" "$git_commit_hash"
-      printf "     - %-10s %s : %s\n" "Login:" "admin" "$OPENSLIDES_ADMIN_PASSWORD"
+      printf "     - %-12s %s\n" "Version:" "$version"
+      printf "     - %-12s %s\n" "GIT_COMMIT:" "$git_commit_hash"
+      printf "     - %-12s %s : %s\n" "Login:" "admin" "$OPENSLIDES_ADMIN_PASSWORD"
+
+      # include secondary account credentials if available
+      [[ -n "$user_name" ]] &&
+        printf "     - %-12s \"%s\" : %s\n" \
+          "Login:" "$user_name" "$OPENSLIDES_USER_PASSWORD"
+
       if [[ ${#metadata[@]} -ge 1 ]]; then
         printf "     - %s\n" "Metadata:"
         for m in "${metadata[@]}"; do
@@ -258,7 +315,7 @@ list_instances() {
 }
 
 shortopt="harslvnfc:"
-longopt="help,add,checkout:,remove,list,verbose,online,offline"
+longopt="help,add,checkout:,remove,list,verbose,online,offline,add-account"
 
 ARGS=$(getopt -o "$shortopt" -l "$longopt" -- "$@")
 if [ $? -ne 0 ]; then usage; exit 1; fi
@@ -275,6 +332,10 @@ while true; do
         -c|--checkout)
           GIT_CHECKOUT="$2"
           shift 2
+          ;;
+        --add-account)
+          OPT_ADD_ACCOUNT=1
+          shift 1
           ;;
         -r|--remove)
           MODE=remove
@@ -326,11 +387,13 @@ case "$MODE" in
     ;;
   create)
     arg_check || { usage; exit 2; }
+    query_user_account_name
     echo "Creating new instance: $PROJECT_NAME"
     verify_domain
     PORT=$(next_free_port)
     create_instance_dir
-    create_secrets_file
+    create_admin_secrets_file
+    create_user_secrets_file "${OPENSLIDES_USER_FIRSTNAME}" "${OPENSLIDES_USER_LASTNAME}"
     update_nginx_config
     ;;
   list)
