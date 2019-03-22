@@ -204,8 +204,11 @@ list_instances() {
         # information will additionally be displayed in the --verbose output,
         # we can just cut if off here.
         # Ideally, we'd dynamically adjust to how much space is available.
-        [[ "${#first_metadatum}" -le 30 ]] ||
-          first_metadatum="${first_metadatum:0:30}[…]"
+        [[ "${#first_metadatum}" -le 40 ]] ||
+          first_metadatum="${first_metadatum:0:30}"
+          # append ellipsis and reset formatting.  The latter may be necessary
+          # because we might be cutting this off above.
+          first_metadatum+="…[0m"
       fi
     fi
 
