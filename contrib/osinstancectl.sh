@@ -175,7 +175,7 @@ ping_instance() {
   local instance="$1"
   local_port=$(grep -A1 ports: "${instance}/docker-compose.yml" | tail -1 | cut -d: -f2)
   # retrieve version string
-  curl -s "http://127.0.0.1:${local_port}/apps/core/version/" |
+  curl --silent --max-time 0.1 "http://127.0.0.1:${local_port}/apps/core/version/" |
   gawk 'BEGIN { FPAT = "\"[^\"]*\"" } { gsub(/"/, "", $2); print $2}'
 }
 
