@@ -201,6 +201,12 @@ list_instances() {
       *) ;;
     esac
 
+    # Parse credentials file
+    local OPENSLIDES_ADMIN_PASSWORD="—"
+    if [[ -r "${instance}/secrets/${SECRETS_FILE}" ]]; then
+      source "${instance}/secrets/${SECRETS_FILE}"
+    fi
+
     # Parse metadata file
     local metadata=()
     local first_metadatum=
@@ -224,7 +230,7 @@ list_instances() {
     printf "%s  %s\t\t%s\n" "$sym" "$shortname" "$first_metadatum"
     if [[ -n "$VERBOSE" ]]; then
       printf "     - %-10s %s\n" "Version:" "$version"
-      printf "     - %-10s %s\n" "Login:" "<password>"
+      printf "     - %-10s %s : %s\n" "Login:" "admin" "$OPENSLIDES_ADMIN_PASSWORD"
       if [[ ${#metadata[@]} -ge 1 ]]; then
         printf "     - %s\n" "Metadata:"
         for m in "${metadata[@]}"; do
