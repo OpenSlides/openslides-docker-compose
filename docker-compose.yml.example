@@ -12,7 +12,6 @@ services:
         # Change according to your details
         REPOSITORY_URL: https://github.com/OpenSlides/OpenSlides.git
         GIT_CHECKOUT: 6eea0648627d15996f9701ff5183714b8eb8b90a
-    image: os-server
     # By default, daphne is run as command.  Uncomment the command below to use
     # gunicorn instead:
     # command: "gunicorn -w 4 -b 0.0.0.0:8000 -k uvicorn.workers.UvicornWorker
