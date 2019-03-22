@@ -114,3 +114,11 @@ other configurations are possible.  See, for example, the "command" and
 is a stress testing tool for OpenSlides instances.  You may find that the
 "server" service needs to be tweaked to handle very large numbers of
 connections.
+
+## Additional management scripts
+
+```contrib``` contains tools that should come in handy if you are running
+multiple OpenSlides instances:
+
+  - osinstancectl.sh: one-step instance creation
+  - openlides-docker-pg-dump.sh: creates SQL dumps for all instances

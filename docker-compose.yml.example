@@ -1,13 +1,17 @@
-version: '3'
+version: '3.1'
+secrets:
+  os_admin:
+    file: ./secrets/adminsecret.env
 services:
   server:
+    secrets:
+      - os_admin
     build:
       context: ./server
       args:
         # Change according to your details
         REPOSITORY_URL: https://github.com/OpenSlides/OpenSlides.git
         GIT_CHECKOUT: 6eea0648627d15996f9701ff5183714b8eb8b90a
-    image: os-server
     # Below is the default command.  You can uncomment it to override the
     # number of workers, for example:
     # command: "gunicorn -w 8 -b 0.0.0.0:8000 -k uvicorn.workers.UvicornWorker
@@ -51,6 +55,8 @@ services:
       - "127.0.0.1:61000:80"
   postgres:
     image: sameersbn/postgresql:10
+    labels:
+      org.openslides.role: "postgres"
     restart: always
     volumes:
       - "dbdata:/var/lib/postgresql"
