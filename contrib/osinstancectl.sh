@@ -120,10 +120,8 @@ create_instance_dir() {
 create_secrets_file() {
   echo "Generating password..."
   read -r -n 15 PW < <(LC_ALL=C tr -dc "[:alnum:]" < /dev/urandom)
-  (
-    umask 077
-    printf "OPENSLIDES_ADMIN_PASSWORD=%s\n" "$PW" > "${PROJECT_DIR}/${SECRETS_FILE}"
-  )
+  mkdir -m 700 "${PROJECT_DIR}/secrets"
+  printf "OPENSLIDES_ADMIN_PASSWORD=%s\n" "$PW" > "${PROJECT_DIR}/secrets/${SECRETS_FILE}"
 }
 
 update_nginx_config() {
