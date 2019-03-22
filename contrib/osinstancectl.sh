@@ -199,6 +199,13 @@ list_instances() {
       readarray -t metadata < <(grep -v '^\s*#' "${instance}/metadata.txt")
       if [[ ${#metadata[@]} -ge 1 ]]; then
         first_metadatum="${metadata[0]}"
+        # Shorten if necessary.  This string will be printed as a column of the
+        # general output, so it should not cause linebreaks.  Since the same
+        # information will additionally be displayed in the --verbose output,
+        # we can just cut if off here.
+        # Ideally, we'd dynamically adjust to how much space is available.
+        [[ "${#first_metadatum}" -le 30 ]] ||
+          first_metadatum="${first_metadatum:0:30}[…]"
       fi
     fi
 
