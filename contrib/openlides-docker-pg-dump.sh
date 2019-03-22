@@ -7,6 +7,8 @@
 set -euo pipefail
 umask 0027
 
+NAME_FILTER="${1-.}"
+
 BACKUP_PATH="/backup/docker-sql-dumps"
 [[ -d "$BACKUP_PATH" ]] || { echo "ERROR: $BACKUP_PATH not found!"; exit 3; }
 
@@ -17,6 +19,7 @@ while read id name labels; do
   # Postgres container, so we need to inspect it for an OpenSlides-specific
   # label as well:
   printf "$labels" | grep -q "org.openslides.role=postgres" || continue
+  printf "$name" | grep -q "$NAME_FILTER" || continue
   docker exec -u postgres "$id" /bin/bash -c 'pg_dump openslides' \
     > "${BACKUP_PATH}/${name}-$(date +'%F-%T').sql"
 done
