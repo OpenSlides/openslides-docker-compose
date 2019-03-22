@@ -192,29 +192,26 @@ list_instances() {
       *) ;;
     esac
 
-    # Parse metadata
+    # Parse metadata file
     local metadata=()
-    local has_metadata=
-    readarray metadata < <(
-      gawk '
-        $0 == "# OPENSLIDES METADATA" { next }
-        $1 != "#" { exit; }
-        $1 == "#" {
-          $1 = ""
-          $2 = ""
-          sub(/^\ */, "")
-          print
-        }' "${instance}/docker-compose.yml"
-    )
-    [[ ${#metadata[@]} -ge 1 ]] && has_metadata='#' || true
+    local first_metadatum=
+    if [[ -r "${instance}/metadata.txt" ]]; then
+      readarray -t metadata < <(grep -v '^\s*#' "${instance}/metadata.txt")
+      if [[ ${#metadata[@]} -ge 1 ]]; then
+        first_metadatum="${metadata[0]}"
+      fi
+    fi
 
-    printf "%s  %s\t\t%s\n" "$sym" "$shortname" "$has_metadata"
+    printf "%s  %s\t\t%s\n" "$sym" "$shortname" "$first_metadatum"
     if [[ -n "$VERBOSE" ]]; then
       printf "     - %-10s %s\n" "Version:" "$version"
       printf "     - %-10s %s\n" "Login:" "<password>"
-      for m in "${metadata[@]}"; do
-        printf "     - %s" "$m"
-      done
+      if [[ ${#metadata[@]} -ge 1 ]]; then
+        printf "     - %s\n" "Metadata:"
+        for m in "${metadata[@]}"; do
+          printf "       %s\n" "$m"
+        done
+      fi
     fi
   done |
   # Colorize the status indicators
