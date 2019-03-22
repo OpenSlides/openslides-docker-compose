@@ -201,6 +201,12 @@ list_instances() {
       *) ;;
     esac
 
+    # Parse docker-compose.yml
+    local git_commit_hash=$(
+      awk '$1 == "GIT_CHECKOUT:" { print $2; exit; }' \
+        "${instance}/docker-compose.yml"
+      )
+
     # Parse credentials file
     local OPENSLIDES_ADMIN_PASSWORD="—"
     if [[ -r "${instance}/secrets/${SECRETS_FILE}" ]]; then
@@ -230,6 +236,7 @@ list_instances() {
     printf "%s  %s\t\t%s\n" "$sym" "$shortname" "$first_metadatum"
     if [[ -n "$VERBOSE" ]]; then
       printf "     - %-10s %s\n" "Version:" "$version"
+      printf "     - %-10s %s\n" "GIT_COMMIT:" "$git_commit_hash"
       printf "     - %-10s %s : %s\n" "Login:" "admin" "$OPENSLIDES_ADMIN_PASSWORD"
       if [[ ${#metadata[@]} -ge 1 ]]; then
         printf "     - %s\n" "Metadata:"
