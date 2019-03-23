@@ -225,6 +225,9 @@ list_instances() {
   a=($(find "${INSTANCES}" -mindepth 1 -maxdepth 1 -type d -iname \
     "*${PROJECT_NAME}*" -print | sort))
   for instance in "${a[@]}"; do
+    # skip directories that aren't instances
+    [[ -f "${instance}/docker-compose.yml" ]] || continue
+
     local shortname=$(basename "$instance")
     local version=$(ping_instance "$instance")
     local sym="$SYM_NORMAL"
