@@ -22,6 +22,8 @@ if [[ -f /run/secrets/os_admin ]]; then
     # Note password change in persistent volume
     touch /app/personal_data/admin-password-set
   fi
+elif [[  -f /app/personal_data/admin-password-set ]]; then
+  echo "Admin password already set; nothing to do."
 else
   cat <<-EOF
 
