@@ -54,6 +54,12 @@ service:
       REPOSITORY_URL: https://github.com/OpenSlides/OpenSlides.git
       GIT_CHECKOUT: f9c4f01f06bba0ab911735d383ac85b693203161
 
+By default, the admin user's login password is "admin".  You can and should
+change it before you start the instance.  To do so, make a copy of the example
+configuration file and add a secure password:
+
+  cp -p ./secrets/adminsecret.env.example ./secrets/adminsecret.env
+
 To build and start the instance, run:
 
     docker-compose build
