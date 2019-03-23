@@ -19,7 +19,7 @@ PROJECT_DIR=
 PORT=
 MODE=list
 VERBOSE=
-OPT_ADD_ACCOUNT=
+OPT_ADD_ACCOUNT=1
 FILTER=
 GIT_CHECKOUT=
 ADMIN_SECRETS_FILE="adminsecret.env"
@@ -51,17 +51,17 @@ Usage: ${BASH_SOURCE[0]} [options] <action> <instance_domain>
 Manage docker-compose-based OpenSlides instances.
 
 Action:
-  -a, --add       Add a new instance for the given domain (requires FQDN).
-  -l, --list      List instances and their status.  <instance_domain> is a search
-                  pattern in this case.
-  -r, --remove    Remove the instance instance_domain (requires FQDN).
+  -a, --add          Add a new instance for the given domain (requires FQDN).
+  -l, --list         List instances and their status.  <instance_domain> is
+                     a search pattern in this case.
+  -r, --remove       Remove the instance instance_domain (requires FQDN).
 
 Options:
-  -v, --verbose   Increase verbosity
-  -n, --online    In list view, show only online instances
-  -f, --offline   In list view, show only offline instances
-  -c, --checkout  The server version to check out (for use with --add)
-  --add-account   Add an additional, customized local admin account
+  -v, --verbose      Increase verbosity
+  -n, --online       In list view, show only online instances
+  -f, --offline      In list view, show only offline instances
+  -c, --checkout     The server version to check out (for use with --add)
+  --no-add-account   Do not add an additional, customized local admin account
 EOF
 }
 
@@ -131,8 +131,7 @@ create_instance_dir() {
   # prepare secrets files
   [[ -d "${PROJECT_DIR}/secrets" ]] ||
     mkdir -m 700 "${PROJECT_DIR}/secrets"
-  touch "${PROJECT_DIR}/secrets/${ADMIN_SECRETS_FILE}" \
-    "${PROJECT_DIR}/secrets/${USER_SECRETS_FILE}"
+  touch "${PROJECT_DIR}/secrets/${ADMIN_SECRETS_FILE}"
 }
 
 gen_pw() {
@@ -156,7 +155,7 @@ create_user_secrets_file() {
     local first_name="$1"
     local last_name="$2"
     local PW="$(gen_pw)"
-    cat << EOF >> "${PROJECT_DIR}/secrets/${USER_SECRETS_FILE}"
+    cat << EOF > "${PROJECT_DIR}/secrets/${USER_SECRETS_FILE}"
 OPENSLIDES_USER_FIRSTNAME=$first_name
 OPENSLIDES_USER_LASTNAME=$last_name
 OPENSLIDES_USER_PASSWORD=$PW
@@ -320,7 +319,7 @@ list_instances() {
 }
 
 shortopt="harslvnfc:"
-longopt="help,add,checkout:,remove,list,verbose,online,offline,add-account"
+longopt="help,add,checkout:,remove,list,verbose,online,offline,no-add-account"
 
 ARGS=$(getopt -o "$shortopt" -l "$longopt" -- "$@")
 if [ $? -ne 0 ]; then usage; exit 1; fi
@@ -338,8 +337,8 @@ while true; do
           GIT_CHECKOUT="$2"
           shift 2
           ;;
-        --add-account)
-          OPT_ADD_ACCOUNT=1
+        --no-add-account)
+          OPT_ADD_ACCOUNT=
           shift 1
           ;;
         -r|--remove)
