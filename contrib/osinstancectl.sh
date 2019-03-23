@@ -81,8 +81,8 @@ arg_check() {
 query_user_account_name() {
   if [[ -n "$OPT_ADD_ACCOUNT" ]]; then
     echo "Create local admin account for:"
-    read -p "First name: " OPENSLIDES_USER_FIRSTNAME
-    read -p "Last name: " OPENSLIDES_USER_LASTNAME
+    read -p "First & last name: " \
+      OPENSLIDES_USER_FIRSTNAME OPENSLIDES_USER_LASTNAME
   fi
 }
 
