@@ -290,6 +290,7 @@ list_instances() {
 
     printf "%s %-40s\t%s\n" "$sym" "$shortname" "$first_metadatum"
     if [[ -n "$VERBOSE" ]]; then
+      printf "   ├ %-12s %s\n" "Directory:" "$instance"
       printf "   ├ %-12s %s\n" "Version:" "$version"
       printf "   ├ %-12s %s\n" "Git:" "$git_commit"
       printf "   ├ %-12s %s : %s\n" "Login:" "admin" "$OPENSLIDES_ADMIN_PASSWORD"
