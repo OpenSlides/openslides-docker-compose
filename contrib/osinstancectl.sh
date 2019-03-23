@@ -243,7 +243,7 @@ list_instances() {
     esac
 
     # Parse docker-compose.yml
-    local git_commit_hash=$(
+    local git_commit=$(
       awk '$1 == "GIT_CHECKOUT:" { print $2; exit; }' \
         "${instance}/docker-compose.yml"
       )
@@ -285,21 +285,21 @@ list_instances() {
       fi
     fi
 
-    printf "%s  %s\t\t%s\n" "$sym" "$shortname" "$first_metadatum"
+    printf "%s %-40s\t%s\n" "$sym" "$shortname" "$first_metadatum"
     if [[ -n "$VERBOSE" ]]; then
-      printf "     - %-12s %s\n" "Version:" "$version"
-      printf "     - %-12s %s\n" "GIT_COMMIT:" "$git_commit_hash"
-      printf "     - %-12s %s : %s\n" "Login:" "admin" "$OPENSLIDES_ADMIN_PASSWORD"
+      printf "   ├ %-12s %s\n" "Version:" "$version"
+      printf "   ├ %-12s %s\n" "Git:" "$git_commit"
+      printf "   ├ %-12s %s : %s\n" "Login:" "admin" "$OPENSLIDES_ADMIN_PASSWORD"
 
       # include secondary account credentials if available
       [[ -n "$user_name" ]] &&
-        printf "     - %-12s \"%s\" : %s\n" \
+        printf "   ├ %-12s \"%s\" : %s\n" \
           "Login:" "$user_name" "$OPENSLIDES_USER_PASSWORD"
 
       if [[ ${#metadata[@]} -ge 1 ]]; then
-        printf "     - %s\n" "Metadata:"
+        printf "   └ %s\n" "Metadata:"
         for m in "${metadata[@]}"; do
-          printf "       %s\n" "$m"
+          printf "     ┆ %s\n" "$m"
         done
       fi
     fi
@@ -307,11 +307,11 @@ list_instances() {
   # Colorize the status indicators
   if [[ -n "$NCOLORS" ]]; then
     sed "
-      s/^${SYM_NORMAL}/${COL_GREEN}${BULLET}${COL_NORMAL}/;
-      s/^${SYM_ERROR}/${COL_RED}${BULLET}${COL_NORMAL}/
+      s/^${SYM_NORMAL}/ ${COL_GREEN}${BULLET}${COL_NORMAL}/;
+      s/^${SYM_ERROR}/ ${COL_RED}${BULLET}${COL_NORMAL}/
     "
   else
-    cat
+    cut -d' ' -f2-
   fi
 }
 
