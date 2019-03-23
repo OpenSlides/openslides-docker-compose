@@ -250,7 +250,7 @@ list_instances() {
 
     # Parse admin credentials file
     local OPENSLIDES_ADMIN_PASSWORD="—"
-    if [[ -r "${instance}/secrets/${ADMIN_SECRETS_FILE}" ]]; then
+    if [[ -f "${instance}/secrets/${ADMIN_SECRETS_FILE}" ]]; then
       source "${instance}/secrets/${ADMIN_SECRETS_FILE}"
     fi
 
@@ -259,7 +259,7 @@ list_instances() {
     local OPENSLIDES_USER_LASTNAME=
     local OPENSLIDES_USER_PASSWORD=
     local user_name=
-    if [[ -r "${instance}/secrets/${USER_SECRETS_FILE}" ]]; then
+    if [[ -f "${instance}/secrets/${USER_SECRETS_FILE}" ]]; then
       source "${instance}/secrets/${USER_SECRETS_FILE}"
       local user_name="${OPENSLIDES_USER_FIRSTNAME} ${OPENSLIDES_USER_LASTNAME}"
     fi
