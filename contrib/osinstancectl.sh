@@ -221,9 +221,13 @@ ping_instance() {
 
 
 list_instances() {
-  a=($(find "${INSTANCES}" -mindepth 1 -maxdepth 1 -type d -iname \
-    "*${PROJECT_NAME}*" -print | sort))
-  for instance in "${a[@]}"; do
+  local matches=()
+  readarray -d '' matches < <(
+    find "${INSTANCES}" -mindepth 1 -maxdepth 1 -type d \
+      -iname "*${PROJECT_NAME}*" -print0 |
+    sort -z
+  )
+  for instance in "${matches[@]}"; do
     # skip directories that aren't instances
     [[ -f "${instance}/docker-compose.yml" ]] || continue
 
