@@ -1,2 +1,3 @@
 docker-compose.yml
-adminsecret.env
+/secrets/adminsecret.env
+/secrets/usersecret.env

@@ -9,17 +9,30 @@ wait-for-it --timeout=5 postgres:5432
 echo 'running migrations'
 python manage.py migrate
 
-if [[ ! -f /app/personal_data/admin-password-set ]]; then
-  echo "Retrieving secure admin password"
-  source /run/secrets/os_admin
-  [[ -n "${OPENSLIDES_ADMIN_PASSWORD}" ]] || {
-    echo "ERROR: OpenSlides admin password not set.  Aborting."
-    exit 2
-  }
-  echo 'change admin password'
-  python manage.py insecurechangepassword admin "${OPENSLIDES_ADMIN_PASSWORD}"
-  # Note password change in persistent volume
-  touch /app/personal_data/admin-password-set
+if [[ -f /run/secrets/os_admin ]]; then
+  if [[ ! -f /app/personal_data/admin-password-set ]]; then
+    echo "Retrieving secure admin password"
+    source /run/secrets/os_admin
+    [[ -n "${OPENSLIDES_ADMIN_PASSWORD}" ]] || {
+      echo "ERROR: OpenSlides admin password not set.  Aborting."
+      exit 2
+    }
+    echo 'change admin password'
+    python manage.py insecurechangepassword admin "${OPENSLIDES_ADMIN_PASSWORD}"
+    # Note password change in persistent volume
+    touch /app/personal_data/admin-password-set
+  fi
+else
+  cat <<-EOF
+
+                 ==============================================
+                                    WARNING
+                 ==============================================
+
+                 WARNING: INSECURE ADMIN ACCOUNT CONFIGURATION!
+
+EOF
+  sleep 10
 fi
 
 if [[ -f /run/secrets/os_user ]] && [[ ! -f /app/personal_data/user-added ]]; then

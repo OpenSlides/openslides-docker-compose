@@ -12,7 +12,23 @@ function quit {
     exit
 }
 
+function warn_insecure_login {
+    cat << EOF
+WARNING:
+ You have not provided a secure admin password.  If you choose to proceed, the
+ default password "admin" will be used!
+
+ See ./secrets/adminsecret.env.example on how to set it.
+EOF
+read -p 'Proceed with insecure password? [y/N] ' PROCEED
+case $PROCEED in
+    y) return;;
+    *) exit 0;;
+esac
+}
+
 function run {
+    [[ -f ./secrets/adminsecret.env ]] || warn_insecure_login
     echo "building the instance"
     docker-compose build
     echo "starting the instance as deamon"
