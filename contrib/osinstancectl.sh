@@ -23,6 +23,7 @@ VERBOSE=
 OPT_ADD_ACCOUNT=1
 FILTER=
 GIT_CHECKOUT=
+CLONE_FROM=
 ADMIN_SECRETS_FILE="adminsecret.env"
 USER_SECRETS_FILE="usersecret.env"
 OPENSLIDES_USER_FIRSTNAME=
@@ -63,6 +64,8 @@ Options:
   -f, --offline      In list view, show only offline instances
   -c, --checkout     The server version to check out (for use with --add)
   --no-add-account   Do not add an additional, customized local admin account
+  --clone-from       When adding, create the new instance based on the
+                     specified exsiting instance
 EOF
 }
 
@@ -77,6 +80,12 @@ arg_check() {
   [[ -n "$PROJECT_NAME" ]] || {
     echo "ERROR: Please specify a project name"; return 2;
   }
+  if [[ "$MODE" = "clone" ]]; then
+    [[ -d "$CLONE_FROM_DIR" ]] || {
+      echo "ERROR: $CLONE_FROM_DIR does not exist."
+      return 2
+    }
+  fi
 }
 
 query_user_account_name() {
@@ -220,6 +229,11 @@ ping_instance() {
   gawk 'BEGIN { FPAT = "\"[^\"]*\"" } { gsub(/"/, "", $2); print $2}'
 }
 
+git_commit_from_instance_dir() {
+  instance="$1"
+  awk '$1 == "GIT_CHECKOUT:" { print $2; exit; }' \
+    "${instance}/docker-compose.yml"
+}
 
 list_instances() {
   local matches=()
@@ -250,10 +264,7 @@ list_instances() {
     esac
 
     # Parse docker-compose.yml
-    local git_commit=$(
-      awk '$1 == "GIT_CHECKOUT:" { print $2; exit; }' \
-        "${instance}/docker-compose.yml"
-      )
+    local git_commit=$(git_commit_from_instance_dir "$instance")
 
     # Parse admin credentials file
     local OPENSLIDES_ADMIN_PASSWORD="—"
@@ -323,8 +334,41 @@ list_instances() {
   fi
 }
 
+clone_secrets() {
+  if [[ -d "${CLONE_FROM_DIR}/secrets/" ]]; then
+    rsync -axv "${CLONE_FROM_DIR}/secrets/" "${PROJECT_DIR}/secrets/"
+  fi
+}
+
+clone_db() {
+  (cd "$PROJECT_DIR" && docker-compose up -d --no-deps postgres)
+  local clone_from_id=$(cd "$CLONE_FROM_DIR" && docker-compose ps -q postgres)
+  local clone_to_id=$(cd "$PROJECT_DIR" && docker-compose ps -q postgres)
+  sleep 3 # XXX
+  docker exec -u postgres "$clone_from_id" pg_dump -c --if-exists openslides |
+  docker exec -i -u postgres "$clone_to_id" psql openslides
+}
+
+get_personaldata_dir() (
+  cd "$1" &&
+  docker inspect -f '{{ json .Mounts }}' "$(docker-compose ps -q server)" |
+  jq -r '.[] | select(.Source | contains("personaldata")) | .Source'
+)
+
+clone_files() {
+  (cd "$PROJECT_DIR" && docker-compose up --no-start --no-deps server)
+  local from_dir=$(get_personaldata_dir "$CLONE_FROM_DIR")
+  local to_dir=$(get_personaldata_dir "$PROJECT_DIR")
+  rsync -axv "${from_dir}/" "${to_dir}/"
+}
+
+append_metadata() {
+  touch "${1}/metadata.txt"
+  printf "%s\n" "$2" >> "${1}/metadata.txt"
+}
+
 shortopt="hvnfc:"
-longopt="help,checkout:verbose,online,offline,no-add-account"
+longopt="help,checkout:verbose,online,offline,no-add-account,clone-from:"
 
 ARGS=$(getopt -o "$shortopt" -l "$longopt" -n "$ME" -- "$@")
 if [ $? -ne 0 ]; then usage; exit 1; fi
@@ -356,6 +400,10 @@ while true; do
       FILTER="offline"
       shift 1
       ;;
+    --clone-from)
+      CLONE_FROM="$2"
+      shift 2
+      ;;
     -h|--help) usage; exit 0 ;;
     --) shift ; break ;;
     *) usage; exit 1 ;;
@@ -373,6 +421,7 @@ for arg; do
     add|create)
       [[ -z "$MODE" ]] || { usage; exit 2; }
       MODE=create
+      [[ -z "$CLONE_FROM" ]] || MODE=clone
       shift 1
       ;;
     rm|remove)
@@ -421,6 +470,20 @@ case "$MODE" in
     create_admin_secrets_file
     create_user_secrets_file "${OPENSLIDES_USER_FIRSTNAME}" "${OPENSLIDES_USER_LASTNAME}"
     update_nginx_config
+    ;;
+  clone)
+    CLONE_FROM_DIR="${INSTANCES}/${CLONE_FROM}"
+    arg_check || { usage; exit 2; }
+    verify_domain
+    echo "Creating new instance: $PROJECT_NAME (based on $CLONE_FROM)"
+    PORT=$(next_free_port)
+    GIT_CHECKOUT=$(git_commit_from_instance_dir "$CLONE_FROM_DIR")
+    create_instance_dir
+    clone_secrets
+    clone_files
+    clone_db
+    update_nginx_config
+    append_metadata "$PROJECT_DIR" "Cloned from $CLONE_FROM on $(date)"
     ;;
   list)
     list_instances
