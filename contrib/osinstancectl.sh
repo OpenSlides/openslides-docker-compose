@@ -413,9 +413,9 @@ case "$MODE" in
     ;;
   create)
     arg_check || { usage; exit 2; }
+    verify_domain
     query_user_account_name
     echo "Creating new instance: $PROJECT_NAME"
-    verify_domain
     PORT=$(next_free_port)
     create_instance_dir
     create_admin_secrets_file
