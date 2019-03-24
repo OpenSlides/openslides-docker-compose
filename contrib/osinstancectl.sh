@@ -8,6 +8,7 @@
 set -eu
 set -o noclobber
 
+ME=$(basename -s .sh "${BASH_SOURCE[0]}")
 TEMPLATE_REPO="/srv/openslides/openslides-docker-compose"
 # TEMPLATE_REPO="https://github.com/OpenSlides/openslides-docker-compose"
 OSDIR="/srv/openslides"
@@ -17,7 +18,7 @@ NGINX_TEMPLATE=
 PROJECT_NAME=
 PROJECT_DIR=
 PORT=
-MODE=list
+MODE=
 VERBOSE=
 OPT_ADD_ACCOUNT=1
 FILTER=
@@ -51,10 +52,10 @@ Usage: ${BASH_SOURCE[0]} [options] <action> <instance_domain>
 Manage docker-compose-based OpenSlides instances.
 
 Action:
-  -a, --add          Add a new instance for the given domain (requires FQDN).
-  -l, --list         List instances and their status.  <instance_domain> is
+  ls                 List instances and their status.  <instance_domain> is
                      a search pattern in this case.
-  -r, --remove       Remove the instance instance_domain (requires FQDN).
+  add                Add a new instance for the given domain (requires FQDN).
+  rm                 Remove the instance instance_domain (requires FQDN).
 
 Options:
   -v, --verbose      Increase verbosity
@@ -322,56 +323,74 @@ list_instances() {
   fi
 }
 
-shortopt="harslvnfc:"
-longopt="help,add,checkout:,remove,list,verbose,online,offline,no-add-account"
+shortopt="hvnfc:"
+longopt="help,checkout:verbose,online,offline,no-add-account"
 
-ARGS=$(getopt -o "$shortopt" -l "$longopt" -- "$@")
+ARGS=$(getopt -o "$shortopt" -l "$longopt" -n "$ME" -- "$@")
 if [ $? -ne 0 ]; then usage; exit 1; fi
 eval set -- "$ARGS";
+unset ARGS
 
 # [[ $# -gt 1 ]] || { usage; exit 2; }
 
+# Parse options
 while true; do
-    case "$1" in
-        -a|--add)
-          MODE=create
-          shift 1
-          ;;
-        -c|--checkout)
-          GIT_CHECKOUT="$2"
-          shift 2
-          ;;
-        --no-add-account)
-          OPT_ADD_ACCOUNT=
-          shift 1
-          ;;
-        -r|--remove)
-          MODE=remove
-          shift 1
-          ;;
-        -l|--list)
-          MODE=list
-          shift 1
-          ;;
-        -v|--verbose)
-          VERBOSE=1
-          shift 1
-          ;;
-        -n|--online)
-          FILTER="online"
-          shift 1
-          ;;
-        -f|--offline)
-          FILTER="offline"
-          shift 1
-          ;;
-        -h|--help) usage; exit 0 ;;
-        --) shift ; break ;;
-        *) usage; exit 1 ;;
-    esac
+  case "$1" in
+    -c|--checkout)
+      GIT_CHECKOUT="$2"
+      shift 2
+      ;;
+    --no-add-account)
+      OPT_ADD_ACCOUNT=
+      shift 1
+      ;;
+    -v|--verbose)
+      VERBOSE=1
+      shift 1
+      ;;
+    -n|--online)
+      FILTER="online"
+      shift 1
+      ;;
+    -f|--offline)
+      FILTER="offline"
+      shift 1
+      ;;
+    -h|--help) usage; exit 0 ;;
+    --) shift ; break ;;
+    *) usage; exit 1 ;;
+  esac
 done
 
-[[ -n "$MODE" ]] || { usage; exit 2; }
+# Parse commands
+for arg; do
+  case $arg in
+    ls|list)
+      [[ -z "$MODE" ]] || { usage; exit 2; }
+      MODE=list
+      shift 1
+      ;;
+    add|create)
+      [[ -z "$MODE" ]] || { usage; exit 2; }
+      MODE=create
+      shift 1
+      ;;
+    rm|remove)
+      [[ -z "$MODE" ]] || { usage; exit 2; }
+      MODE=remove
+      shift 1
+      ;;
+    *)
+      # The final argument should be the project name/search pattern
+      PROJECT_NAME="$arg"
+      break
+      ;;
+  esac
+done
+
+# Default mode: list
+# [[ -n "$MODE" ]] || { MODE=list; }
+MODE=${MODE:-list}
 
 DEPS=(
   gawk
@@ -382,7 +401,6 @@ for i in "${DEPS[@]}"; do
     check_for_dependency "$i"
 done
 
-PROJECT_NAME="${1-""}"
 PROJECT_DIR="${INSTANCES}/${PROJECT_NAME}"
 DCCONFIG="${PROJECT_DIR}/docker-compose.yml"
 NGINX_TEMPLATE="${PROJECT_DIR}/contrib/nginx.conf.in"
