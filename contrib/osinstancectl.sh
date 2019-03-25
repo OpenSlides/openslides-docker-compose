@@ -474,6 +474,7 @@ MODE=${MODE:-list}
 
 DEPS=(
   gawk
+  jq
   acmetool
 )
 # Check dependencies
