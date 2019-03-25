@@ -21,6 +21,7 @@ PORT=
 MODE=
 VERBOSE=
 OPT_ADD_ACCOUNT=1
+OPT_LOCALONLY=
 FILTER=
 GIT_CHECKOUT=
 CLONE_FROM=
@@ -64,6 +65,9 @@ Options:
   -f, --offline      In list view, show only offline instances
   -c, --checkout     The server version to check out (for use with --add)
   --no-add-account   Do not add an additional, customized local admin account
+  --local-only       Create an instance without setting up Nginx and Let's
+                     Encrypt certificates.  Such an instance is only accessible
+                     on localhost, e.g., http://127.1:61000.
   --clone-from       When adding, create the new instance based on the
                      specified exsiting instance
 EOF
@@ -173,9 +177,9 @@ EOF
   fi
 }
 
-
 update_nginx_config() {
-# Create Nginx configs
+  # Create Nginx configs
+  [[ -z "$OPT_LOCALONLY" ]] || return 0
   # First, without TLS
   sed -e "s/<INSTANCE>/${PROJECT_NAME}/" "$NGINX_TEMPLATE" \
     -e "/proxy_pass/s/61000/${PORT}/" \
@@ -221,9 +225,17 @@ remove() {
   echo "Done."
 }
 
+local_port() {
+  [[ -f "${1}/docker-compose.yml" ]] &&
+  grep -A1 ports: "${instance}/docker-compose.yml" | tail -1 | cut -d: -f2
+  # better but slower:
+  # docker inspect --format '{{ (index (index .NetworkSettings.Ports "80/tcp") 0).HostPort }}' \
+  #   $(docker-compose ps -q client))
+}
+
 ping_instance() {
   local instance="$1"
-  local_port=$(grep -A1 ports: "${instance}/docker-compose.yml" | tail -1 | cut -d: -f2)
+  local_port=$(local_port "$instance")
   # retrieve version string
   curl --silent --max-time 0.1 "http://127.0.0.1:${local_port}/apps/core/version/" |
   gawk 'BEGIN { FPAT = "\"[^\"]*\"" } { gsub(/"/, "", $2); print $2}'
@@ -308,6 +320,7 @@ list_instances() {
       printf "   ├ %-12s %s\n" "Directory:" "$instance"
       printf "   ├ %-12s %s\n" "Version:" "$version"
       printf "   ├ %-12s %s\n" "Git:" "$git_commit"
+      printf "   ├ %-12s %s\n" "Local port:" "$(local_port $instance)"
       printf "   ├ %-12s %s : %s\n" "Login:" "admin" "$OPENSLIDES_ADMIN_PASSWORD"
 
       # include secondary account credentials if available
@@ -368,7 +381,7 @@ append_metadata() {
 }
 
 shortopt="hvnfc:"
-longopt="help,checkout:verbose,online,offline,no-add-account,clone-from:"
+longopt="help,checkout:verbose,online,offline,no-add-account,clone-from:,local-only"
 
 ARGS=$(getopt -o "$shortopt" -l "$longopt" -n "$ME" -- "$@")
 if [ $? -ne 0 ]; then usage; exit 1; fi
@@ -403,6 +416,10 @@ while true; do
     --clone-from)
       CLONE_FROM="$2"
       shift 2
+      ;;
+    --local-only)
+      OPT_LOCALONLY=1
+      shift 1
       ;;
     -h|--help) usage; exit 0 ;;
     --) shift ; break ;;
