@@ -24,6 +24,7 @@ OPT_ADD_ACCOUNT=1
 OPT_LOCALONLY=
 FILTER=
 GIT_CHECKOUT=
+GIT_REPO=
 CLONE_FROM=
 ADMIN_SECRETS_FILE="adminsecret.env"
 USER_SECRETS_FILE="usersecret.env"
@@ -63,7 +64,8 @@ Options:
   -v, --verbose      Increase verbosity
   -n, --online       In list view, show only online instances
   -f, --offline      In list view, show only offline instances
-  -c, --checkout     The server version to check out (for use with --add)
+  -r, --revision     The OpenSlides version to check out (for use with \`add\`)
+  -R, --repo         The OpenSlides repository to pull from (for use with \`add\`)
   --no-add-account   Do not add an additional, customized local admin account
   --local-only       Create an instance without setting up Nginx and Let's
                      Encrypt certificates.  Such an instance is only accessible
@@ -136,9 +138,11 @@ next_free_port() {
 create_instance_dir() {
   # Update yaml
   git clone "${TEMPLATE_REPO}" "${PROJECT_DIR}"
-  gawk -v port="${PORT}" -v git="$GIT_CHECKOUT" '
+  # XXX
+  gawk -v port="${PORT}" -v gitrev="$GIT_CHECKOUT" -v gitrepo="$GIT_REPO" '
     BEGIN {FS=":"; OFS=FS}
-    git != "" && $1 ~ /GIT_CHECKOUT/ { $2 = " " git }
+    gitrev != "" && $1 ~ /GIT_CHECKOUT/ { $2 = " " gitrev }
+    gitrepo != "" && $1 ~ /REPOSITORY_URL/ { $0 = $1 ": " gitrepo }
     $2 == 61000 { $2 = port }
     1
   ' "${DCCONFIG}".example > "${DCCONFIG}"
@@ -239,6 +243,12 @@ ping_instance() {
   # retrieve version string
   curl --silent --max-time 0.1 "http://127.0.0.1:${local_port}/apps/core/version/" |
   gawk 'BEGIN { FPAT = "\"[^\"]*\"" } { gsub(/"/, "", $2); print $2}'
+}
+
+git_repo_from_instance_dir() {
+  instance="$1"
+  awk '$1 == "REPOSITORY_URL:" { print $2; exit; }' \
+    "${instance}/docker-compose.yml"
 }
 
 git_commit_from_instance_dir() {
@@ -380,8 +390,8 @@ append_metadata() {
   printf "%s\n" "$2" >> "${1}/metadata.txt"
 }
 
-shortopt="hvnfc:"
-longopt="help,checkout:verbose,online,offline,no-add-account,clone-from:,local-only"
+shortopt="hvnfr:R:"
+longopt="help,revision:,repo:,verbose,online,offline,no-add-account,clone-from:,local-only"
 
 ARGS=$(getopt -o "$shortopt" -l "$longopt" -n "$ME" -- "$@")
 if [ $? -ne 0 ]; then usage; exit 1; fi
@@ -393,8 +403,12 @@ unset ARGS
 # Parse options
 while true; do
   case "$1" in
-    -c|--checkout)
+    -r|--revision)
       GIT_CHECKOUT="$2"
+      shift 2
+      ;;
+    -R|--repo)
+      GIT_REPO="$2"
       shift 2
       ;;
     --no-add-account)
@@ -494,7 +508,10 @@ case "$MODE" in
     verify_domain
     echo "Creating new instance: $PROJECT_NAME (based on $CLONE_FROM)"
     PORT=$(next_free_port)
-    GIT_CHECKOUT=$(git_commit_from_instance_dir "$CLONE_FROM_DIR")
+    [[ -n "$GIT_CHECKOUT" ]] ||
+      GIT_CHECKOUT=$(git_commit_from_instance_dir "$CLONE_FROM_DIR")
+    [[ -n "$GIT_REPO" ]] ||
+      GIT_REPO=$(git_repo_from_instance_dir "$CLONE_FROM_DIR")
     create_instance_dir
     clone_secrets
     clone_files
