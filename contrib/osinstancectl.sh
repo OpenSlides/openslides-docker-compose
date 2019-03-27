@@ -374,8 +374,9 @@ clone_db() {
 
 get_personaldata_dir() (
   cd "$1" &&
-  docker inspect -f '{{ json .Mounts }}' "$(docker-compose ps -q server)" |
-  jq -r '.[] | select(.Source | contains("personaldata")) | .Source'
+  docker inspect --format \
+    '{{ range .Mounts }}{{ if eq .Destination "/app/personal_data" }}{{ .Source }}{{ end }}{{ end }}' \
+    "$(docker-compose ps -q server)"
 )
 
 clone_files() {
@@ -474,7 +475,6 @@ MODE=${MODE:-list}
 
 DEPS=(
   gawk
-  jq
   acmetool
 )
 # Check dependencies
