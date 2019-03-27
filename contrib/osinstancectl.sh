@@ -94,6 +94,14 @@ arg_check() {
   fi
 }
 
+_docker_compose () {
+  # This basically implements the missing docker-compose -C
+  local project_dir="$1"
+  shift
+  docker-compose --project-directory "$project_dir" \
+    --file "${project_dir}/docker-compose.yml" $*
+}
+
 query_user_account_name() {
   if [[ -n "$OPT_ADD_ACCOUNT" ]]; then
     echo "Create local admin account for:"
@@ -364,23 +372,22 @@ clone_secrets() {
 }
 
 clone_db() {
-  (cd "$PROJECT_DIR" && docker-compose up -d --no-deps postgres)
-  local clone_from_id=$(cd "$CLONE_FROM_DIR" && docker-compose ps -q postgres)
-  local clone_to_id=$(cd "$PROJECT_DIR" && docker-compose ps -q postgres)
+  _docker_compose "$PROJECT_DIR" up -d --no-deps postgres
+  local clone_from_id=$(_docker_compose "$CLONE_FROM_DIR" ps -q postgres)
+  local clone_to_id=$(_docker_compose "$PROJECT_DIR" ps -q postgres)
   sleep 3 # XXX
   docker exec -u postgres "$clone_from_id" pg_dump -c --if-exists openslides |
   docker exec -i -u postgres "$clone_to_id" psql openslides
 }
 
-get_personaldata_dir() (
-  cd "$1" &&
+get_personaldata_dir() {
   docker inspect --format \
     '{{ range .Mounts }}{{ if eq .Destination "/app/personal_data" }}{{ .Source }}{{ end }}{{ end }}' \
-    "$(docker-compose ps -q server)"
-)
+    "$(_docker_compose "$1" ps -q server)"
+}
 
 clone_files() {
-  (cd "$PROJECT_DIR" && docker-compose up --no-start --no-deps server)
+  _docker_compose "$PROJECT_DIR" up --no-start --no-deps server
   local from_dir=$(get_personaldata_dir "$CLONE_FROM_DIR")
   local to_dir=$(get_personaldata_dir "$PROJECT_DIR")
   rsync -axv "${from_dir}/" "${to_dir}/"
