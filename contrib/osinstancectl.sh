@@ -143,17 +143,21 @@ next_free_port() {
   echo "$PORT"
 }
 
-create_instance_dir() {
-  # Update yaml
-  git clone "${TEMPLATE_REPO}" "${PROJECT_DIR}"
-  # XXX
+create_config_from_template() {
+  local templ="$1"
+  local config="$2"
   gawk -v port="${PORT}" -v gitrev="$GIT_CHECKOUT" -v gitrepo="$GIT_REPO" '
     BEGIN {FS=":"; OFS=FS}
     gitrev != "" && $1 ~ /GIT_CHECKOUT/ { $2 = " " gitrev }
     gitrepo != "" && $1 ~ /REPOSITORY_URL/ { $0 = $1 ": " gitrepo }
-    $2 == 61000 { $2 = port }
+    NF==3 && $1 ~ /127\.0\.0\.1/ && $3 ~ /80"$/ { $2 = port }
     1
-  ' "${DCCONFIG}".example > "${DCCONFIG}"
+  ' "$templ" > "$config"
+}
+
+create_instance_dir() {
+  # Update yaml
+  git clone "${TEMPLATE_REPO}" "${PROJECT_DIR}"
   # prepare secrets files
   [[ -d "${PROJECT_DIR}/secrets" ]] ||
     mkdir -m 700 "${PROJECT_DIR}/secrets"
@@ -506,6 +510,8 @@ case "$MODE" in
     echo "Creating new instance: $PROJECT_NAME"
     PORT=$(next_free_port)
     create_instance_dir
+    create_config_from_template "${PROJECT_DIR}/docker-compose.yml.example" \
+      "${PROJECT_DIR}/docker-compose.yml"
     create_admin_secrets_file
     create_user_secrets_file "${OPENSLIDES_USER_FIRSTNAME}" "${OPENSLIDES_USER_LASTNAME}"
     update_nginx_config
@@ -521,6 +527,8 @@ case "$MODE" in
     [[ -n "$GIT_REPO" ]] ||
       GIT_REPO=$(git_repo_from_instance_dir "$CLONE_FROM_DIR")
     create_instance_dir
+    create_config_from_template "${CLONE_FROM_DIR}/docker-compose.yml" \
+      "${PROJECT_DIR}/docker-compose.yml"
     clone_secrets
     clone_files
     clone_db
