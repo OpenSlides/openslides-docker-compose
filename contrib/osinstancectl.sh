@@ -32,6 +32,7 @@ OPENSLIDES_USER_FIRSTNAME=
 OPENSLIDES_USER_LASTNAME=
 
 # Color and formatting settings
+OPT_COLOR=auto
 NCOLORS=
 COL_NORMAL=""
 COL_RED=""
@@ -39,14 +40,15 @@ COL_GREEN=""
 BULLET='●'
 SYM_NORMAL="_"
 SYM_ERROR="X"
-if [[ -t 1 ]]; then
+
+enable_color() {
   NCOLORS=$(tput colors) # no. of colors
   if [[ -n "$NCOLORS" ]] && [[ "$NCOLORS" -ge 8 ]]; then
     COL_NORMAL="$(tput sgr0)"
     COL_RED="$(tput setaf 1)"
     COL_GREEN="$(tput setaf 2)"
   fi
-fi
+}
 
 usage() {
 cat <<EOF
@@ -72,6 +74,8 @@ Options:
                      on localhost, e.g., http://127.1:61000.
   --clone-from       When adding, create the new instance based on the
                      specified exsiting instance
+  --color=WHEN       Enable/disable color output.  WHEN is never, always, or
+                     auto.
 EOF
 }
 
@@ -414,7 +418,8 @@ append_metadata() {
 }
 
 shortopt="hvnfr:R:"
-longopt="help,revision:,repo:,verbose,online,offline,no-add-account,clone-from:,local-only"
+longopt="help,revision:,repo:,verbose,online,offline,no-add-account"
+longopt+=",clone-from:,local-only,color:"
 
 ARGS=$(getopt -o "$shortopt" -l "$longopt" -n "$ME" -- "$@")
 if [ $? -ne 0 ]; then usage; exit 1; fi
@@ -457,6 +462,10 @@ while true; do
     --local-only)
       OPT_LOCALONLY=1
       shift 1
+      ;;
+    --color)
+      OPT_COLOR="$2"
+      shift 2
       ;;
     -h|--help) usage; exit 0 ;;
     --) shift ; break ;;
@@ -507,6 +516,20 @@ done
 PROJECT_DIR="${INSTANCES}/${PROJECT_NAME}"
 DCCONFIG="${PROJECT_DIR}/docker-compose.yml"
 NGINX_TEMPLATE="${PROJECT_DIR}/contrib/nginx.conf.in"
+
+case "$OPT_COLOR" in
+  auto)
+    if [[ -t 1 ]]; then enable_color; fi ;;
+  always)
+    enable_color ;;
+  never) true ;;
+  *)
+    echo "ERROR: Unknown option to --color"
+    usage
+    exit 2
+    ;;
+esac
+
 
 case "$MODE" in
   remove)
