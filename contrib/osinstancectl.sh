@@ -50,15 +50,15 @@ fi
 
 usage() {
 cat <<EOF
-Usage: ${BASH_SOURCE[0]} [options] <action> <instance_domain>
+Usage: ${BASH_SOURCE[0]} [options] <action> <instance>
 
 Manage docker-compose-based OpenSlides instances.
 
 Action:
-  ls                 List instances and their status.  <instance_domain> is
-                     a search pattern in this case.
+  ls                 List instances and their status.  <instance> is
+                     a grep ERE search pattern in this case.
   add                Add a new instance for the given domain (requires FQDN).
-  rm                 Remove the instance instance_domain (requires FQDN).
+  rm                 Remove <instance> (requires FQDN).
 
 Options:
   -v, --verbose      Increase verbosity
@@ -270,15 +270,26 @@ git_commit_from_instance_dir() {
 }
 
 list_instances() {
-  local matches=()
-  readarray -d '' matches < <(
-    find "${INSTANCES}" -mindepth 1 -maxdepth 1 -type d \
-      -iname "*${PROJECT_NAME}*" -print0 |
+  # Find instances and filter based on search term.
+  # PROJECT_NAME is used as a grep -E search pattern here.
+  local i=()
+  readarray -d '' i < <(
+    find "${INSTANCES}" -mindepth 1 -maxdepth 1 -type d -print0 |
     sort -z
   )
-  for instance in "${matches[@]}"; do
+  for instance in "${i[@]}"; do
     # skip directories that aren't instances
     [[ -f "${instance}/docker-compose.yml" ]] || continue
+
+    # Filter instances
+    # 1. instance name/project dir matches
+    if grep -E -q "$PROJECT_NAME" <<< "$(basename $instance)"; then :
+    # 2. metadata matches
+    elif [[ -f "${instance}/metadata.txt" ]] &&
+      grep -E -q "$PROJECT_NAME" "${instance}/metadata.txt"; then :
+    else
+      continue
+    fi
 
     local shortname=$(basename "$instance")
     local version=$(ping_instance "$instance")
