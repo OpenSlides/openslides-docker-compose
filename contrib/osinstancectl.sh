@@ -314,6 +314,7 @@ list_instances() {
 
     # Parse docker-compose.yml
     local git_commit=$(git_commit_from_instance_dir "$instance")
+    local git_repo=$(git_repo_from_instance_dir "$instance")
 
     # Parse admin credentials file
     local OPENSLIDES_ADMIN_PASSWORD="—"
@@ -356,7 +357,8 @@ list_instances() {
     if [[ -n "$VERBOSE" ]]; then
       printf "   ├ %-12s %s\n" "Directory:" "$instance"
       printf "   ├ %-12s %s\n" "Version:" "$version"
-      printf "   ├ %-12s %s\n" "Git:" "$git_commit"
+      printf "   ├ %-12s %s\n" "Git rev:" "$git_commit"
+      printf "   ├ %-12s %s\n" "Git repo:" "$git_repo"
       printf "   ├ %-12s %s\n" "Local port:" "$(local_port $instance)"
       printf "   ├ %-12s %s : %s\n" "Login:" "admin" "$OPENSLIDES_ADMIN_PASSWORD"
 
