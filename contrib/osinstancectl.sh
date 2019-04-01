@@ -20,7 +20,8 @@ PROJECT_NAME=
 PROJECT_DIR=
 PORT=
 MODE=
-VERBOSE=
+OPT_LONGLIST=
+OPT_METADATA=
 OPT_ADD_ACCOUNT=1
 OPT_LOCALONLY=
 OPT_FORCE=
@@ -70,7 +71,8 @@ Action:
                      necessary)
 
 Options:
-  -v, --verbose      Increase verbosity
+  -l, --long         Include more information in extended listing format
+  -m, --metadata     Include metadata in instance list
   -n, --online       In list view, show only online instances
   -f, --offline      In list view, show only offline instances
   -r, --revision     The OpenSlides version to check out (for use with \`add\`)
@@ -360,7 +362,7 @@ list_instances() {
         first_metadatum="${metadata[0]}"
         # Shorten if necessary.  This string will be printed as a column of the
         # general output, so it should not cause linebreaks.  Since the same
-        # information will additionally be displayed in the --verbose output,
+        # information will additionally be displayed in the extended output,
         # we can just cut if off here.
         # Ideally, we'd dynamically adjust to how much space is available.
         [[ "${#first_metadatum}" -le 40 ]] || {
@@ -373,7 +375,7 @@ list_instances() {
     fi
 
     printf "%s %-40s\t%s\n" "$sym" "$shortname" "$first_metadatum"
-    if [[ -n "$VERBOSE" ]]; then
+    if [[ -n "$OPT_LONGLIST" ]]; then
       printf "   ├ %-12s %s\n" "Directory:" "$instance"
       printf "   ├ %-12s %s\n" "Version:" "$version"
       printf "   ├ %-12s %s\n" "Git rev:" "$git_commit"
@@ -385,7 +387,9 @@ list_instances() {
       [[ -n "$user_name" ]] &&
         printf "   ├ %-12s \"%s\" : %s\n" \
           "Login:" "$user_name" "$OPENSLIDES_USER_PASSWORD"
+    fi
 
+    if [[ -n "$OPT_METADATA" ]]; then
       if [[ ${#metadata[@]} -ge 1 ]]; then
         printf "   └ %s\n" "Metadata:"
         for m in "${metadata[@]}"; do
@@ -479,9 +483,10 @@ instance_update() {
 }
 
 
-shortopt="hvnfr:R:d:"
-longopt="help,revision:,repo:,verbose,online,offline,no-add-account"
-longopt+=",clone-from:,local-only,color:,force,project-dir:"
+shortopt="hlmnfr:R:d:"
+longopt="help,color:,force,project-dir:"
+longopt+=",online,offline,long,metadata"
+longopt+=",clone-from:,local-only,revision:,repo:,no-add-account"
 
 ARGS=$(getopt -o "$shortopt" -l "$longopt" -n "$ME" -- "$@")
 if [ $? -ne 0 ]; then usage; exit 1; fi
@@ -510,8 +515,12 @@ while true; do
       OPT_ADD_ACCOUNT=
       shift 1
       ;;
-    -v|--verbose)
-      VERBOSE=1
+    -l|--long)
+      OPT_LONGLIST=1
+      shift 1
+      ;;
+    -m|--metadata)
+      OPT_METADATA=1
       shift 1
       ;;
     -n|--online)
