@@ -13,6 +13,7 @@ TEMPLATE_REPO="/srv/openslides/openslides-docker-compose"
 # TEMPLATE_REPO="https://github.com/OpenSlides/openslides-docker-compose"
 OSDIR="/srv/openslides"
 INSTANCES="${OSDIR}/docker-instances"
+MARKER=".osinstancectl-marker"
 
 NGINX_TEMPLATE=
 PROJECT_NAME=
@@ -100,6 +101,14 @@ arg_check() {
   fi
 }
 
+marker_check() {
+  [[ -f "${PROJECT_DIR}/${MARKER}" ]] || {
+    echo "ERROR: This instance was not created with $ME."
+    echo "       Refusing to delete unless --force is given."
+    exit 3
+  }
+}
+
 _docker_compose () {
   # This basically implements the missing docker-compose -C
   local project_dir="$1"
@@ -168,6 +177,7 @@ create_instance_dir() {
   [[ -d "${PROJECT_DIR}/secrets" ]] ||
     mkdir -m 700 "${PROJECT_DIR}/secrets"
   touch "${PROJECT_DIR}/secrets/${ADMIN_SECRETS_FILE}"
+  touch "${PROJECT_DIR}/${MARKER}"
 }
 
 gen_pw() {
@@ -539,10 +549,10 @@ case "$OPT_COLOR" in
     ;;
 esac
 
-
 case "$MODE" in
   remove)
     arg_check || { usage; exit 2; }
+    [[ -n "$OPT_FORCE" ]] || marker_check
     remove "$PROJECT_NAME"
     exit 0
     ;;

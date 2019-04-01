@@ -2,3 +2,4 @@ docker-compose.yml
 /secrets/adminsecret.env
 /secrets/usersecret.env
 /metadata.txt
+/.osinstancectl-marker
