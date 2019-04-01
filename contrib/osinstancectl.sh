@@ -74,6 +74,7 @@ Options:
   -f, --offline      In list view, show only offline instances
   -r, --revision     The OpenSlides version to check out (for use with \`add\`)
   -R, --repo         The OpenSlides repository to pull from (for use with \`add\`)
+  -d, --project-dir  Directly specify the project directory
   --no-add-account   Do not add an additional, customized local admin account
   --force            Disable various safety checks
   --local-only       Create an instance without setting up Nginx and Let's
@@ -461,9 +462,9 @@ instance_erase() {
 }
 
 
-shortopt="hvnfr:R:"
+shortopt="hvnfr:R:d:"
 longopt="help,revision:,repo:,verbose,online,offline,no-add-account"
-longopt+=",clone-from:,local-only,color:,force"
+longopt+=",clone-from:,local-only,color:,force,project-dir:"
 
 ARGS=$(getopt -o "$shortopt" -l "$longopt" -n "$ME" -- "$@")
 if [ $? -ne 0 ]; then usage; exit 1; fi
@@ -475,6 +476,11 @@ unset ARGS
 # Parse options
 while true; do
   case "$1" in
+    -d|--project-dir)
+      PROJECT_DIR="$2"
+      PROJECT_NAME=$(basename $(readlink -f "$PROJECT_DIR"))
+      shift 2
+      ;;
     -r|--revision)
       GIT_CHECKOUT="$2"
       shift 2
@@ -576,7 +582,7 @@ for i in "${DEPS[@]}"; do
     check_for_dependency "$i"
 done
 
-PROJECT_DIR="${INSTANCES}/${PROJECT_NAME}"
+[[ -n "$PROJECT_DIR" ]] || PROJECT_DIR="${INSTANCES}/${PROJECT_NAME}"
 DCCONFIG="${PROJECT_DIR}/docker-compose.yml"
 NGINX_TEMPLATE="${PROJECT_DIR}/contrib/nginx.conf.in"
 
