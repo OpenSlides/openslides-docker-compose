@@ -507,6 +507,7 @@ done
 MODE=${MODE:-list}
 
 DEPS=(
+  docker-compose
   gawk
   acmetool
 )
