@@ -22,6 +22,7 @@ MODE=
 VERBOSE=
 OPT_ADD_ACCOUNT=1
 OPT_LOCALONLY=
+OPT_FORCE=
 FILTER=
 GIT_CHECKOUT=
 GIT_REPO=
@@ -69,6 +70,7 @@ Options:
   -r, --revision     The OpenSlides version to check out (for use with \`add\`)
   -R, --repo         The OpenSlides repository to pull from (for use with \`add\`)
   --no-add-account   Do not add an additional, customized local admin account
+  --force            Disable various safety checks
   --local-only       Create an instance without setting up Nginx and Let's
                      Encrypt certificates.  Such an instance is only accessible
                      on localhost, e.g., http://127.1:61000.
@@ -421,7 +423,7 @@ append_metadata() {
 
 shortopt="hvnfr:R:"
 longopt="help,revision:,repo:,verbose,online,offline,no-add-account"
-longopt+=",clone-from:,local-only,color:"
+longopt+=",clone-from:,local-only,color:,force"
 
 ARGS=$(getopt -o "$shortopt" -l "$longopt" -n "$ME" -- "$@")
 if [ $? -ne 0 ]; then usage; exit 1; fi
@@ -468,6 +470,10 @@ while true; do
     --color)
       OPT_COLOR="$2"
       shift 2
+      ;;
+    --force)
+      OPT_FORCE=1
+      shift 1
       ;;
     -h|--help) usage; exit 0 ;;
     --) shift ; break ;;
@@ -542,7 +548,7 @@ case "$MODE" in
     ;;
   create)
     arg_check || { usage; exit 2; }
-    verify_domain
+    [[ -n "$OPT_FORCE" ]] || verify_domain
     query_user_account_name
     echo "Creating new instance: $PROJECT_NAME"
     PORT=$(next_free_port)
@@ -556,7 +562,7 @@ case "$MODE" in
   clone)
     CLONE_FROM_DIR="${INSTANCES}/${CLONE_FROM}"
     arg_check || { usage; exit 2; }
-    verify_domain
+    [[ -n "$OPT_FORCE" ]] || verify_domain
     echo "Creating new instance: $PROJECT_NAME (based on $CLONE_FROM)"
     PORT=$(next_free_port)
     [[ -n "$GIT_CHECKOUT" ]] ||
