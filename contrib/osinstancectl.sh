@@ -65,6 +65,7 @@ Action:
   rm                 Remove <instance> (requires FQDN).
   start              Start an existing instance
   stop               Stop a running instance
+  update             Update OpenSlides to a new --revision
   erase              Remove an instance's volumes (stops the instance if
                      necessary)
 
@@ -461,6 +462,22 @@ instance_erase() {
   _docker_compose "$PROJECT_DIR" down --volumes
 }
 
+instance_update() {
+  ex -s +"%s/GIT_CHECKOUT: \zs.*/${GIT_CHECKOUT}/" +x "$DCCONFIG"
+  _docker_compose "$PROJECT_DIR" build
+  _docker_compose "$PROJECT_DIR" create
+  local server="$(_docker_compose "$PROJECT_DIR" ps -q server)"
+  # Delete staticfiles volume
+  local vol=$(docker inspect --format \
+      '{{ range .Mounts }}{{ if eq .Destination "/app/openslides/static" }}{{ .Name }}{{ end }}{{ end }}' \
+      "$server"
+  )
+  _docker_compose "$PROJECT_DIR" up -d --scale server=0 --scale client=0
+  echo "Deleting staticfiles volume"
+  docker volume rm "$vol"
+  _docker_compose "$PROJECT_DIR" up -d --scale server=1 --scale client=1
+}
+
 
 shortopt="hvnfr:R:d:"
 longopt="help,revision:,repo:,verbose,online,offline,no-add-account"
@@ -561,6 +578,15 @@ for arg; do
       MODE=erase
       shift 1
       ;;
+    update)
+      [[ -z "$MODE" ]] || { usage; exit 2; }
+      MODE=update
+      [[ -n "$GIT_CHECKOUT" ]] || {
+        echo "ERROR: Need revision for update"
+        exit 2
+      }
+      shift 1
+      ;;
     *)
       # The final argument should be the project name/search pattern
       PROJECT_NAME="$arg"
@@ -573,6 +599,7 @@ done
 MODE=${MODE:-list}
 
 DEPS=(
+  docker
   docker-compose
   gawk
   acmetool
@@ -657,4 +684,9 @@ case "$MODE" in
       Y|y|Yes|yes|YES)
         instance_erase ;;
     esac
+    ;;
+  update)
+    arg_check || { usage; exit 2; }
+    instance_update
+    ;;
 esac
