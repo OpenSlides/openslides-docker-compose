@@ -268,7 +268,20 @@ remove() {
 
 local_port() {
   [[ -f "${1}/docker-compose.yml" ]] &&
-  grep -A1 ports: "${instance}/docker-compose.yml" | tail -1 | cut -d: -f2
+  gawk 'BEGIN { FS=":" }
+    $0 ~ / +ports:$/ { s = 1; next; }
+    s == 1 && NF == 2 {
+      gsub(/[\ "-]/, "")
+      # split($2, a, /\//) # 80/tcp
+      print $1
+      exit
+    }
+    s == 1 && NF == 3 {
+      gsub(/"/, "", "g")
+      # split($3, a, /\//) # 80/tcp
+      print $2
+      exit
+    }' "${instance}/docker-compose.yml"
   # better but slower:
   # docker inspect --format '{{ (index (index .NetworkSettings.Ports "80/tcp") 0).HostPort }}' \
   #   $(docker-compose ps -q client))
