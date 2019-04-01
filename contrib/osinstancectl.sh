@@ -63,6 +63,10 @@ Action:
                      a grep ERE search pattern in this case.
   add                Add a new instance for the given domain (requires FQDN).
   rm                 Remove <instance> (requires FQDN).
+  start              Start an existing instance
+  stop               Stop a running instance
+  erase              Remove an instance's volumes (stops the instance if
+                     necessary)
 
 Options:
   -v, --verbose      Increase verbosity
@@ -138,6 +142,9 @@ verify_domain() {
 
 next_free_port() {
   # Select new port
+  #
+  # `docker-compose port client 80` would be a nicer way to get the port
+  # mapping; however, it is only available for running services.
   local HIGHEST_PORT_IN_USE=$(
     find "${INSTANCES}" -type f -name docker-compose.yml -print0 |
     xargs -0 grep -h -o "127.0.0.1:61[0-9]\{3\}:80"|
@@ -243,9 +250,7 @@ remove() {
   [[ "$ANS" = "YES" ]] || return 0
 
   echo "Stopping and removing containers..."
-  cd "${PROJECT_DIR}" &&
-    ./handle-instance.sh -f rm
-  cd
+  instance_erase
   echo "Removing instance repo dir..."
   rm -rf "${PROJECT_DIR}"
   echo "Remove config from Nginx..."
@@ -431,6 +436,31 @@ append_metadata() {
   printf "%s\n" "$2" >> "${1}/metadata.txt"
 }
 
+ask_start() {
+  local start=
+  read -p "Start containers? [Y/n] " start
+  case "$start" in
+    Y|y|Yes|yes|YES|"")
+      instance_start ;;
+    *)
+      echo "Not starting containers." ;;
+  esac
+}
+
+instance_start() {
+  _docker_compose "$PROJECT_DIR" build
+  _docker_compose "$PROJECT_DIR" up -d
+}
+
+instance_stop() {
+  _docker_compose "$PROJECT_DIR" down
+}
+
+instance_erase() {
+  _docker_compose "$PROJECT_DIR" down --volumes
+}
+
+
 shortopt="hvnfr:R:"
 longopt="help,revision:,repo:,verbose,online,offline,no-add-account"
 longopt+=",clone-from:,local-only,color:,force"
@@ -510,6 +540,21 @@ for arg; do
       MODE=remove
       shift 1
       ;;
+    start)
+      [[ -z "$MODE" ]] || { usage; exit 2; }
+      MODE=start
+      shift 1
+      ;;
+    stop)
+      [[ -z "$MODE" ]] || { usage; exit 2; }
+      MODE=stop
+      shift 1
+      ;;
+    erase)
+      [[ -z "$MODE" ]] || { usage; exit 2; }
+      MODE=erase
+      shift 1
+      ;;
     *)
       # The final argument should be the project name/search pattern
       PROJECT_NAME="$arg"
@@ -519,7 +564,6 @@ for arg; do
 done
 
 # Default mode: list
-# [[ -n "$MODE" ]] || { MODE=list; }
 MODE=${MODE:-list}
 
 DEPS=(
@@ -554,7 +598,6 @@ case "$MODE" in
     arg_check || { usage; exit 2; }
     [[ -n "$OPT_FORCE" ]] || marker_check
     remove "$PROJECT_NAME"
-    exit 0
     ;;
   create)
     arg_check || { usage; exit 2; }
@@ -568,6 +611,7 @@ case "$MODE" in
     create_admin_secrets_file
     create_user_secrets_file "${OPENSLIDES_USER_FIRSTNAME}" "${OPENSLIDES_USER_LASTNAME}"
     update_nginx_config
+    ask_start
     ;;
   clone)
     CLONE_FROM_DIR="${INSTANCES}/${CLONE_FROM}"
@@ -587,18 +631,24 @@ case "$MODE" in
     clone_db
     update_nginx_config
     append_metadata "$PROJECT_DIR" "Cloned from $CLONE_FROM on $(date)"
+    ask_start
     ;;
   list)
     list_instances
-    exit 0
-esac
-
-START=
-read -p "Start containers? [Y/n] " START
-case "$START" in
-  Y|y|Yes|yes|YES|"")
-    cd "${PROJECT_DIR}" &&
-    ./handle-instance.sh -f run ;;
-  *)
-    echo "Not starting containers." ;;
+    ;;
+  start)
+    arg_check || { usage; exit 2; }
+    instance_start ;;
+  stop)
+    arg_check || { usage; exit 2; }
+    instance_stop ;;
+  erase)
+    arg_check || { usage; exit 2; }
+    echo "WARNING: This will stop the instance, and remove its containers and volumes!"
+    ERASE=
+    read -p "Continue? [y/N] " ERASE
+    case "$ERASE" in
+      Y|y|Yes|yes|YES)
+        instance_erase ;;
+    esac
 esac
