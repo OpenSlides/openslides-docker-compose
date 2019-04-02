@@ -69,6 +69,7 @@ Action:
   update             Update OpenSlides to a new --revision
   erase              Remove an instance's volumes (stops the instance if
                      necessary)
+  flush              Flush Redis cache
 
 Options:
   -l, --long         Include more information in extended listing format
@@ -495,6 +496,13 @@ instance_update() {
   _docker_compose "$PROJECT_DIR" up -d --scale server=1 --scale client=1
 }
 
+instance_flush() {
+  _docker_compose "$PROJECT_DIR" up -d --scale server=0
+  local redis="$(_docker_compose "$PROJECT_DIR" ps -q redis)"
+  docker exec "$redis" redis-cli flushall
+  _docker_compose "$PROJECT_DIR" up -d --scale server=1
+}
+
 
 shortopt="hlmnfr:R:d:"
 longopt="help,color:,force,project-dir:"
@@ -598,6 +606,11 @@ for arg; do
     erase)
       [[ -z "$MODE" ]] || { usage; exit 2; }
       MODE=erase
+      shift 1
+      ;;
+    flush)
+      [[ -z "$MODE" ]] || { usage; exit 2; }
+      MODE=flush
       shift 1
       ;;
     update)
@@ -710,5 +723,8 @@ case "$MODE" in
   update)
     arg_check || { usage; exit 2; }
     instance_update
+    ;;
+  flush)
+    instance_flush
     ;;
 esac
