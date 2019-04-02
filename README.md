@@ -27,11 +27,6 @@ The suite consists of the following...
 * ```redisdata``` (files of ```redis```)
 
 
-## ```handle_instance.sh```
-
-The ```handle_instance.sh``` script wraps the most important functions. Invoke
-it with ```-h``` the get some help-text.
-
 ## How to Use
 
 Each copy of this directory represents one OpenSlides instance, so to begin,
