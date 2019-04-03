@@ -122,5 +122,7 @@ connections.
 ```contrib``` contains tools that should come in handy if you are running
 multiple OpenSlides instances:
 
-  - osinstancectl.sh: one-step instance creation
+  - osinstancectl.sh: instance management tool
+  - rosinstancectl.sh: wrapper around clustershell to run osinstancectl on
+    multiple hosts
   - openlides-docker-pg-dump.sh: creates SQL dumps for all instances
