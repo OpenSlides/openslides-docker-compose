@@ -29,19 +29,32 @@ services:
     depends_on:
       - postfix
       - postgres
-      - redis
+      - redissession
+      - rediscache
+      - redischannel
     networks:
       - front
       - back
     sysctls:
       net.core.somaxconn: 1024
       net.ipv4.ip_local_port_range: 1024 60999
-  redis:
+  redissession:
+    image: redis:alpine
+    restart: always
+    volumes:
+      - "redisdata:/data"
+    networks:
+      - back
+  rediscache:
     image: redis:alpine
     restart: always
     command: ["redis-server", "--save", ""]
-    volumes:
-      - "redisdata:/data"
+    networks:
+      - back
+  redischannel:
+    image: redis:alpine
+    restart: always
+    command: ["redis-server", "--save", ""]
     networks:
       - back
   client:
