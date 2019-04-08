@@ -91,20 +91,25 @@ Options:
 EOF
 }
 
+fatal() {
+    echo 1>&2 "${COL_RED}ERROR${COL_NORMAL}: $*"
+    exit 23
+}
+
 check_for_dependency () {
     [[ -n "$1" ]] || return 0
-    which "$1" > /dev/null || { echo "ERROR: Dependency not found: $1"; return 1; }
+    which "$1" > /dev/null || { fatal "Dependency not found: $1"; }
 }
 
 
 arg_check() {
-  [[ -d "$OSDIR" ]] || { echo "ERROR: $OSDIR not found!"; return 2; }
+  [[ -d "$OSDIR" ]] || { fatal "$OSDIR not found!"; }
   [[ -n "$PROJECT_NAME" ]] || {
-    echo "ERROR: Please specify a project name"; return 2;
+    fatal "Please specify a project name"; return 2;
   }
   if [[ "$MODE" = "clone" ]]; then
     [[ -d "$CLONE_FROM_DIR" ]] || {
-      echo "ERROR: $CLONE_FROM_DIR does not exist."
+      fatal "$CLONE_FROM_DIR does not exist."
       return 2
     }
   fi
@@ -112,9 +117,8 @@ arg_check() {
 
 marker_check() {
   [[ -f "${PROJECT_DIR}/${MARKER}" ]] || {
-    echo "ERROR: This instance was not created with $ME."
-    echo "       Refusing to delete unless --force is given."
-    exit 3
+    fatal "This instance was not created with $ME." \
+      "Refusing to delete unless --force is given."
   }
 }
 
@@ -139,7 +143,7 @@ verify_domain() {
   HOSTNAME=$(hostname -f)
   IP=$(host "$HOSTNAME" | awk '/has address/ { print $4; exit; } /has IPv6 address/ { print $5}')
   host "$PROJECT_NAME" | grep -q "$IP" || {
-    echo "ERROR: $PROJECT_NAME does not point to this host?"
+    fatal "$PROJECT_NAME does not point to this host?"
     return 3
   }
 }
@@ -163,7 +167,7 @@ next_free_port() {
   #  instances outside of the regular instances directory)
   n=0
   while ! ss -tnHl | awk -v port="$PORT" '$4 ~ port { exit 2 }'; do
-    [[ $n -lt 5 ]] || { echo "ERROR: Could not find free port"; exit 3; }
+    [[ $n -lt 5 ]] || { fatal "Could not find free port"; }
     ((PORT+=1))
     ((n+=1))
   done
@@ -244,8 +248,7 @@ update_nginx_config() {
 remove() {
   local PROJECT_NAME="$1"
   [[ -d "$PROJECT_DIR" ]] || {
-    echo "ERROR: $PROJECT_DIR does not exist."
-    return 2
+    fatal "$PROJECT_DIR does not exist."
   }
   # Ask for confirmation
   local ANS=
@@ -617,8 +620,7 @@ for arg; do
       [[ -z "$MODE" ]] || { usage; exit 2; }
       MODE=update
       [[ -n "$GIT_CHECKOUT" ]] || {
-        echo "ERROR: Need revision for update"
-        exit 2
+        fatal "Need revision for update"
       }
       shift 1
       ;;
@@ -632,6 +634,17 @@ done
 
 # Default mode: list
 MODE=${MODE:-list}
+
+case "$OPT_COLOR" in
+  auto)
+    if [[ -t 1 ]]; then enable_color; fi ;;
+  always)
+    enable_color ;;
+  never) true ;;
+  *)
+    fatal "Unknown option to --color" ;;
+esac
+
 
 DEPS=(
   docker
@@ -647,19 +660,6 @@ done
 [[ -n "$PROJECT_DIR" ]] || PROJECT_DIR="${INSTANCES}/${PROJECT_NAME}"
 DCCONFIG="${PROJECT_DIR}/docker-compose.yml"
 NGINX_TEMPLATE="${PROJECT_DIR}/contrib/nginx.conf.in"
-
-case "$OPT_COLOR" in
-  auto)
-    if [[ -t 1 ]]; then enable_color; fi ;;
-  always)
-    enable_color ;;
-  never) true ;;
-  *)
-    echo "ERROR: Unknown option to --color"
-    usage
-    exit 2
-    ;;
-esac
 
 case "$MODE" in
   remove)
