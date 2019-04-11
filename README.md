@@ -12,6 +12,7 @@ The suite consists of the following...
 * ```client``` (Client of OpenSlides)
 * ```postgres``` (Database)
 * ```redis``` (Cache Database)
+* ```rediscache``` (Cache Database)
 * ```postfix``` (Mail sending system)
 
 ...networks:

@@ -77,8 +77,8 @@ RUN sed -i \
   -e "/EMAIL_HOST_USER/s/''/'openslides'/" \
   -e "/EMAIL_HOST_PASSWORD/s/''/'openslides'/" \
   -e "/use_redis/s/False/True/" \
-  -e "/\"hosts\":.*6379/s/localhost/redischannel/" \
-  -e "/'host':/s/127\.0\.0\.1/redissession/" \
+  -e "/\"hosts\":.*6379/s/localhost/redis/" \
+  -e "/'host':/s/127\.0\.0\.1/redis/" \
   -e "/REDIS_ADDRESS/s/127\.0\.0\.1/rediscache:6379\/0/" \
   -e "/'ENGINE':\ 'django\.db\.backends/s/sqlite3/postgresql/" \
   -e "/^\s*'NAME'/s/\(^.*'NAME':\).*/\1\ 'openslides',/" \
