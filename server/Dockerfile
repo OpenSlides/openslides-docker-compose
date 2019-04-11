@@ -66,8 +66,6 @@ RUN ng config -g cli.warnings.versionMismatch false && \
   npm install
 RUN cd client && \
   npm run build && \
-  ./node_modules/.bin/compodoc -t -p src/tsconfig.app.json \
-    -n 'OpenSlides Documentation' -d ../openslides/static/doc -e html && \
   rm -fr /app/client/node_modules
 
 RUN python manage.py createsettings
