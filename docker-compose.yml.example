@@ -14,7 +14,7 @@ services:
       args:
         # Change according to your details
         REPOSITORY_URL: https://github.com/OpenSlides/OpenSlides.git
-        GIT_CHECKOUT: 6eea0648627d15996f9701ff5183714b8eb8b90a
+        GIT_CHECKOUT: master
     # Below is the default command.  You can uncomment it to override the
     # number of workers, for example:
     # command: "gunicorn -w 8 -b 0.0.0.0:8000 -k uvicorn.workers.UvicornWorker

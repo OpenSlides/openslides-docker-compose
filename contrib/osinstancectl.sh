@@ -485,7 +485,7 @@ instance_erase() {
 
 instance_update() {
   ex -s +"%s/GIT_CHECKOUT: \zs.*/${GIT_CHECKOUT}/" +x "$DCCONFIG"
-  _docker_compose "$PROJECT_DIR" build
+  _docker_compose "$PROJECT_DIR" build --no-cache server
   _docker_compose "$PROJECT_DIR" create
   local server="$(_docker_compose "$PROJECT_DIR" ps -q server)"
   # Delete staticfiles volume
