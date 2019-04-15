@@ -80,8 +80,8 @@ services:
     image: postfix
     restart: always
     environment:
-      - maildomain=localhost
-      - smtp_user=openslides:openslides
+      - MYHOSTNAME=localhost
+      - RELAYHOST=[136.243.0.249]
     networks:
       - back
 volumes:

@@ -72,8 +72,6 @@ RUN python manage.py createsettings
 RUN sed -i \
   -e "/EMAIL_HOST\ /s/localhost/postfix/" \
   -e "/EMAIL_PORT/s/587/25/" \
-  -e "/EMAIL_HOST_USER/s/''/'openslides'/" \
-  -e "/EMAIL_HOST_PASSWORD/s/''/'openslides'/" \
   -e "/use_redis/s/False/True/" \
   -e "/\"hosts\":.*6379/s/localhost/redis/" \
   -e "/'host':/s/127\.0\.0\.1/redis/" \

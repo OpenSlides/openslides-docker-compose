@@ -183,7 +183,11 @@ create_config_from_template() {
     gitrepo != "" && $1 ~ /REPOSITORY_URL/ { $0 = $1 ": " gitrepo }
     NF==3 && $1 ~ /127\.0\.0\.1/ && $3 ~ /80"$/ { $2 = port }
     1
-  ' "$templ" > "$config"
+    ' "$templ" |
+  gawk -v proj="$PROJECT_NAME" '
+    BEGIN {FS="="; OFS=FS}
+    $1 ~ /RELAYHOST$/ { $2 = proj } 1
+  ' > "$config"
 }
 
 create_instance_dir() {

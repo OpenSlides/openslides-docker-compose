@@ -1,0 +1,16 @@
+#!/bin/bash
+
+echo "Configuring Postfix..."
+postconf -e "maillog_file = /dev/stdout"
+postconf -e "myhostname = $MYHOSTNAME"
+postconf -e "relayhost = $RELAYHOST"
+postconf -e "mynetworks = 127.0.0.0/8 [::ffff:127.0.0.0]/104 [::1]/128 172.0.0.0/8 192.0.0.0/8"
+
+echo "Disabling chroot..."
+awk '$5=="y" {$5="n"}1' /etc/postfix/master.cf > /tmp/master.cf &&
+  mv -f /tmp/master.cf /etc/postfix/master.cf
+
+echo "Executing command..."
+exec $@
+
+# vim: set ft=sh:
