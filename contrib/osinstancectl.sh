@@ -489,6 +489,9 @@ instance_erase() {
 
 instance_update() {
   ex -s +"%s/GIT_CHECKOUT: \zs.*/${GIT_CHECKOUT}/" +x "$DCCONFIG"
+  if [[ -n "$GIT_REPO" ]]; then
+    ex -s +"%s<REPOSITORY_URL: \zs.*<${GIT_REPO}<" +x "$DCCONFIG"
+  fi
   local build_opt=
   [[ -z "$OPT_FORCE" ]] || local build_opt="--no-cache"
   _docker_compose "$PROJECT_DIR" build "$build_opt" server
