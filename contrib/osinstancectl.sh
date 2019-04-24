@@ -186,7 +186,7 @@ create_config_from_template() {
     ' "$templ" |
   gawk -v proj="$PROJECT_NAME" '
     BEGIN {FS="="; OFS=FS}
-    $1 ~ /RELAYHOST$/ { $2 = proj } 1
+    $1 ~ /MYHOSTNAME$/ { $2 = proj } 1
   ' > "$config"
 }
 
