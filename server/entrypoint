@@ -52,7 +52,7 @@ if [[ -f /run/secrets/os_user ]] && [[ ! -f /app/personal_data/user-added ]]; th
       "${OPENSLIDES_USER_LASTNAME}" \
       "${user_name}" \
       "${OPENSLIDES_USER_PASSWORD}" \
-      3
+      2
     # Note password change in persistent volume
     touch /app/personal_data/user-added
   else
