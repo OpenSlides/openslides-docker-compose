@@ -33,6 +33,7 @@ ADMIN_SECRETS_FILE="adminsecret.env"
 USER_SECRETS_FILE="usersecret.env"
 OPENSLIDES_USER_FIRSTNAME=
 OPENSLIDES_USER_LASTNAME=
+RELAYHOST=
 
 # Color and formatting settings
 OPT_COLOR=auto
@@ -78,6 +79,8 @@ Options:
   -f, --offline      In list view, show only offline instances
   -r, --revision     The OpenSlides version to check out (for use with \`add\`)
   -R, --repo         The OpenSlides repository to pull from (for use with \`add\`)
+  --mailserver       Mail server to configure as Postfix's smarthost (default
+                     is the host system)
   -d, --project-dir  Directly specify the project directory
   --no-add-account   Do not add an additional, customized local admin account
   --force            Disable various safety checks
@@ -184,9 +187,11 @@ create_config_from_template() {
     NF==3 && $1 ~ /127\.0\.0\.1/ && $3 ~ /80"$/ { $2 = port }
     1
     ' "$templ" |
-  gawk -v proj="$PROJECT_NAME" '
+  gawk -v proj="$PROJECT_NAME" -v relay="$RELAYHOST" '
     BEGIN {FS="="; OFS=FS}
-    $1 ~ /MYHOSTNAME$/ { $2 = proj } 1
+    $1 ~ /MYHOSTNAME$/ { $2 = proj }
+    relay != "" && $1 ~ /RELAYHOST$/ { $2 = relay }
+    1
   ' > "$config"
 }
 
@@ -519,7 +524,7 @@ instance_flush() {
 shortopt="hlmnfr:R:d:"
 longopt="help,color:,force,project-dir:"
 longopt+=",online,offline,long,metadata"
-longopt+=",clone-from:,local-only,revision:,repo:,no-add-account"
+longopt+=",clone-from:,local-only,revision:,repo:,no-add-account,mailserver:"
 
 ARGS=$(getopt -o "$shortopt" -l "$longopt" -n "$ME" -- "$@")
 if [ $? -ne 0 ]; then usage; exit 1; fi
@@ -542,6 +547,10 @@ while true; do
       ;;
     -R|--repo)
       GIT_REPO="$2"
+      shift 2
+      ;;
+    --mailserver)
+      RELAYHOST="$2"
       shift 2
       ;;
     --no-add-account)

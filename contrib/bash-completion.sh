@@ -7,7 +7,7 @@ _osinstancectl()
   opts="ls add rm start stop update erase flush"
   opts+=" --help --long --metadata --online --offline --no-add-account"
   opts+=" --revision --repo --clone-from --force --color --project-dir"
-  opts+=" --local-only"
+  opts+=" --local-only --mailserver"
   diropts="ls|rm|start|stop|update|erase|flush|--clone-from"
 
   if [[ ${prev} =~ ${diropts} ]]; then
