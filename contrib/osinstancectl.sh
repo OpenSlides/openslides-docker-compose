@@ -8,13 +8,21 @@
 set -eu
 set -o noclobber
 
-ME=$(basename -s .sh "${BASH_SOURCE[0]}")
+# Defaults (override in /etc/osinstancectl)
 TEMPLATE_REPO="/srv/openslides/openslides-docker-compose"
 # TEMPLATE_REPO="https://github.com/OpenSlides/openslides-docker-compose"
 OSDIR="/srv/openslides"
 INSTANCES="${OSDIR}/docker-instances"
-MARKER=".osinstancectl-marker"
+# If set, these variables override the defaults in the
+# docker-compose.yml.example template file.  They can be configured on the
+# command line as well as in /etc/osinstancectl.
+GIT_REPO=
+GIT_CHECKOUT=
+RELAYHOST=
 
+ME=$(basename -s .sh "${BASH_SOURCE[0]}")
+CONFIG="/etc/osinstancectl"
+MARKER=".osinstancectl-marker"
 NGINX_TEMPLATE=
 PROJECT_NAME=
 PROJECT_DIR=
@@ -26,14 +34,11 @@ OPT_ADD_ACCOUNT=1
 OPT_LOCALONLY=
 OPT_FORCE=
 FILTER=
-GIT_CHECKOUT=
-GIT_REPO=
 CLONE_FROM=
 ADMIN_SECRETS_FILE="adminsecret.env"
 USER_SECRETS_FILE="usersecret.env"
 OPENSLIDES_USER_FIRSTNAME=
 OPENSLIDES_USER_LASTNAME=
-RELAYHOST=
 
 # Color and formatting settings
 OPT_COLOR=auto
@@ -532,6 +537,12 @@ eval set -- "$ARGS";
 unset ARGS
 
 # [[ $# -gt 1 ]] || { usage; exit 2; }
+
+# Config file
+if [[ -f "$CONFIG" ]]; then
+  echo "Reading settings from ${CONFIG}..."
+  source "$CONFIG"
+fi
 
 # Parse options
 while true; do
