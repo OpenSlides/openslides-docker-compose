@@ -250,8 +250,8 @@ update_nginx_config() {
   systemctl reload nginx
 
   # Generate Let's Encrypt certificate
+  echo "Generating certificate..."
   acmetool want "${PROJECT_NAME}"
-  echo "Got certificate."
 
   # Update Nginx to use TLS certs
   ex -s +"g/ssl-cert-snakeoil/d" +"g/ssl_certificate/s/#\ //" +x \
