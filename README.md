@@ -126,4 +126,4 @@ multiple OpenSlides instances:
   - osinstancectl.sh: instance management tool
   - rosinstancectl.sh: wrapper around clustershell to run osinstancectl on
     multiple hosts
-  - openlides-docker-pg-dump.sh: creates SQL dumps for all instances
+  - openslides-docker-pg-dump.sh: creates SQL dumps for all instances
