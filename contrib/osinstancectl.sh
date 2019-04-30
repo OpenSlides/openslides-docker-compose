@@ -625,12 +625,12 @@ for arg; do
       MODE=remove
       shift 1
       ;;
-    start)
+    start|up)
       [[ -z "$MODE" ]] || { usage; exit 2; }
       MODE=start
       shift 1
       ;;
-    stop)
+    stop|down)
       [[ -z "$MODE" ]] || { usage; exit 2; }
       MODE=stop
       shift 1
