@@ -82,8 +82,8 @@ Options:
   -m, --metadata     Include metadata in instance list
   -n, --online       In list view, show only online instances
   -f, --offline      In list view, show only offline instances
-  -r, --revision     The OpenSlides version to check out (for use with \`add\`)
-  -R, --repo         The OpenSlides repository to pull from (for use with \`add\`)
+  -r, --revision     The OpenSlides version to check out
+  -R, --repo         The OpenSlides repository to pull from
   --mailserver       Mail server to configure as Postfix's smarthost (default
                      is the host system)
   -d, --project-dir  Directly specify the project directory

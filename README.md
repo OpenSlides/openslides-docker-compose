@@ -65,46 +65,12 @@ To shut down the instance you simply type
 
     docker-compose down
 
-## Volumes and Persistent Data
+## Persistent Data
 
-The volumes (see above) will hold your persistent data.  To find out where they
-have been linked in your filesystem, list them with:
+The database cluster is stored in a volume.  It's path can be identified with:
 
-    docker volume ls
-
-Your output will look like this (or ```$PROJECT_NAME_certs``` if you specified
-a project name):
-
-    # docker volume ls
-    DRIVER              VOLUME NAME
-    local               5cbbf750b3d52a2e19615c96276c1144b27d637ec85ac46488f1f8fb86e259f3
-    local               85dc5658e1b7c01f77590f8c0adcb4a23b02eeaef2f76fb83f95fef3efb61082
-    local               88d855132874e6af0a5545e099626029a4dfb0501930454895d1846aba6da8fd
-    local               a88d6a57b9bc7c43433273421261de32a981d15f997678e94b40ec36f3d14f59
-    local               openslides1examplecom_dbdata
-    local               openslides1examplecom_personaldata
-    local               openslides1examplecom_redisdata
-    local               openslides1examplecom_staticfiles
-
-The last few volumes belong to the OpenSlides instance with the project name,
-i.e. directory name, "openslides1.example.com".
-You can read the mount point in the local filesystem:
-
-    # docker volume inspect openslidesdocker_dbdata
-    [
-      {
-        "CreatedAt": "2018-04-16T15:07:33+02:00",
-        "Driver": "local",
-        "Labels": {
-            "com.docker.compose.project": "openslides1examplecom",
-            "com.docker.compose.volume": "dbdata"
-        },
-        "Mountpoint": "/var/lib/docker/volumes/openslides1examplecom_dbdata/_data",
-        "Name": "openslides1examplecom_dbdata",
-        "Options": {},
-        "Scope": "local"
-      }
-    ]
+    docker inspect --format '{{range .Mounts}}{{.Source}}{{end}}' \
+      "$(docker-compose ps -q postgres)"
 
 ## Performance Optimizations
 
@@ -118,7 +84,7 @@ is a stress testing tool for OpenSlides instances.  You may find that the
 "server" service needs to be tweaked to handle very large numbers of
 connections.
 
-## Additional management scripts
+## Additional Management Scripts
 
 ```contrib``` contains tools that should come in handy if you are running
 multiple OpenSlides instances:
