@@ -540,7 +540,6 @@ unset ARGS
 
 # Config file
 if [[ -f "$CONFIG" ]]; then
-  echo "Reading settings from ${CONFIG}..."
   source "$CONFIG"
 fi
 
@@ -697,6 +696,7 @@ case "$MODE" in
     remove "$PROJECT_NAME"
     ;;
   create)
+    [[ -f "$CONFIG" ]] && echo "Found ${CONFIG} file." || true
     arg_check || { usage; exit 2; }
     [[ -n "$OPT_FORCE" ]] || verify_domain
     query_user_account_name
@@ -754,6 +754,7 @@ case "$MODE" in
     esac
     ;;
   update)
+    [[ -f "$CONFIG" ]] && echo "Found ${CONFIG} file." || true
     arg_check || { usage; exit 2; }
     instance_update
     ;;
