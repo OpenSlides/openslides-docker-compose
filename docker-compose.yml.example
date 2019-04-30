@@ -81,7 +81,7 @@ services:
     restart: always
     environment:
       - MYHOSTNAME=localhost
-      - RELAYHOST=[136.243.0.249]
+      - RELAYHOST=localhost
     networks:
       - back
 volumes:

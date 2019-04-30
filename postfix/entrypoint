@@ -1,5 +1,10 @@
 #!/bin/bash
 
+# Use Docker host system as mail smarthost if RELAYHOST is unconfigured
+if [[ -z "$RELAYHOST" ]] || [[ "$RELAYHOST" = "localhost" ]]; then
+  RELAYHOST=$(ip route | awk 'NR==1 {print $3}')
+fi
+
 echo "Configuring Postfix..."
 postconf -e "maillog_file = /dev/stdout"
 postconf -e "myhostname = $MYHOSTNAME"
