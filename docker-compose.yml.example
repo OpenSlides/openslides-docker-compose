@@ -37,6 +37,30 @@ services:
     sysctls:
       net.core.somaxconn: 1024
       net.ipv4.ip_local_port_range: 1024 60999
+  prioserver:
+    secrets:
+      - os_admin
+      - os_user
+    build:
+      context: ./server
+      args:
+        REPOSITORY_URL: https://github.com/OpenSlides/OpenSlides.git
+        GIT_CHECKOUT: master
+    command: "gunicorn -w 1 -b 0.0.0.0:8000 -k uvicorn.workers.UvicornWorker
+      openslides.asgi:application"
+    restart: always
+    volumes:
+      - "personaldata:/app/personal_data"
+      - "staticfiles:/app/openslides/static"
+    depends_on:
+      - postfix
+      - postgres
+      - redis
+      - rediscache
+      - server
+    networks:
+      - front
+      - back
   redis:
     image: redis:alpine
     restart: always
