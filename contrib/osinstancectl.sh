@@ -729,7 +729,7 @@ case "$MODE" in
     create_admin_secrets_file
     create_user_secrets_file "${OPENSLIDES_USER_FIRSTNAME}" "${OPENSLIDES_USER_LASTNAME}"
     update_nginx_config
-    [[ -z "OPT_LOCALONLY" ]] ||
+    [[ -z "$OPT_LOCALONLY" ]] ||
       append_metadata "$PROJECT_DIR" "No Nginx config added (--local-only)"
     ask_start
     ;;
@@ -751,7 +751,7 @@ case "$MODE" in
     clone_db
     update_nginx_config
     append_metadata "$PROJECT_DIR" "Cloned from $CLONE_FROM on $(date)"
-    [[ -z "OPT_LOCALONLY" ]] ||
+    [[ -z "$OPT_LOCALONLY" ]] ||
       append_metadata "$PROJECT_DIR" "No Nginx config added (--local-only)"
     ask_start
     ;;
