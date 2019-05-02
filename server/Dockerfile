@@ -68,21 +68,7 @@ RUN cd client && \
   npm run build && \
   rm -fr /app/client/node_modules
 
-RUN python manage.py createsettings
-RUN sed -i \
-  -e "/EMAIL_HOST\ /s/localhost/postfix/" \
-  -e "/EMAIL_PORT/s/587/25/" \
-  -e "/use_redis/s/False/True/" \
-  -e "/\"hosts\":.*6379/s/localhost/redis/" \
-  -e "/'host':/s/127\.0\.0\.1/redis/" \
-  -e "/REDIS_ADDRESS/s/127\.0\.0\.1/rediscache:6379\/0/" \
-  -e "/'ENGINE':\ 'django\.db\.backends/s/sqlite3/postgresql/" \
-  -e "/^\s*'NAME'/s/\(^.*'NAME':\).*/\1\ 'openslides',/" \
-  -e "/^\s*'NAME'/a\ \ \ \ \ \ \ \ 'USER': 'openslides',\n \
-       'PASSWORD': 'openslides',\n \
-       'HOST': 'postgres',\n \
-       'PORT': '5432'" \
-  personal_data/var/settings.py
+RUN mkdir -p /app/personal_data/var
 
 COPY entrypoint /usr/local/bin/
 ENTRYPOINT ["/usr/local/bin/entrypoint"]
