@@ -6,6 +6,14 @@ set -e
 
 wait-for-it --timeout=5 postgres:5432
 
+# For secondary/priority server instances, skip migrations etc. and instead
+# only wait for the main server instance to become available.
+if [[ "$SERVER_IS_SECONDARY" ]]; then
+  echo "This is a secondary server instance.  Waiting for main server..."
+  wait-for-it --timeout=10 server:8000
+  exec $*
+fi
+
 echo 'running migrations'
 python manage.py migrate
 
