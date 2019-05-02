@@ -527,9 +527,30 @@ instance_flush() {
 
 
 shortopt="hlmnfr:R:d:"
-longopt="help,color:,force,project-dir:"
-longopt+=",online,offline,long,metadata"
-longopt+=",clone-from:,local-only,revision:,repo:,no-add-account,mailserver:"
+longopt=(
+  help
+  color:
+  long
+  project-dir:
+  force
+
+  # filtering
+  online
+  offline
+  metadata
+
+  # adding instances
+  clone-from:
+  local-only
+  no-add-account
+  mailserver:
+
+  # adding & upgrading instances
+  revision:
+  repo:
+)
+# format options array to comma-separated string for getopt
+longopt=$(IFS=,; echo "${longopt[*]}")
 
 ARGS=$(getopt -o "$shortopt" -l "$longopt" -n "$ME" -- "$@")
 if [ $? -ne 0 ]; then usage; exit 1; fi
