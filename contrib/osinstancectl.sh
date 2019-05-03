@@ -309,7 +309,8 @@ ping_instance() {
   local instance="$1"
   local_port=$(local_port "$instance")
   # retrieve version string
-  curl --silent --max-time 0.1 "http://127.0.0.1:${local_port}/apps/core/version/" |
+  LC_NUMERIC=C curl --silent --max-time 0.1 \
+    "http://127.0.0.1:${local_port}/apps/core/version/" |
   gawk 'BEGIN { FPAT = "\"[^\"]*\"" } { gsub(/"/, "", $2); print $2}'
 }
 
