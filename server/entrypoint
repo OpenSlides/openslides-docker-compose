@@ -8,7 +8,7 @@ set -e
 # only wait for the main server instance to become available.
 if [[ "$SERVER_IS_SECONDARY" ]]; then
   echo "This is a secondary server instance.  Waiting for main server..."
-  wait-for-it --timeout=10 server:8000
+  wait-for-it --timeout=20 server:8000
   exec $*
 fi
 
