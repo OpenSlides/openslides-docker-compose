@@ -4,6 +4,48 @@
 
 set -e
 
+if [[ ! -f personal_data/var/settings.py ]]; then
+  python manage.py createsettings
+  echo "Creating settings.py"
+
+  # settings.py customizations for docker-compose setup
+  # Email server: use postfix service
+  sed -i \
+    -e "/EMAIL_HOST\ /s/localhost/postfix/" \
+    -e "/EMAIL_PORT/s/587/25/" \
+    personal_data/var/settings.py
+
+  # database: use postgres service
+  sed -i \
+    -e "/'ENGINE':\ 'django\.db\.backends/s/sqlite3/postgresql/" \
+    -e "/^\s*'NAME'/s/\(^.*'NAME':\).*/\1\ 'openslides',/" \
+    -e "/^\s*'NAME'/a\ \ \ \ \ \ \ \ 'USER': 'openslides',\n \
+        'PASSWORD': 'openslides',\n \
+        'HOST': 'postgres',\n \
+        'PORT': '5432'" \
+    personal_data/var/settings.py
+
+  # Enable redis
+  sed -i \
+    -e "/use_redis/s/False/True/" \
+    personal_data/var/settings.py
+
+  # Redis for Django channels
+  sed -i \
+    -e "/\"hosts\":.*6379/s/localhost/redis/" \
+    personal_data/var/settings.py
+
+  # Redis for collection cache
+  sed -i \
+    -e "/REDIS_ADDRESS/s/127\.0\.0\.1/rediscache:6379\/0/" \
+    personal_data/var/settings.py
+
+  # Redis for session backend
+  sed -i \
+    -e "/'host':/s/127\.0\.0\.1/redis/" \
+    personal_data/var/settings.py
+fi
+
 wait-for-it --timeout=5 postgres:5432
 
 # For secondary/priority server instances, skip migrations etc. and instead
