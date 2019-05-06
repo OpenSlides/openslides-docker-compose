@@ -517,6 +517,7 @@ instance_update() {
   echo "Deleting staticfiles volume"
   docker volume rm "$vol"
   _docker_compose "$PROJECT_DIR" up -d --scale server=1 --scale client=1
+  append_metadata "$PROJECT_DIR" "$(date +"%F %H:%M"): Updated to ${GIT_CHECKOUT}"
 }
 
 instance_flush() {
