@@ -505,17 +505,21 @@ instance_update() {
   local build_opt=
   [[ -z "$OPT_FORCE" ]] || local build_opt="--no-cache"
   _docker_compose "$PROJECT_DIR" build "$build_opt" server
-  _docker_compose "$PROJECT_DIR" create
+  echo "Creating services"
+  _docker_compose "$PROJECT_DIR" up --no-start
   local server="$(_docker_compose "$PROJECT_DIR" ps -q server)"
   # Delete staticfiles volume
   local vol=$(docker inspect --format \
       '{{ range .Mounts }}{{ if eq .Destination "/app/openslides/static" }}{{ .Name }}{{ end }}{{ end }}' \
       "$server"
   )
-  _docker_compose "$PROJECT_DIR" up -d --scale server=0 --scale client=0
+  echo "Scaling down"
+  _docker_compose "$PROJECT_DIR" up -d \
+    --scale server=0 --scale prioserver=0 --scale client=0
   echo "Deleting staticfiles volume"
   docker volume rm "$vol"
-  _docker_compose "$PROJECT_DIR" up -d --scale server=1 --scale client=1
+  echo "OK.  Bringing up all services"
+  _docker_compose "$PROJECT_DIR" up -d
 }
 
 instance_flush() {
