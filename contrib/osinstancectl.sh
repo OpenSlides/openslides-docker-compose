@@ -525,10 +525,10 @@ instance_update() {
 }
 
 instance_flush() {
-  _docker_compose "$PROJECT_DIR" up -d --scale server=0
+  _docker_compose "$PROJECT_DIR" up -d --scale server=0 --scale prioserver=0
   local redis="$(_docker_compose "$PROJECT_DIR" ps -q rediscache)"
   docker exec "$redis" redis-cli flushall
-  _docker_compose "$PROJECT_DIR" up -d --scale server=1
+  _docker_compose "$PROJECT_DIR" up -d --scale server=1 --scale prioserver=1
 }
 
 
