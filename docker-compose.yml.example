@@ -52,8 +52,8 @@ services:
       args:
         REPOSITORY_URL: https://github.com/OpenSlides/OpenSlides.git
         GIT_CHECKOUT: master
-    command: "gunicorn -w 1 -b 0.0.0.0:8000 -k uvicorn.workers.UvicornWorker
-      openslides.asgi:application"
+    command: "gunicorn -w 1 --preload -b 0.0.0.0:8000
+      -k uvicorn.workers.UvicornWorker openslides.asgi:application"
     restart: always
     volumes:
       - "personaldata:/app/personal_data"
