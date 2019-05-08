@@ -72,5 +72,5 @@ RUN mkdir -p /app/personal_data/var
 
 COPY entrypoint /usr/local/bin/
 ENTRYPOINT ["/usr/local/bin/entrypoint"]
-CMD ["gunicorn", "-w", "8", "-b", "0.0.0.0:8000", "-k", \
+CMD ["gunicorn", "-w", "8", "--preload", "-b", "0.0.0.0:8000", "-k", \
   "uvicorn.workers.UvicornWorker", "openslides.asgi:application"]

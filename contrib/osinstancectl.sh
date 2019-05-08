@@ -309,7 +309,8 @@ ping_instance() {
   local instance="$1"
   local_port=$(local_port "$instance")
   # retrieve version string
-  curl --silent --max-time 0.1 "http://127.0.0.1:${local_port}/apps/core/version/" |
+  LC_ALL=C curl --silent --max-time 0.1 \
+    "http://127.0.0.1:${local_port}/apps/core/version/" |
   gawk 'BEGIN { FPAT = "\"[^\"]*\"" } { gsub(/"/, "", $2); print $2}'
 }
 
@@ -520,6 +521,7 @@ instance_update() {
   docker volume rm "$vol"
   echo "OK.  Bringing up all services"
   _docker_compose "$PROJECT_DIR" up -d
+  append_metadata "$PROJECT_DIR" "$(date +"%F %H:%M"): Updated to ${GIT_CHECKOUT}"
 }
 
 instance_flush() {
