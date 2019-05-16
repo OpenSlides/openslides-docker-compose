@@ -33,6 +33,7 @@ OPT_METADATA=
 OPT_ADD_ACCOUNT=1
 OPT_LOCALONLY=
 OPT_FORCE=
+OPT_WWW=
 FILTER=
 CLONE_FROM=
 ADMIN_SECRETS_FILE="adminsecret.env"
@@ -86,14 +87,16 @@ Options:
   -R, --repo         The OpenSlides repository to pull from
   --mailserver       Mail server to configure as Postfix's smarthost (default
                      is the host system)
-  -d, --project-dir  Directly specify the project directory
+  --www              Add a www subdomain in addition to the specified isntance
+                     domain
   --no-add-account   Do not add an additional, customized local admin account
-  --force            Disable various safety checks
   --local-only       Create an instance without setting up Nginx and Let's
                      Encrypt certificates.  Such an instance is only accessible
                      on localhost, e.g., http://127.1:61000.
   --clone-from       When adding, create the new instance based on the
                      specified exsiting instance
+  -d, --project-dir  Directly specify the project directory
+  --force            Disable various safety checks
   --color=WHEN       Enable/disable color output.  WHEN is never, always, or
                      auto.
 EOF
@@ -242,16 +245,26 @@ EOF
 update_nginx_config() {
   # Create Nginx configs
   [[ -z "$OPT_LOCALONLY" ]] || return 0
+
+  # add optional www subdomain
+  local www=
+  [[ -z "$OPT_WWW" ]] || www="www.${PROJECT_NAME}"
+
   # First, without TLS
-  sed -e "s/<INSTANCE>/${PROJECT_NAME}/" "$NGINX_TEMPLATE" \
-    -e "/proxy_pass/s/61000/${PORT}/" \
-    > /etc/nginx/sites-available/"${PROJECT_NAME}".conf
+  sed -e "/server_name/s/<INSTANCE>/${PROJECT_NAME} ${www}/" \
+      -e "s/<INSTANCE>/${PROJECT_NAME}/" \
+      -e "/proxy_pass/s/61000/${PORT}/" \
+      "$NGINX_TEMPLATE" > /etc/nginx/sites-available/"${PROJECT_NAME}".conf
   ln -s ../sites-available/"${PROJECT_NAME}".conf /etc/nginx/sites-enabled/ || true
   systemctl reload nginx
 
   # Generate Let's Encrypt certificate
   echo "Generating certificate..."
-  acmetool want "${PROJECT_NAME}"
+  if [[ -z "$OPT_WWW" ]]; then
+    acmetool want "${PROJECT_NAME}"
+  else
+    acmetool want "${PROJECT_NAME}" "${www}"
+  fi
 
   # Update Nginx to use TLS certs
   ex -s +"g/ssl-cert-snakeoil/d" +"g/ssl_certificate/s/#\ //" +x \
@@ -550,6 +563,7 @@ longopt=(
   local-only
   no-add-account
   mailserver:
+  www
 
   # adding & upgrading instances
   revision:
@@ -616,6 +630,10 @@ while true; do
       ;;
     --local-only)
       OPT_LOCALONLY=1
+      shift 1
+      ;;
+    --www)
+      OPT_WWW=1
       shift 1
       ;;
     --color)
