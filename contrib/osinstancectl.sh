@@ -272,6 +272,15 @@ update_nginx_config() {
   systemctl reload nginx
 }
 
+link_settingspy() {
+  # Create a symlink in the project directory to the settings file in Docker
+  # volume (usually in /var/lib/docker/volumes/...)
+  echo "Symlinking settings.py"
+  local settings="$(get_personaldata_dir "$PROJECT_DIR")/var/settings.py"
+  [[ -f "$settings" ]] || fatal "settings.py not found"
+  ln -s "$settings" "${PROJECT_DIR}/settings.py"
+}
+
 remove() {
   local PROJECT_NAME="$1"
   [[ -d "$PROJECT_DIR" ]] || {
@@ -753,6 +762,7 @@ case "$MODE" in
     [[ -z "$OPT_LOCALONLY" ]] ||
       append_metadata "$PROJECT_DIR" "No Nginx config added (--local-only)"
     ask_start
+    link_settingspy
     ;;
   clone)
     CLONE_FROM_DIR="${INSTANCES}/${CLONE_FROM}"
@@ -775,6 +785,7 @@ case "$MODE" in
     [[ -z "$OPT_LOCALONLY" ]] ||
       append_metadata "$PROJECT_DIR" "No Nginx config added (--local-only)"
     ask_start
+    link_settingspy
     ;;
   list)
     list_instances
