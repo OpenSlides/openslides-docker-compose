@@ -342,7 +342,7 @@ list_instances() {
     # 1. instance name/project dir matches
     if grep -E -q "$PROJECT_NAME" <<< "$(basename $instance)"; then :
     # 2. metadata matches
-    elif [[ -f "${instance}/metadata.txt" ]] &&
+    elif [[ $OPT_METADATA ]] && [[ -f "${instance}/metadata.txt" ]] &&
       grep -E -q "$PROJECT_NAME" "${instance}/metadata.txt"; then :
     else
       continue
