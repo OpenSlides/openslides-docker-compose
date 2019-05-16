@@ -687,9 +687,6 @@ for arg; do
   esac
 done
 
-# Default mode: list
-MODE=${MODE:-list}
-
 case "$OPT_COLOR" in
   auto)
     if [[ -t 1 ]]; then enable_color; fi ;;
@@ -787,5 +784,8 @@ case "$MODE" in
     ;;
   flush)
     instance_flush
+    ;;
+  *)
+    usage
     ;;
 esac
