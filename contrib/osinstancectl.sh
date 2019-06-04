@@ -46,16 +46,19 @@ OPT_COLOR=auto
 NCOLORS=
 COL_NORMAL=""
 COL_RED=""
+COL_YELLOW=""
 COL_GREEN=""
 BULLET='●'
 SYM_NORMAL="_"
 SYM_ERROR="X"
+SYM_UNKNOWN="?"
 
 enable_color() {
   NCOLORS=$(tput colors) # no. of colors
   if [[ -n "$NCOLORS" ]] && [[ "$NCOLORS" -ge 8 ]]; then
     COL_NORMAL="$(tput sgr0)"
     COL_RED="$(tput setaf 1)"
+    COL_YELLOW="$(tput setaf 3)"
     COL_GREEN="$(tput setaf 2)"
   fi
 }
@@ -327,9 +330,26 @@ local_port() {
   #   $(docker-compose ps -q client))
 }
 
-ping_instance() {
+ping_instance_simple() {
+  # Check if the instance's reverse proxy is listening
+  #
+  # This is used as an indicator as to whether the instance is supposed to be
+  # running or not.  The reason for this check is that it is fast and that the
+  # reverse proxy container rarely fails itself, so it is always running when
+  # an instance has been started.  Errors usually happen in the server
+  # container which is checked with ping_instance_websocket.
   local instance="$1"
   local_port=$(local_port "$instance")
+  nc -z localhost "$local_port" || return 1
+}
+
+ping_instance_websocket() {
+  # Connect to OpenSlides and parse its version string
+  #
+  # This is a way to test the availability of the app.  Most grave errors in
+  # OpenSlides lead to this function failing.
+  local instance="$1"
+  local local_port=$(local_port "$instance")
   # retrieve version string
   LC_ALL=C curl --silent --max-time 0.1 \
     "http://127.0.0.1:${local_port}/apps/core/version/" |
@@ -370,15 +390,23 @@ list_instances() {
       continue
     fi
 
+    # Determine instance state
     local shortname=$(basename "$instance")
-    local version=$(ping_instance "$instance")
     local sym="$SYM_NORMAL"
+    # If we can fetch the version string from the app this is an indicator of
+    # a fully functional instance.  If we cannot this could either mean that
+    # the instance has been stopped or that it is only partially working.
+    local version=$(ping_instance_websocket "$instance")
     if [[ -z "$version" ]]; then
-      # Register as error
+      local sym="$SYM_UNKNOWN"
+      # The following function simply checks if the reverse proxy port is open.
+      # If it is the instance is *supposed* to be running but is not fully
+      # functional; otherwise, it is assumed to be turned off on purpose.
+      ping_instance_simple "$instance" || sym="$SYM_ERROR"
       version="DOWN"
-      local sym="$SYM_ERROR"
     fi
-    # Fiter online/offline instances
+
+    # Filter online/offline instances
     case "$FILTER" in
       online)
         [[ "$version" != "DOWN" ]] || continue ;;
@@ -456,6 +484,7 @@ list_instances() {
   if [[ -n "$NCOLORS" ]]; then
     sed "
       s/^${SYM_NORMAL}/ ${COL_GREEN}${BULLET}${COL_NORMAL}/;
+      s/^${SYM_UNKNOWN}/ ${COL_YELLOW}${BULLET}${COL_NORMAL}/;
       s/^${SYM_ERROR}/ ${COL_RED}${BULLET}${COL_NORMAL}/
     "
   else
