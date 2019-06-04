@@ -90,18 +90,26 @@ Options:
   -R, --repo         The OpenSlides repository to pull from
   --mailserver       Mail server to configure as Postfix's smarthost (default
                      is the host system)
-  --www              Add a www subdomain in addition to the specified isntance
+  --www              Add a www subdomain in addition to the specified instance
                      domain
   --no-add-account   Do not add an additional, customized local admin account
   --local-only       Create an instance without setting up Nginx and Let's
                      Encrypt certificates.  Such an instance is only accessible
                      on localhost, e.g., http://127.1:61000.
   --clone-from       When adding, create the new instance based on the
-                     specified exsiting instance
+                     specified existing instance
   -d, --project-dir  Directly specify the project directory
   --force            Disable various safety checks
   --color=WHEN       Enable/disable color output.  WHEN is never, always, or
                      auto.
+
+Meaning of colored status indicators in ls mode:
+  green              The instance appears to be fully functional
+  red                The instance is unreachable, probably stopped
+  yellow             The instance is started but a websocket connection cannot
+                     be established.  This usually means that the instance is
+                     starting or, if the status persists, that something is
+                     wrong.  Check the docker-compose logs in this case.
 EOF
 }
 
