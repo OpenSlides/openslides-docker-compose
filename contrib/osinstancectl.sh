@@ -71,39 +71,43 @@ Usage: ${BASH_SOURCE[0]} [options] <action> <instance>
 
 Manage docker-compose-based OpenSlides instances.
 
-Action:
-  ls                 List instances and their status.  <instance> is
-                     a grep ERE search pattern in this case.
-  add                Add a new instance for the given domain (requires FQDN).
-  rm                 Remove <instance> (requires FQDN).
-  start              Start an existing instance
-  stop               Stop a running instance
-  update             Update OpenSlides to a new --revision
-  erase              Remove an instance's volumes (stops the instance if
-                     necessary)
-  flush              Flush Redis cache
+Actions:
+  ls                   List instances and their status.  <instance> is
+                       a grep ERE search pattern in this case.
+  add                  Add a new instance for the given domain (requires FQDN)
+  rm                   Remove <instance> (requires FQDN)
+  start                Start an existing instance
+  stop                 Stop a running instance
+  update               Update OpenSlides to a new --revision
+  erase                Remove an instance's volumes (stops the instance if
+                       necessary)
+  flush                Flush Redis cache
 
 Options:
-  -l, --long         Include more information in extended listing format
-  -m, --metadata     Include metadata in instance list
-  -n, --online       In list view, show only online instances
-  -f, --offline      In list view, show only offline instances
-  -r, --revision     The OpenSlides version to check out
-  -R, --repo         The OpenSlides repository to pull from
-  --mailserver       Mail server to configure as Postfix's smarthost (default
-                     is the host system)
-  --www              Add a www subdomain in addition to the specified instance
-                     domain
-  --no-add-account   Do not add an additional, customized local admin account
-  --local-only       Create an instance without setting up Nginx and Let's
-                     Encrypt certificates.  Such an instance is only accessible
-                     on localhost, e.g., http://127.1:61000.
-  --clone-from       When adding, create the new instance based on the
-                     specified existing instance
-  -d, --project-dir  Directly specify the project directory
-  --force            Disable various safety checks
-  --color=WHEN       Enable/disable color output.  WHEN is never, always, or
-                     auto.
+  -d, --project-dir    Directly specify the project directory
+  --force              Disable various safety checks
+  --color=WHEN         Enable/disable color output.  WHEN is never, always, or
+                       auto.
+
+  for ls:
+    -l, --long         Include more information in extended listing format
+    -m, --metadata     Include metadata in instance list
+    -n, --online       Show only online instances
+    -f, --offline      Show only offline instances
+
+  for add & update:
+    -r, --revision     The OpenSlides version to check out
+    -R, --repo         The OpenSlides repository to clone
+    --no-add-account   Do not add an additional, customized local admin account
+    --local-only       Create an instance without setting up Nginx and Let's
+                       Encrypt certificates.  Such an instance is only
+                       accessible on localhost, e.g., http://127.1:61000.
+    --clone-from       Create the new instance based on the specified existing
+                       instance
+    --www              Add a www subdomain in addition to the specified
+                       instance domain
+    --mailserver       Mail server to configure as Postfix's smarthost (default
+                       is the host system)
 
 Meaning of colored status indicators in ls mode:
   green              The instance appears to be fully functional
