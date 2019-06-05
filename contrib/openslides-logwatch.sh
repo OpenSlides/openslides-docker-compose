@@ -76,6 +76,7 @@ for instance in ${INSTANCES[@]}; do
   cd "$instance"
   for s in server prioserver; do
     id=$(docker-compose ps -q $s)
+    [[ -n "$id" ]] || continue
     name="$(docker inspect --format '{{ .Name }}' $id | tr -d \/)"
     journalctl --output=short-iso --since="$SINCE" CONTAINER_NAME="$name" |
     gawk -v name="$name" '
