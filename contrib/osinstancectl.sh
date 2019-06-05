@@ -16,13 +16,15 @@ INSTANCES="${OSDIR}/docker-instances"
 # If set, these variables override the defaults in the
 # docker-compose.yml.example template file.  They can be configured on the
 # command line as well as in /etc/osinstancectl.
-GIT_REPO=
-GIT_CHECKOUT=
+DEFAULT_GIT_REPO=
+DEFAULT_GIT_CHECKOUT=
 RELAYHOST=
 
 ME=$(basename -s .sh "${BASH_SOURCE[0]}")
 CONFIG="/etc/osinstancectl"
 MARKER=".osinstancectl-marker"
+GIT_REPO=
+GIT_CHECKOUT=
 NGINX_TEMPLATE=
 PROJECT_NAME=
 PROJECT_DIR=
@@ -591,6 +593,12 @@ unset ARGS
 # Config file
 if [[ -f "$CONFIG" ]]; then
   source "$CONFIG"
+  # For legacy settings, make sure defaults are stored in DEFAULT_* vars and
+  # that the CLI variables remain unset at this point
+  [[ -z "$GIT_REPO" ]]     || DEFAULT_GIT_REPO="$GIT_REPO"
+  [[ -z "$GIT_CHECKOUT" ]] || DEFAULT_GIT_CHECKOUT="$GIT_CHECKOUT"
+  GIT_REPO=
+  GIT_CHECKOUT=
 fi
 
 # Parse options
@@ -750,6 +758,9 @@ case "$MODE" in
     [[ -f "$CONFIG" ]] && echo "Found ${CONFIG} file." || true
     arg_check || { usage; exit 2; }
     [[ -n "$OPT_FORCE" ]] || verify_domain
+    # Use defaults in the absence of options
+    [[ -n "$GIT_REPO" ]]     || GIT_REPO="$DEFAULT_GIT_REPO"
+    [[ -n "$GIT_CHECKOUT" ]] || GIT_CHECKOUT="$DEFAULT_GIT_CHECKOUT"
     query_user_account_name
     echo "Creating new instance: $PROJECT_NAME"
     PORT=$(next_free_port)
