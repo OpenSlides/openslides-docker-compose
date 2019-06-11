@@ -49,9 +49,9 @@ COL_RED=""
 COL_YELLOW=""
 COL_GREEN=""
 BULLET='●'
-SYM_NORMAL="_"
-SYM_ERROR="X"
-SYM_UNKNOWN="?"
+SYM_NORMAL="OK"
+SYM_ERROR="XX"
+SYM_UNKNOWN="??"
 
 enable_color() {
   NCOLORS=$(tput colors) # no. of colors
@@ -496,7 +496,7 @@ list_instances() {
       s/^${SYM_ERROR}/ ${COL_RED}${BULLET}${COL_NORMAL}/
     "
   else
-    cut -d' ' -f2-
+    cat -
   fi
 }
 
