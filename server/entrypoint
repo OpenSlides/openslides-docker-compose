@@ -52,6 +52,11 @@ if [[ ! -f personal_data/var/settings.py ]]; then
   sed -i \
     -e "/'host':/s/127\.0\.0\.1/redis/" \
     personal_data/var/settings.py
+
+  # Disable DEBUG
+  sed -i \
+    -e "/^DEBUG/s/True/False/" \
+    personal_data/var/settings.py
 fi
 
 wait-for-it --timeout=5 postgres:5432
