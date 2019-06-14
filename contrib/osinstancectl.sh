@@ -290,8 +290,11 @@ link_settingspy() {
   # volume (usually in /var/lib/docker/volumes/...)
   echo "Symlinking settings.py"
   local settings="$(get_personaldata_dir "$PROJECT_DIR")/var/settings.py"
-  [[ -f "$settings" ]] || fatal "settings.py not found"
-  ln -s "$settings" "${PROJECT_DIR}/settings.py"
+  if [[ -f "$settings" ]]; then
+    ln -s "$settings" "${PROJECT_DIR}/settings.py"
+  else
+    echo "INFO: Not symlinking because the volume does not exist yet."
+  fi
 }
 
 remove() {
