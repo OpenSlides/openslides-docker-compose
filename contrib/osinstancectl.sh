@@ -810,6 +810,7 @@ case "$MODE" in
     create_admin_secrets_file
     create_user_secrets_file "${OPENSLIDES_USER_FIRSTNAME}" "${OPENSLIDES_USER_LASTNAME}"
     update_nginx_config
+    append_metadata "$PROJECT_DIR" "$(date +"%F %H:%M"): Instance created"
     [[ -z "$OPT_LOCALONLY" ]] ||
       append_metadata "$PROJECT_DIR" "No Nginx config added (--local-only)"
     ask_start
