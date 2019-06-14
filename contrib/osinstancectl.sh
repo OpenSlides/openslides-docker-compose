@@ -351,9 +351,7 @@ ping_instance_simple() {
   # reverse proxy container rarely fails itself, so it is always running when
   # an instance has been started.  Errors usually happen in the server
   # container which is checked with ping_instance_websocket.
-  local instance="$1"
-  local_port=$(local_port "$instance")
-  nc -z localhost "$local_port" || return 1
+  nc -z localhost "$1" || return 1
 }
 
 ping_instance_websocket() {
@@ -361,11 +359,8 @@ ping_instance_websocket() {
   #
   # This is a way to test the availability of the app.  Most grave errors in
   # OpenSlides lead to this function failing.
-  local instance="$1"
-  local local_port=$(local_port "$instance")
-  # retrieve version string
   LC_ALL=C curl --silent --max-time 0.1 \
-    "http://127.0.0.1:${local_port}/apps/core/version/" |
+    "http://127.0.0.1:${1}/apps/core/version/" |
   gawk 'BEGIN { FPAT = "\"[^\"]*\"" } { gsub(/"/, "", $2); print $2}'
 }
 
@@ -405,17 +400,18 @@ list_instances() {
 
     # Determine instance state
     local shortname=$(basename "$instance")
+    local port=$(local_port "$instance")
     local sym="$SYM_NORMAL"
     # If we can fetch the version string from the app this is an indicator of
     # a fully functional instance.  If we cannot this could either mean that
     # the instance has been stopped or that it is only partially working.
-    local version=$(ping_instance_websocket "$instance")
+    local version=$(ping_instance_websocket "$port")
     if [[ -z "$version" ]]; then
       local sym="$SYM_UNKNOWN"
       # The following function simply checks if the reverse proxy port is open.
       # If it is the instance is *supposed* to be running but is not fully
       # functional; otherwise, it is assumed to be turned off on purpose.
-      ping_instance_simple "$instance" || sym="$SYM_ERROR"
+      ping_instance_simple "$port" || sym="$SYM_ERROR"
       version="DOWN"
     fi
 
@@ -475,7 +471,7 @@ list_instances() {
       printf "   ├ %-12s %s\n" "Version:" "$version"
       printf "   ├ %-12s %s\n" "Git rev:" "$git_commit"
       printf "   ├ %-12s %s\n" "Git repo:" "$git_repo"
-      printf "   ├ %-12s %s\n" "Local port:" "$(local_port $instance)"
+      printf "   ├ %-12s %s\n" "Local port:" "$port"
       printf "   ├ %-12s %s : %s\n" "Login:" "admin" "$OPENSLIDES_ADMIN_PASSWORD"
 
       # include secondary account credentials if available
