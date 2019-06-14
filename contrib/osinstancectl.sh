@@ -580,6 +580,8 @@ instance_update() {
     --scale server=0 --scale prioserver=0 --scale client=0
   echo "Deleting staticfiles volume"
   docker volume rm "$vol"
+  echo "Flushing redis cache"
+  instance_flush
   echo "OK.  Bringing up all services"
   _docker_compose "$PROJECT_DIR" up -d
   append_metadata "$PROJECT_DIR" "$(date +"%F %H:%M"): Updated to ${GIT_CHECKOUT}"
