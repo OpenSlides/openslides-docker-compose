@@ -4,6 +4,9 @@
 
 set -e
 
+# Enable OpenSlides-specific DEBUG output
+export OPENSLIDES_LOG_LEVEL=DEBUG
+
 # For secondary/priority server instances, skip migrations etc. and instead
 # only wait for the main server instance to become available.
 if [[ "$SERVER_IS_SECONDARY" ]]; then
