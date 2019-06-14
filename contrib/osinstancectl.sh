@@ -777,6 +777,7 @@ DEPS=(
   docker-compose
   gawk
   acmetool
+  nc
 )
 # Check dependencies
 for i in "${DEPS[@]}"; do
