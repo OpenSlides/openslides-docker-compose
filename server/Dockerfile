@@ -9,10 +9,10 @@ ENV APT_KEY_DONT_WARN_ON_DANGEROUS_USAGE 1
 ENV DJANGO_SETTINGS_MODULE settings
 ENV PYTHONPATH personal_data/var/
 
-RUN mkdir /app
-WORKDIR /app
+RUN mkdir -p /build/app
+WORKDIR /build/app
 RUN useradd -m openslides
-RUN chown openslides /app
+RUN chown -R openslides /build/app
 
 RUN apt-get -y update && apt-get -y upgrade && \
   apt-get install --no-install-recommends -y \
@@ -25,6 +25,8 @@ RUN apt-get -y update && apt-get -y upgrade && \
     gnupg2 \
     libpq-dev \
     make \
+    rsync \
+    sudo \
     wait-for-it \
     wget \
     xz-utils
@@ -36,6 +38,13 @@ RUN apt-get install --no-install-recommends -y \
   netcat \
   procps \
   traceroute
+
+# Install script which will be used to copy the files build below into the
+# container's volume upon creation.
+COPY update-openslides-app.sh /usr/local/bin/update-openslides-app
+RUN umask 0222 && \
+  echo 'openslides ALL=(root) NOPASSWD: /usr/local/bin/update-openslides-app' \
+  > /etc/sudoers.d/openslides
 
 # NodeJS
 # Add included apt config and OpenPGP key for increased reproducibility (avoids
@@ -66,9 +75,9 @@ RUN ng config -g cli.warnings.versionMismatch false && \
   npm install
 RUN cd client && \
   npm run build && \
-  rm -fr /app/client/node_modules
+  rm -fr /build/app/client/node_modules
 
-RUN mkdir -p /app/personal_data/var
+WORKDIR /app
 
 COPY entrypoint /usr/local/bin/
 ENTRYPOINT ["/usr/local/bin/entrypoint"]
