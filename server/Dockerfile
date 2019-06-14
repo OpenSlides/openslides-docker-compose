@@ -59,14 +59,18 @@ RUN rm -rf /var/lib/apt/lists/*
 RUN npm install -g @angular/cli@latest
 
 USER openslides
-
 ARG REPOSITORY_URL
 ARG GIT_CHECKOUT
 RUN git clone --no-checkout -- $REPOSITORY_URL .
 RUN git checkout $GIT_CHECKOUT
-RUN rm -rf .git
 
 USER root
+RUN printf "Built on %s:\n\n Repository: %s\n Branch:     %s\n\n%s\n" \
+  "$(date)" \
+  "$REPOSITORY_URL" \
+  "$(git rev-parse --abbrev-ref HEAD)" \
+  "$(git show -s --format=raw)" > /build/image-version.txt
+RUN rm -rf .git
 RUN pip install -r requirements/production.txt -r requirements/big_mode.txt
 
 USER openslides
