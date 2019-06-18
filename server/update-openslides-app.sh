@@ -9,3 +9,9 @@
 echo "Updating /app from pre-built files..."
 rsync -a /build/app/ /app/
 chown -R openslides:openslides /app/
+
+# Make image git commit info available through web server
+GIT_COMMIT_INFO="/build/image-version.txt"
+if [[ -f "$GIT_COMMIT_INFO" ]]; then
+  cp --preserve=timestamps "$GIT_COMMIT_INFO" /app/openslides/static/
+fi
