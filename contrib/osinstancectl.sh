@@ -32,6 +32,7 @@ PORT=
 MODE=
 OPT_LONGLIST=
 OPT_METADATA=
+OPT_IMAGE_INFO=
 OPT_ADD_ACCOUNT=1
 OPT_LOCALONLY=
 OPT_FORCE=
@@ -94,6 +95,7 @@ Options:
     -m, --metadata     Include metadata in instance list
     -n, --online       Show only online instances
     -f, --offline      Show only offline instances
+    -i, --image-info   Show image version info (requires instance to be started)
 
   for add & update:
     -r, --revision     The OpenSlides version to check out
@@ -492,6 +494,15 @@ list_instances() {
         done
       fi
     fi
+
+    if [[ -n "$OPT_IMAGE_INFO" ]] && [[ "$version" != DOWN ]]; then
+      local image_info="$(curl -s http://localhost:${port}/image-version.txt)"
+      if [[ "$image_info" =~ ^Built ]]; then
+        printf "   └ %s\n" "Image info:"
+        echo "${image_info}" | sed 's/^/     ┆ /'
+      fi
+    fi
+
   done |
   # Colorize the status indicators
   if [[ -n "$NCOLORS" ]]; then
@@ -598,7 +609,7 @@ instance_flush() {
 }
 
 
-shortopt="hlmnfr:R:d:"
+shortopt="hlminfr:R:d:"
 longopt=(
   help
   color:
@@ -610,6 +621,7 @@ longopt=(
   online
   offline
   metadata
+  image-info
 
   # adding instances
   clone-from:
@@ -673,6 +685,10 @@ while true; do
       ;;
     -m|--metadata)
       OPT_METADATA=1
+      shift 1
+      ;;
+    -i|--image-info)
+      OPT_IMAGE_INFO=1
       shift 1
       ;;
     -n|--online)
