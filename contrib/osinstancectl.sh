@@ -163,8 +163,12 @@ _docker_compose () {
 query_user_account_name() {
   if [[ -n "$OPT_ADD_ACCOUNT" ]]; then
     echo "Create local admin account for:"
-    read -p "First & last name: " \
-      OPENSLIDES_USER_FIRSTNAME OPENSLIDES_USER_LASTNAME
+    while [[ -z "$OPENSLIDES_USER_FIRSTNAME" ]] || \
+          [[ -z "$OPENSLIDES_USER_LASTNAME" ]]
+    do
+      read -p "First & last name: " \
+        OPENSLIDES_USER_FIRSTNAME OPENSLIDES_USER_LASTNAME
+    done
   fi
 }
 
