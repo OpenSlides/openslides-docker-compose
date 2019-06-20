@@ -664,7 +664,6 @@ while true; do
   case "$1" in
     -d|--project-dir)
       PROJECT_DIR="$2"
-      PROJECT_NAME=$(basename $(readlink -f "$PROJECT_DIR"))
       shift 2
       ;;
     -r|--revision)
@@ -807,7 +806,21 @@ for i in "${DEPS[@]}"; do
     check_for_dependency "$i"
 done
 
-[[ -n "$PROJECT_DIR" ]] || PROJECT_DIR="${INSTANCES}/${PROJECT_NAME}"
+# Prevent --project-dir to be used together with a project name
+if [[ -n "$PROJECT_DIR" ]] && [[ -n "$PROJECT_NAME" ]]; then
+  fatal "Mutually exclusive options"
+fi
+# Deduce project name from path
+if [[ -n "$PROJECT_DIR" ]]; then
+  PROJECT_NAME=$(basename $(readlink -f "$PROJECT_DIR"))
+# Treat the project name "." as --project-dir=.
+elif [[ "$PROJECT_NAME" = "." ]]; then
+  PROJECT_NAME=$(basename $(readlink -f "$PROJECT_NAME"))
+  PROJECT_DIR="${INSTANCES}/${PROJECT_NAME}"
+else
+  PROJECT_DIR="${INSTANCES}/${PROJECT_NAME}"
+fi
+
 DCCONFIG="${PROJECT_DIR}/docker-compose.yml"
 NGINX_TEMPLATE="${PROJECT_DIR}/contrib/nginx.conf.in"
 
