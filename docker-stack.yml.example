@@ -1,0 +1,134 @@
+version: '3.1'
+secrets:
+  os_admin:
+    file: ./secrets/adminsecret.env
+  os_user:
+    file: ./secrets/usersecret.env
+services:
+  server:
+    image: openslides:latest
+    secrets:
+      - os_admin
+      - os_user
+    # Below is the default command.  You can uncomment it to override the
+    # number of workers, for example:
+    # command: "gunicorn -w 8 --preload -b 0.0.0.0:8000
+    #   -k uvicorn.workers.UvicornWorker openslides.asgi:application"
+    #
+    # Uncomment the following line to use daphne instead of gunicorn:
+    # command: "daphne -b 0.0.0.0 -p 8000 openslides.asgi:application"
+    volumes:
+      - "personaldata:/app/personal_data"
+      - "staticfiles:/app/openslides/static"
+    depends_on:
+      - postfix
+      - postgres
+      - redis
+      - rediscache
+    networks:
+      - front
+      - back
+  prioserver:
+    # This service is basically a simple copy of the main server service
+    # (above).  It will share all the same resources (DB, Redis, static files)
+    # as the main server, so it is crucial that it is always kept at
+    # compatible versions.
+    image: openslides:latest
+    environment:
+      # With this variable set this service will not attempt to prepare the
+      # instance by, e.g., running migations.  This is exclusively left up to
+      # the main service to avoid conflicts.
+      - SERVER_IS_SECONDARY=1
+    command: "gunicorn -w 1 --preload -b 0.0.0.0:8000
+      -k uvicorn.workers.UvicornWorker openslides.asgi:application"
+    volumes:
+      - "personaldata:/app/personal_data"
+      - "staticfiles:/app/openslides/static"
+    depends_on:
+      - postfix
+      - postgres
+      - redis
+      - rediscache
+      - server
+    networks:
+      - front
+      - back
+    deploy:
+      replicas: 1
+  redis:
+    image: redis:alpine
+    volumes:
+      - "redisdata:/data"
+    networks:
+      - back
+    deploy:
+      replicas: 1
+  rediscache:
+    image: redis:alpine
+    command: ["redis-server", "--save", ""]
+    networks:
+      - back
+    deploy:
+      replicas: 1
+  client:
+    image: openslides-proxy:latest
+    volumes:
+      - "staticfiles:/usr/share/nginx/html"
+      - "./client/nginx.conf:/etc/nginx/nginx.conf"
+    depends_on:
+      - server
+    networks:
+      - front
+    ports:
+      - 61000:80
+  postgres:
+    image: sameersbn/postgresql:10
+    labels:
+      org.openslides.role: "postgres"
+    volumes:
+      - "dbdata:/var/lib/postgresql"
+    environment:
+      - DB_USER=openslides
+      - DB_PASS=openslides
+      - DB_NAME=openslides
+    networks:
+      - back
+    deploy:
+      replicas: 1
+      placement:
+        constraints: [node.role == manager]
+  postfix:
+    image: openslides-postfix:latest
+    environment:
+      - MYHOSTNAME=localhost
+      - RELAYHOST=localhost
+    networks:
+      - back
+    deploy:
+      replicas: 1
+      placement:
+        constraints: [node.role == manager]
+  storage:
+    image: atmoz/sftp
+    command: openslides:openslides:::mediafiles
+    volumes:
+      - "mediafiles:/home/openslides/"
+    networks:
+      - back
+    deploy:
+      replicas: 1
+      placement:
+        constraints: [node.role == manager]
+volumes:
+  dbdata:
+  personaldata:
+  redisdata:
+  staticfiles:
+  mediafiles:
+networks:
+  front:
+  back:
+    driver_opts:
+      encrypted: ""
+
+# vim: set ft=yaml sw=2 et:
