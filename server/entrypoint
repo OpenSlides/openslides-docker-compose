@@ -64,6 +64,21 @@ if [[ ! -f personal_data/var/settings.py ]]; then
     personal_data/var/settings.py
 fi
 
+# Configure the SFTP storage backend
+grep -q DEFAULT_FILE_STORAGE personal_data/var/settings.py || {
+cat >> personal_data/var/settings.py << EOF
+
+# Use SFTP as a mediafile storage
+DEFAULT_FILE_STORAGE = "storages.backends.sftpstorage.SFTPStorage"
+SFTP_STORAGE_HOST = "storage"
+SFTP_STORAGE_ROOT = "/mediafiles/var/media"
+SFTP_STORAGE_PARAMS = {
+    "username": "openslides",
+    "password": "openslides"
+}
+EOF
+}
+
 wait-for-it --timeout=5 postgres:5432
 
 echo 'running migrations'
