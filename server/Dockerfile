@@ -59,8 +59,8 @@ RUN rm -rf /var/lib/apt/lists/*
 RUN npm install -g @angular/cli@latest
 
 USER openslides
-ARG REPOSITORY_URL
-ARG GIT_CHECKOUT
+ARG REPOSITORY_URL=https://github.com/OpenSlides/OpenSlides.git
+ARG GIT_CHECKOUT=master
 RUN git clone --no-checkout -- $REPOSITORY_URL .
 RUN git checkout $GIT_CHECKOUT
 
