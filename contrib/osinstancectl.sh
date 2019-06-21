@@ -375,7 +375,7 @@ ping_instance_websocket() {
   gawk 'BEGIN { FPAT = "\"[^\"]*\"" } { gsub(/"/, "", $2); print $2}'
 }
 
-info_from_yaml() {
+value_from_yaml() {
   instance="$1"
   awk -v m="^ *${2}:$" \
     '$1 ~ m { print $2; exit; }' \
@@ -440,8 +440,12 @@ list_instances() {
     esac
 
     # Parse docker-compose.yml
-    local git_commit=$(info_from_yaml "$instance" "REPOSITORY_URL")
-    local git_repo=$(info_from_yaml "$instance" "GIT_CHECKOUT")
+    local git_commit=$(value_from_yaml "$instance" "REPOSITORY_URL")
+    local git_repo=$(value_from_yaml "$instance" "GIT_CHECKOUT")
+
+    if [[ -z "$git_commit" ]]; then
+      local image=$(value_from_yaml "$instance" "image")
+    fi
 
     # Parse admin credentials file
     local OPENSLIDES_ADMIN_PASSWORD="—"
@@ -484,8 +488,12 @@ list_instances() {
     if [[ -n "$OPT_LONGLIST" ]]; then
       printf "   ├ %-12s %s\n" "Directory:" "$instance"
       printf "   ├ %-12s %s\n" "Version:" "$version"
-      printf "   ├ %-12s %s\n" "Git rev:" "$git_commit"
-      printf "   ├ %-12s %s\n" "Git repo:" "$git_repo"
+      if [[ -n "$git_commit" ]]; then
+        printf "   ├ %-12s %s\n" "Git rev:" "$git_commit"
+        printf "   ├ %-12s %s\n" "Git repo:" "$git_repo"
+      elif [[ -n "$image" ]]; then
+        printf "   ├ %-12s %s\n" "Image:" "$image"
+      fi
       printf "   ├ %-12s %s\n" "Local port:" "$port"
       printf "   ├ %-12s %s : %s\n" "Login:" "admin" "$OPENSLIDES_ADMIN_PASSWORD"
 
