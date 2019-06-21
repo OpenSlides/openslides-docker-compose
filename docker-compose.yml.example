@@ -26,22 +26,23 @@ services:
       - postgres
       - redis
       - rediscache
+      - prioserver
     networks:
       - front
       - back
     sysctls:
       net.core.somaxconn: 1024
       net.ipv4.ip_local_port_range: 1024 60999
-  prioserver:
-    # This service is basically a simple copy of the main server service
-    # (above).  It will share all the same resources (DB, Redis, static files)
-    # as the main server, so it is crucial that it is always kept at
-    # compatible versions.
     environment:
       # With this variable set this service will not attempt to prepare the
       # instance by, e.g., running migations.  This is exclusively left up to
       # the main service to avoid conflicts.
       - SERVER_IS_SECONDARY=1
+  prioserver:
+    # This service is basically a simple copy of the main server service
+    # (above).  It will share all the same resources (DB, Redis, static files)
+    # as the main server, so it is crucial that it is always kept at
+    # compatible versions.
     image: openslides:latest
     command: "gunicorn -w 1 --preload -b 0.0.0.0:8000
       -k uvicorn.workers.UvicornWorker openslides.asgi:application"
@@ -54,7 +55,6 @@ services:
       - postgres
       - redis
       - rediscache
-      - server
     networks:
       - front
       - back
