@@ -4,20 +4,7 @@
 
 set -e
 
-sudo /usr/local/bin/update-openslides-app
-
-# Enable OpenSlides-specific DEBUG output
-export OPENSLIDES_LOG_LEVEL=DEBUG
-
-# For secondary/priority server instances, skip migrations etc. and instead
-# only wait for the main server instance to become available.
-if [[ "$SERVER_IS_SECONDARY" ]]; then
-  echo "This is a secondary server instance.  Waiting for main server..."
-  wait-for-it --timeout=20 prioserver:8000
-  exec $*
-fi
-
-if [[ ! -f personal_data/var/settings.py ]]; then
+configure() {
   python manage.py createsettings
   echo "Creating settings.py"
 
@@ -62,11 +49,10 @@ if [[ ! -f personal_data/var/settings.py ]]; then
   sed -i \
     -e "/^DEBUG/s/True/False/" \
     personal_data/var/settings.py
-fi
 
-# Configure the SFTP storage backend
-grep -q DEFAULT_FILE_STORAGE personal_data/var/settings.py || {
-cat >> personal_data/var/settings.py << EOF
+  # Configure the SFTP storage backend
+  grep -q DEFAULT_FILE_STORAGE personal_data/var/settings.py || {
+  cat >> personal_data/var/settings.py << EOF
 
 # Use SFTP as a mediafile storage
 DEFAULT_FILE_STORAGE = "storages.backends.sftpstorage.SFTPStorage"
@@ -77,7 +63,25 @@ SFTP_STORAGE_PARAMS = {
     "password": "openslides"
 }
 EOF
+  }
 }
+
+sudo /usr/local/bin/update-openslides-app
+
+# Enable OpenSlides-specific DEBUG output
+export OPENSLIDES_LOG_LEVEL=DEBUG
+
+if [[ ! -f personal_data/var/settings.py ]]; then
+  configure
+fi
+
+# For secondary server instances, skip migrations etc. and instead
+# only wait for the main server instance to become available.
+if [[ "$SERVER_IS_SECONDARY" ]]; then
+  echo "This is a secondary server instance.  Waiting for main server..."
+  wait-for-it --timeout=20 prioserver:8000
+  exec $*
+fi
 
 wait-for-it --timeout=5 postgres:5432
 
