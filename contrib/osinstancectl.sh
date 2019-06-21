@@ -374,15 +374,10 @@ ping_instance_websocket() {
   gawk 'BEGIN { FPAT = "\"[^\"]*\"" } { gsub(/"/, "", $2); print $2}'
 }
 
-git_repo_from_instance_dir() {
+info_from_yaml() {
   instance="$1"
-  awk '$1 == "REPOSITORY_URL:" { print $2; exit; }' \
-    "${instance}/docker-compose.yml"
-}
-
-git_commit_from_instance_dir() {
-  instance="$1"
-  awk '$1 == "GIT_CHECKOUT:" { print $2; exit; }' \
+  awk -v m="^ *${2}:$" \
+    '$1 ~ m { print $2; exit; }' \
     "${instance}/docker-compose.yml"
 }
 
@@ -435,8 +430,8 @@ list_instances() {
     esac
 
     # Parse docker-compose.yml
-    local git_commit=$(git_commit_from_instance_dir "$instance")
-    local git_repo=$(git_repo_from_instance_dir "$instance")
+    local git_commit=$(info_from_yaml "$instance" "REPOSITORY_URL")
+    local git_repo=$(info_from_yaml "$instance" "GIT_CHECKOUT")
 
     # Parse admin credentials file
     local OPENSLIDES_ADMIN_PASSWORD="—"
