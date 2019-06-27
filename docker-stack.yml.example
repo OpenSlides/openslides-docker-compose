@@ -1,15 +1,7 @@
 version: '3.1'
-secrets:
-  os_admin:
-    file: ./secrets/adminsecret.env
-  os_user:
-    file: ./secrets/usersecret.env
 services:
   server:
     image: openslides:latest
-    secrets:
-      - os_admin
-      - os_user
     # Below is the default command.  You can uncomment it to override the
     # number of workers, for example:
     # command: "gunicorn -w 8 --preload -b 0.0.0.0:8000
@@ -33,12 +25,18 @@ services:
       # instance by, e.g., running migations.  This is exclusively left up to
       # the main service to avoid conflicts.
       - SERVER_IS_SECONDARY=1
+    secrets:
+      - django
   prioserver:
     # This service is basically a simple copy of the main server service
     # (above).  It will share all the same resources (DB, Redis, static files)
     # as the main server, so it is crucial that it is always kept at
     # compatible versions.
     image: openslides:latest
+    secrets:
+      - django
+      - os_admin
+      - os_user
     command: "gunicorn -w 1 --preload -b 0.0.0.0:8000
       -k uvicorn.workers.UvicornWorker openslides.asgi:application"
     volumes:
@@ -129,5 +127,12 @@ networks:
   back:
     driver_opts:
       encrypted: ""
+secrets:
+  os_admin:
+    file: ./secrets/adminsecret.env
+  os_user:
+    file: ./secrets/usersecret.env
+  django:
+    file: ./secrets/django
 
 # vim: set ft=yaml sw=2 et:
