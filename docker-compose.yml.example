@@ -106,19 +106,11 @@ services:
       - RELAYHOST=localhost
     networks:
       - back
-  storage:
-    image: atmoz/sftp
-    command: openslides:openslides:::mediafiles
-    volumes:
-      - "mediafiles:/home/openslides/"
-    networks:
-      - back
 volumes:
   dbdata:
   personaldata:
   redisdata:
   staticfiles:
-  mediafiles:
 networks:
   front:
   back:

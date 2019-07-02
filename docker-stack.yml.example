@@ -126,17 +126,6 @@ services:
       replicas: 1
       placement:
         constraints: [node.role == manager]
-  storage:
-    image: atmoz/sftp
-    command: openslides:openslides:::mediafiles
-    volumes:
-      - "mediafiles:/home/openslides/"
-    networks:
-      - back
-    deploy:
-      replicas: 1
-      placement:
-        constraints: [node.role == manager]
 volumes:
   dbdata:
   redisdata:

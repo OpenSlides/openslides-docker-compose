@@ -70,21 +70,6 @@ fi
   sed -i \
     -e "/^DEBUG/s/True/False/" \
     personal_data/var/settings.py
-
-  # Configure the SFTP storage backend
-  grep -q DEFAULT_FILE_STORAGE personal_data/var/settings.py || {
-  cat >> personal_data/var/settings.py << EOF
-
-# Use SFTP as a mediafile storage
-DEFAULT_FILE_STORAGE = "storages.backends.sftpstorage.SFTPStorage"
-SFTP_STORAGE_HOST = "storage"
-SFTP_STORAGE_ROOT = "/mediafiles/var/media"
-SFTP_STORAGE_PARAMS = {
-    "username": "openslides",
-    "password": "openslides"
-}
-EOF
-  }
 }
 
 sudo /usr/local/bin/update-openslides-app
