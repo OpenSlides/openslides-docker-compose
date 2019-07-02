@@ -73,6 +73,7 @@ services:
       - back
   client:
     image: openslides-proxy:latest
+    build: ./client
     restart: always
     volumes:
       - "staticfiles:/usr/share/nginx/html"
