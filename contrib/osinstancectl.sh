@@ -854,9 +854,9 @@ case "$MODE" in
     echo "Creating new instance: $PROJECT_NAME (based on $CLONE_FROM)"
     PORT=$(next_free_port)
     [[ -n "$GIT_CHECKOUT" ]] ||
-      GIT_CHECKOUT=$(git_commit_from_instance_dir "$CLONE_FROM_DIR")
+      GIT_CHECKOUT=$(info_from_yaml "$CLONE_FROM_DIR" "GIT_CHECKOUT")
     [[ -n "$GIT_REPO" ]] ||
-      GIT_REPO=$(git_repo_from_instance_dir "$CLONE_FROM_DIR")
+      GIT_REPO=$(info_from_yaml "$CLONE_FROM_DIR" "REPOSITORY_URL")
     create_instance_dir
     create_config_from_template "${CLONE_FROM_DIR}/docker-compose.yml" \
       "${PROJECT_DIR}/docker-compose.yml"
