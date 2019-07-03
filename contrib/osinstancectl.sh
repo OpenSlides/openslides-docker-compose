@@ -13,18 +13,18 @@ TEMPLATE_REPO="/srv/openslides/openslides-docker-compose"
 # TEMPLATE_REPO="https://github.com/OpenSlides/openslides-docker-compose"
 OSDIR="/srv/openslides"
 INSTANCES="${OSDIR}/docker-instances"
+DEFAULT_DOCKER_IMAGE_NAME_OPENSLIDES=openslides-server
+DEFAULT_DOCKER_IMAGE_TAG_OPENSLIDES=latest
 # If set, these variables override the defaults in the
 # docker-compose.yml.example template file.  They can be configured on the
 # command line as well as in /etc/osinstancectl.
-DEFAULT_GIT_REPO=
-DEFAULT_GIT_CHECKOUT=
 RELAYHOST=
 
 ME=$(basename -s .sh "${BASH_SOURCE[0]}")
 CONFIG="/etc/osinstancectl"
 MARKER=".osinstancectl-marker"
-GIT_REPO=
-GIT_CHECKOUT=
+DOCKER_IMAGE_NAME_OPENSLIDES=
+DOCKER_IMAGE_TAG_OPENSLIDES=
 NGINX_TEMPLATE=
 PROJECT_NAME=
 PROJECT_DIR=
@@ -79,7 +79,7 @@ Actions:
   rm                   Remove <instance> (requires FQDN)
   start                Start an existing instance
   stop                 Stop a running instance
-  update               Update OpenSlides to a new --revision
+  update               Update OpenSlides to a new --image
   erase                Remove an instance's volumes (stops the instance if
                        necessary)
   flush                Flush Redis cache
@@ -98,8 +98,8 @@ Options:
     -i, --image-info   Show image version info (requires instance to be started)
 
   for add & update:
-    -r, --revision     The OpenSlides version to check out
-    -R, --repo         The OpenSlides repository to clone
+    -I, --image        Specify the OpenSlides server Docker image
+    -t, --tag          Specify the OpenSlides server Docker image
     --no-add-account   Do not add an additional, customized local admin account
     --local-only       Create an instance without setting up Nginx and Let's
                        Encrypt certificates.  Such an instance is only
@@ -211,10 +211,11 @@ next_free_port() {
 create_config_from_template() {
   local templ="$1"
   local config="$2"
-  gawk -v port="${PORT}" -v gitrev="$GIT_CHECKOUT" -v gitrepo="$GIT_REPO" '
+  gawk -v port="${PORT}" -v image="$DOCKER_IMAGE_NAME_OPENSLIDES" \
+      -v tag="$DOCKER_IMAGE_TAG_OPENSLIDES" '
     BEGIN {FS=":"; OFS=FS}
-    gitrev != "" && $1 ~ /GIT_CHECKOUT/ { $2 = " " gitrev }
-    gitrepo != "" && $1 ~ /REPOSITORY_URL/ { $0 = $1 ": " gitrepo }
+    $0 ~ /^  (prio)?server:$/ {s=1}
+    image != "" && $1 ~ /image/ && s { $2 = " " image; $3 = tag; s=0 }
     NF==3 && $1 ~ /127\.0\.0\.1/ && $3 ~ /80"$/ { $2 = port }
     1
     ' "$templ" |
@@ -381,6 +382,15 @@ info_from_yaml() {
     "${instance}/docker-compose.yml"
 }
 
+image_from_yaml() {
+  instance="$1"
+  gawk '
+    BEGIN {FS=":"}
+    $0 ~ /^  (prio)?server:$/ {s=1}
+    $1 ~ /image/ && s { printf("%s\n%s\n", $2, $3); exit; }
+    ' "${instance}/docker-compose.yml"
+}
+
 list_instances() {
   # Find instances and filter based on search term.
   # PROJECT_NAME is used as a grep -E search pattern here.
@@ -544,8 +554,10 @@ clone_files() {
 }
 
 append_metadata() {
-  touch "${1}/metadata.txt"
-  printf "%s\n" "$2" >> "${1}/metadata.txt"
+  local m="${1}/metadata.txt"
+  touch "$m"
+  shift
+  printf "%s\n" "$*" >> "$m"
 }
 
 ask_start() {
@@ -573,10 +585,15 @@ instance_erase() {
 }
 
 instance_update() {
-  ex -s +"%s/GIT_CHECKOUT: \zs.*/${GIT_CHECKOUT}/" +x "$DCCONFIG"
-  if [[ -n "$GIT_REPO" ]]; then
-    ex -s +"%s<REPOSITORY_URL: \zs.*<${GIT_REPO}<" +x "$DCCONFIG"
-  fi
+  gawk -v image="$DOCKER_IMAGE_NAME_OPENSLIDES" \
+      -v tag="$DOCKER_IMAGE_TAG_OPENSLIDES" '
+    BEGIN {FS=":"; OFS=FS}
+    $0 ~ /^  (prio)?server:$/ {s=1}
+    image != "" && $1 ~ /image/ && s { $2 = " " image; s=0 }
+    tag != "" && $1 ~ /image/ && s { $3 = tag; s=0 }
+    1
+    ' "${DCCONFIG}" > "${DCCONFIG}.tmp" &&
+  mv -f "${DCCONFIG}.tmp" "${DCCONFIG}"
   local build_opt=
   [[ -z "$OPT_FORCE" ]] || local build_opt="--no-cache"
   _docker_compose "$PROJECT_DIR" build "$build_opt" server
@@ -597,7 +614,8 @@ instance_update() {
   instance_flush
   echo "OK.  Bringing up all services"
   _docker_compose "$PROJECT_DIR" up -d
-  append_metadata "$PROJECT_DIR" "$(date +"%F %H:%M"): Updated to ${GIT_CHECKOUT}"
+  append_metadata "$PROJECT_DIR" "$(date +"%F %H:%M"): Updated to" \
+    "${DOCKER_IMAGE_NAME_OPENSLIDES}:${DOCKER_IMAGE_TAG_OPENSLIDES}"
 }
 
 instance_flush() {
@@ -608,7 +626,7 @@ instance_flush() {
 }
 
 
-shortopt="hlminfr:R:d:"
+shortopt="hlminfd:I:t:"
 longopt=(
   help
   color:
@@ -630,8 +648,8 @@ longopt=(
   www
 
   # adding & upgrading instances
-  revision:
-  repo:
+  image:
+  tag:
 )
 # format options array to comma-separated string for getopt
 longopt=$(IFS=,; echo "${longopt[*]}")
@@ -641,17 +659,17 @@ if [ $? -ne 0 ]; then usage; exit 1; fi
 eval set -- "$ARGS";
 unset ARGS
 
-# [[ $# -gt 1 ]] || { usage; exit 2; }
-
 # Config file
 if [[ -f "$CONFIG" ]]; then
   source "$CONFIG"
   # For legacy settings, make sure defaults are stored in DEFAULT_* vars and
   # that the CLI variables remain unset at this point
-  [[ -z "$GIT_REPO" ]]     || DEFAULT_GIT_REPO="$GIT_REPO"
-  [[ -z "$GIT_CHECKOUT" ]] || DEFAULT_GIT_CHECKOUT="$GIT_CHECKOUT"
-  GIT_REPO=
-  GIT_CHECKOUT=
+  [[ -z "$DOCKER_IMAGE_NAME_OPENSLIDES" ]] ||
+    DEFAULT_DOCKER_IMAGE_NAME_OPENSLIDES="$DOCKER_IMAGE_NAME_OPENSLIDES"
+  [[ -z "$DOCKER_IMAGE_TAG_OPENSLIDES" ]] ||
+    DEFAULT_DOCKER_IMAGE_TAG_OPENSLIDES="$DOCKER_IMAGE_TAG_OPENSLIDES"
+  DOCKER_IMAGE_NAME_OPENSLIDES=
+  DOCKER_IMAGE_TAG_OPENSLIDES=
 fi
 
 # Parse options
@@ -661,12 +679,12 @@ while true; do
       PROJECT_DIR="$2"
       shift 2
       ;;
-    -r|--revision)
-      GIT_CHECKOUT="$2"
+    -I|--image)
+      DOCKER_IMAGE_NAME_OPENSLIDES="$2"
       shift 2
       ;;
-    -R|--repo)
-      GIT_REPO="$2"
+    -t|--tag)
+      DOCKER_IMAGE_TAG_OPENSLIDES="$2"
       shift 2
       ;;
     --mailserver)
@@ -765,8 +783,9 @@ for arg; do
     update)
       [[ -z "$MODE" ]] || { usage; exit 2; }
       MODE=update
-      [[ -n "$GIT_CHECKOUT" ]] || {
-        fatal "Need revision for update"
+      [[ -n "$DOCKER_IMAGE_NAME_OPENSLIDES" ]] ||
+      [[ -n "$DOCKER_IMAGE_TAG_OPENSLIDES" ]] || {
+        fatal "Need image or tag for update"
       }
       shift 1
       ;;
@@ -830,8 +849,10 @@ case "$MODE" in
     arg_check || { usage; exit 2; }
     [[ -n "$OPT_FORCE" ]] || verify_domain
     # Use defaults in the absence of options
-    [[ -n "$GIT_REPO" ]]     || GIT_REPO="$DEFAULT_GIT_REPO"
-    [[ -n "$GIT_CHECKOUT" ]] || GIT_CHECKOUT="$DEFAULT_GIT_CHECKOUT"
+    [[ -n "$DOCKER_IMAGE_NAME_OPENSLIDES" ]] ||
+      DOCKER_IMAGE_NAME_OPENSLIDES="$DEFAULT_DOCKER_IMAGE_NAME_OPENSLIDES"
+    [[ -n "$DOCKER_IMAGE_TAG_OPENSLIDES" ]] ||
+      DOCKER_IMAGE_TAG_OPENSLIDES="$DEFAULT_DOCKER_IMAGE_TAG_OPENSLIDES"
     query_user_account_name
     echo "Creating new instance: $PROJECT_NAME"
     PORT=$(next_free_port)
@@ -853,10 +874,14 @@ case "$MODE" in
     [[ -n "$OPT_FORCE" ]] || verify_domain
     echo "Creating new instance: $PROJECT_NAME (based on $CLONE_FROM)"
     PORT=$(next_free_port)
-    [[ -n "$GIT_CHECKOUT" ]] ||
-      GIT_CHECKOUT=$(info_from_yaml "$CLONE_FROM_DIR" "GIT_CHECKOUT")
-    [[ -n "$GIT_REPO" ]] ||
-      GIT_REPO=$(info_from_yaml "$CLONE_FROM_DIR" "REPOSITORY_URL")
+    # Parse image and/or tag from original config if necessary
+    ia=()
+    readarray -n 2 -t ia < <(image_from_yaml "$CLONE_FROM_DIR")
+    for i in ${ia[@]}; do echo $i ; done
+    [[ -n "$DOCKER_IMAGE_NAME_OPENSLIDES" ]] ||
+      DOCKER_IMAGE_NAME_OPENSLIDES="${ia[0]}"
+    [[ -n "$DOCKER_IMAGE_TAG_OPENSLIDES" ]] ||
+      DOCKER_IMAGE_TAG_OPENSLIDES="${ia[1]}"
     create_instance_dir
     create_config_from_template "${CLONE_FROM_DIR}/docker-compose.yml" \
       "${PROJECT_DIR}/docker-compose.yml"
