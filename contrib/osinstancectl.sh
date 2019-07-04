@@ -13,7 +13,7 @@ TEMPLATE_REPO="/srv/openslides/openslides-docker-compose"
 # TEMPLATE_REPO="https://github.com/OpenSlides/openslides-docker-compose"
 OSDIR="/srv/openslides"
 INSTANCES="${OSDIR}/docker-instances"
-DEFAULT_DOCKER_IMAGE_NAME_OPENSLIDES=openslides-server
+DEFAULT_DOCKER_IMAGE_NAME_OPENSLIDES=openslides
 DEFAULT_DOCKER_IMAGE_TAG_OPENSLIDES=latest
 # If set, these variables override the defaults in the
 # docker-compose.yml.example template file.  They can be configured on the

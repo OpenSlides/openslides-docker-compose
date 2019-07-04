@@ -2,7 +2,7 @@
 
 set -e
 
-IMG_NAME="openslides-server"
+IMG_NAME="openslides"
 REPOSITORY_URL="https://github.com/OpenSlides/OpenSlides.git"
 GIT_CHECKOUT="master"
 DOCKER_REPOSITORY=

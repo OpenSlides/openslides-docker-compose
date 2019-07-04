@@ -9,7 +9,7 @@ services:
     secrets:
       - os_admin
       - os_user
-    image: openslides-server:latest
+    image: openslides:latest
     # Below is the default command.  You can uncomment it to override the
     # number of workers, for example:
     # command: "gunicorn -w 8 --preload -b 0.0.0.0:8000
@@ -42,7 +42,7 @@ services:
       # instance by, e.g., running migations.  This is exclusively left up to
       # the main service to avoid conflicts.
       - SERVER_IS_SECONDARY=1
-    image: openslides-server:latest
+    image: openslides:latest
     command: "gunicorn -w 1 --preload -b 0.0.0.0:8000
       -k uvicorn.workers.UvicornWorker openslides.asgi:application"
     restart: always
@@ -72,7 +72,7 @@ services:
     networks:
       - back
   client:
-    image: nginx
+    image: openslides-proxy:latest
     restart: always
     volumes:
       - "staticfiles:/usr/share/nginx/html"
@@ -98,7 +98,7 @@ services:
       - back
   postfix:
     build: ./postfix
-    image: postfix
+    image: openslides-postfix:latest
     restart: always
     environment:
       - MYHOSTNAME=localhost
