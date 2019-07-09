@@ -213,9 +213,24 @@ create_config_from_template() {
   local config="$2"
   gawk -v port="${PORT}" -v gitrev="$GIT_CHECKOUT" -v gitrepo="$GIT_REPO" '
     BEGIN {FS=":"; OFS=FS}
-    gitrev != "" && $1 ~ /GIT_CHECKOUT/ { $2 = " " gitrev }
+    gitrev  != "" && $1 ~ /GIT_CHECKOUT/   { $2 = " " gitrev }
     gitrepo != "" && $1 ~ /REPOSITORY_URL/ { $0 = $1 ": " gitrepo }
-    NF==3 && $1 ~ /127\.0\.0\.1/ && $3 ~ /80"$/ { $2 = port }
+
+    $0 ~ / +ports:$/ { # enter ports section
+      p = $0
+      pi = length(gensub(/(^\ *).*/, "\\1", "g")) # indent level
+      next
+    }
+    pi > 0 && /80"?$/ { # update host port for port 80 mapping
+      $(NF - 1) = port
+      printf("%s\n%s\n", p, $0)
+      pi = 0
+      next
+    }
+    pi > 0 { # strip all other published ports
+      i = length(gensub(/(^\ *).*/, "\\1", "g")) # indent level
+      if ( i > pi ) { next } else { pi = 0 }
+    }
     1
     ' "$templ" |
   gawk -v proj="$PROJECT_NAME" -v relay="$RELAYHOST" '
