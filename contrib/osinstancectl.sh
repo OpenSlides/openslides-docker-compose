@@ -333,25 +333,22 @@ remove() {
 }
 
 local_port() {
+  # Retrieve the reverse proxy's published port from config file
   [[ -f "${1}/docker-compose.yml" ]] &&
   gawk 'BEGIN { FS=":" }
-    $0 ~ / +ports:$/ { s = 1; next; }
-    s == 1 && NF == 2 {
+    $0 ~ / +client:$/ { c = 1 }
+    c && $0 ~ / +ports:$/ { s = 1; next; }
+    # print second to last element in ports definition, i.e., the local port
+    s && ( NF == 2 || NF == 3 ) {
       gsub(/[\ "-]/, "")
-      # split($2, a, /\//) # 80/tcp
-      print $1
-      exit
-    }
-    s == 1 && NF == 3 {
-      gsub(/"/, "", "g")
-      # split($3, a, /\//) # 80/tcp
-      print $2
+      print $(NF - 1)
       exit
     }' "${instance}/docker-compose.yml"
   # better but slower:
   # docker inspect --format '{{ (index (index .NetworkSettings.Ports "80/tcp") 0).HostPort }}' \
   #   $(docker-compose ps -q client))
 }
+
 
 ping_instance_simple() {
   # Check if the instance's reverse proxy is listening
