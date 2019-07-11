@@ -32,6 +32,7 @@ PORT=
 MODE=
 OPT_LONGLIST=
 OPT_METADATA=
+OPT_METADATA_SEARCH=
 OPT_IMAGE_INFO=
 OPT_ADD_ACCOUNT=1
 OPT_LOCALONLY=
@@ -327,10 +328,13 @@ remove() {
   [[ -d "$PROJECT_DIR" ]] || {
     fatal "$PROJECT_DIR does not exist."
   }
+
   # Ask for confirmation
   local ANS=
-  echo "Delete the following instance including all its data and configuration?"
-  echo "  $PROJECT_DIR"
+  echo "Delete the following instance including all of its data and configuration?"
+  # Show instance listing
+  OPT_LONGLIST=1 OPT_METADATA=1 OPT_METADATA_SEARCH= list_instances
+  echo
   read -p "Really delete? (uppercase YES to confirm) " ANS
   [[ "$ANS" = "YES" ]] || return 0
 
@@ -418,7 +422,7 @@ list_instances() {
     # 1. instance name/project dir matches
     if grep -E -q "$PROJECT_NAME" <<< "$(basename $instance)"; then :
     # 2. metadata matches
-    elif [[ $OPT_METADATA ]] && [[ -f "${instance}/metadata.txt" ]] &&
+    elif [[ $OPT_METADATA_SEARCH ]] && [[ -f "${instance}/metadata.txt" ]] &&
       grep -E -q "$PROJECT_NAME" "${instance}/metadata.txt"; then :
     else
       continue
@@ -708,6 +712,7 @@ while true; do
       ;;
     -m|--metadata)
       OPT_METADATA=1
+      OPT_METADATA_SEARCH=1
       shift 1
       ;;
     -i|--image-info)
