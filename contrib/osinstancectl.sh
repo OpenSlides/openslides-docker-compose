@@ -491,9 +491,6 @@ list_instances() {
       fi
     fi
 
-    # Colorize match in instance name
-    local shortname=$(highlight_match "$shortname")
-
     printf "%s %-40s\t%s\n" "$sym" "$shortname" "$first_metadatum"
     if [[ -n "$OPT_LONGLIST" ]]; then
       printf "   ├ %-12s %s\n" "Directory:" "$instance"
@@ -531,10 +528,13 @@ list_instances() {
   # Colorize the status indicators
   if [[ -n "$NCOLORS" ]]; then
     sed "
+      # Colorize matching string in instance name
+      s/^\([^ ]\{2\} [^ ]*\)\(${PROJECT_NAME}\)\( \?.*\)$/\1$(tput smso)\2$(tput rmso)\3/;
+      # Use colored dots for instance status
       s/^${SYM_NORMAL}/ ${COL_GREEN}${BULLET}${COL_NORMAL}/;
       s/^${SYM_UNKNOWN}/ ${COL_YELLOW}${BULLET}${COL_NORMAL}/;
       s/^${SYM_ERROR}/ ${COL_RED}${BULLET}${COL_NORMAL}/
-    "
+      "
   else
     cat -
   fi
