@@ -32,11 +32,13 @@ PORT=
 MODE=
 OPT_LONGLIST=
 OPT_METADATA=
+OPT_METADATA_SEARCH=
 OPT_IMAGE_INFO=
 OPT_ADD_ACCOUNT=1
 OPT_LOCALONLY=
 OPT_FORCE=
 OPT_WWW=
+OPT_FAST=
 FILTER=
 CLONE_FROM=
 ADMIN_SECRETS_FILE="adminsecret.env"
@@ -96,6 +98,7 @@ Options:
     -n, --online       Show only online instances
     -f, --offline      Show only offline instances
     -i, --image-info   Show image version info (requires instance to be started)
+    --fast             Include less information to increase listing speed
 
   for add & update:
     -I, --image        Specify the OpenSlides server Docker image
@@ -118,6 +121,9 @@ Meaning of colored status indicators in ls mode:
                      be established.  This usually means that the instance is
                      starting or, if the status persists, that something is
                      wrong.  Check the docker-compose logs in this case.
+                     (If --fast is given, however, this is the best possible
+                     status due to uncertainty and does not necessarily
+                     indicate a problem.)
 EOF
 }
 
@@ -216,7 +222,22 @@ create_config_from_template() {
     BEGIN {FS=":"; OFS=FS}
     $0 ~ /^  (prio)?server:$/ {s=1}
     image != "" && $1 ~ /image/ && s { $2 = " " image; $3 = tag; s=0 }
-    NF==3 && $1 ~ /127\.0\.0\.1/ && $3 ~ /80"$/ { $2 = port }
+
+    $0 ~ / +ports:$/ { # enter ports section
+      p = $0
+      pi = length(gensub(/(^\ *).*/, "\\1", "g")) # indent level
+      next
+    }
+    pi > 0 && /80"?$/ { # update host port for port 80 mapping
+      $(NF - 1) = port
+      printf("%s\n%s\n", p, $0)
+      pi = 0
+      next
+    }
+    pi > 0 { # strip all other published ports
+      i = length(gensub(/(^\ *).*/, "\\1", "g")) # indent level
+      if ( i > pi ) { next } else { pi = 0 }
+    }
     1
     ' "$templ" |
   gawk -v proj="$PROJECT_NAME" -v relay="$RELAYHOST" '
@@ -313,10 +334,14 @@ remove() {
   [[ -d "$PROJECT_DIR" ]] || {
     fatal "$PROJECT_DIR does not exist."
   }
+
   # Ask for confirmation
   local ANS=
-  echo "Delete the following instance including all its data and configuration?"
-  echo "  $PROJECT_DIR"
+  echo "Delete the following instance including all of its data and configuration?"
+  # Show instance listing
+  OPT_LONGLIST=1 OPT_METADATA=1 OPT_METADATA_SEARCH= \
+    ls_instance "$PROJECT_DIR" | colorize_ls
+  echo
   read -p "Really delete? (uppercase YES to confirm) " ANS
   [[ "$ANS" = "YES" ]] || return 0
 
@@ -334,25 +359,22 @@ remove() {
 }
 
 local_port() {
+  # Retrieve the reverse proxy's published port from config file
   [[ -f "${1}/docker-compose.yml" ]] &&
   gawk 'BEGIN { FS=":" }
-    $0 ~ / +ports:$/ { s = 1; next; }
-    s == 1 && NF == 2 {
+    $0 ~ / +client:$/ { c = 1 }
+    c && $0 ~ / +ports:$/ { s = 1; next; }
+    # print second to last element in ports definition, i.e., the local port
+    s && ( NF == 2 || NF == 3 ) {
       gsub(/[\ "-]/, "")
-      # split($2, a, /\//) # 80/tcp
-      print $1
-      exit
-    }
-    s == 1 && NF == 3 {
-      gsub(/"/, "", "g")
-      # split($3, a, /\//) # 80/tcp
-      print $2
+      print $(NF - 1)
       exit
     }' "${instance}/docker-compose.yml"
   # better but slower:
   # docker inspect --format '{{ (index (index .NetworkSettings.Ports "80/tcp") 0).HostPort }}' \
   #   $(docker-compose ps -q client))
 }
+
 
 ping_instance_simple() {
   # Check if the instance's reverse proxy is listening
@@ -391,6 +413,157 @@ image_from_yaml() {
     ' "${instance}/docker-compose.yml"
 }
 
+highlight_match() {
+  # Highlight search term match in string
+  if [[ -n "$NCOLORS" ]] && [[ -n "$PROJECT_NAME" ]]; then
+    sed -e "s/${PROJECT_NAME}/$(tput smso)&$(tput rmso)/g" <<< "$1"
+  else
+    echo "$1"
+  fi
+}
+
+ls_instance() {
+  local instance="$1"
+
+  # Determine instance state
+  local shortname=$(basename "$instance")
+  local port=$(local_port "$instance")
+  local sym="$SYM_UNKNOWN"
+  local version=
+  if [[ -n "$OPT_FAST" ]]; then
+    version="[skipped]"
+    ping_instance_simple "$port" || {
+      version="DOWN"
+      sym="$SYM_ERROR"
+    }
+  else
+    # If we can fetch the version string from the app this is an indicator of
+    # a fully functional instance.  If we cannot this could either mean that
+    # the instance has been stopped or that it is only partially working.
+    version=$(ping_instance_websocket "$port")
+    sym="$SYM_NORMAL"
+    if [[ -z "$version" ]]; then
+      sym="$SYM_UNKNOWN"
+      version="DOWN"
+      # The following function simply checks if the reverse proxy port is open.
+      # If it is the instance is *supposed* to be running but is not fully
+      # functional; otherwise, it is assumed to be turned off on purpose.
+      ping_instance_simple "$port" || sym="$SYM_ERROR"
+    fi
+  fi
+
+  # Filter online/offline instances
+  case "$FILTER" in
+    online)
+      [[ "$version" != "DOWN" ]] || return 1 ;;
+    offline)
+      [[ "$version" = "DOWN" ]] || return 1 ;;
+    *) ;;
+  esac
+
+  # Parse metadata for first line (used in overview)
+  local first_metadatum=
+  if [[ -z "$OPT_FAST" ]] && [[ -r "${instance}/metadata.txt" ]]; then
+    first_metadatum=$(head -1 "${instance}/metadata.txt")
+    # Shorten if necessary.  This string will be printed as a column of the
+    # general output, so it should not cause linebreaks.  Since the same
+    # information will additionally be displayed in the extended output,
+    # we can just cut if off here.
+    # Ideally, we'd dynamically adjust to how much space is available.
+    [[ "${#first_metadatum}" -le 40 ]] || {
+      first_metadatum="${first_metadatum:0:30}"
+      # append ellipsis and reset formatting.  The latter may be necessary
+      # because we might be cutting this off above.
+      first_metadatum+="…[0m"
+    }
+  fi
+
+  # Basic output
+  printf "%s %-40s\t%s\n" "$sym" "$shortname" "$first_metadatum"
+
+  # --long
+  if [[ -n "$OPT_LONGLIST" ]]; then
+
+    # Parse docker-compose.yml
+    local git_commit=$(value_from_yaml "$instance" "REPOSITORY_URL")
+    local git_repo=$(value_from_yaml "$instance" "GIT_CHECKOUT")
+
+    if [[ -z "$git_commit" ]]; then
+      local image=$(value_from_yaml "$instance" "image")
+    fi
+
+    # Parse admin credentials file
+    local OPENSLIDES_ADMIN_PASSWORD="—"
+    if [[ -f "${instance}/secrets/${ADMIN_SECRETS_FILE}" ]]; then
+      source "${instance}/secrets/${ADMIN_SECRETS_FILE}"
+    fi
+
+    printf "   ├ %-12s %s\n" "Directory:" "$instance"
+    printf "   ├ %-12s %s\n" "Version:" "$version"
+    if [[ -n "$git_commit" ]]; then
+      printf "   ├ %-12s %s\n" "Git rev:" "$git_commit"
+      printf "   ├ %-12s %s\n" "Git repo:" "$git_repo"
+    elif [[ -n "$image" ]]; then
+      printf "   ├ %-12s %s\n" "Image:" "$image"
+    fi
+    printf "   ├ %-12s %s\n" "Local port:" "$port"
+    printf "   ├ %-12s %s : %s\n" "Login:" "admin" "$OPENSLIDES_ADMIN_PASSWORD"
+
+    # Include secondary account credentials if available
+    local OPENSLIDES_USER_FIRSTNAME=
+    local OPENSLIDES_USER_LASTNAME=
+    local OPENSLIDES_USER_PASSWORD=
+    local user_name=
+    if [[ -f "${instance}/secrets/${USER_SECRETS_FILE}" ]]; then
+      source "${instance}/secrets/${USER_SECRETS_FILE}"
+      local user_name="${OPENSLIDES_USER_FIRSTNAME} ${OPENSLIDES_USER_LASTNAME}"
+      [[ -n "$user_name" ]] &&
+        printf "   ├ %-12s \"%s\" : %s\n" \
+          "Login:" "$user_name" "$OPENSLIDES_USER_PASSWORD"
+    fi
+  fi
+
+  # --metadata
+  if [[ -n "$OPT_METADATA" ]] && [[ -r "${instance}/metadata.txt" ]]; then
+    local metadata=()
+    # Parse metadata file for use in long output
+    readarray -t metadata < <(grep -v '^\s*#' "${instance}/metadata.txt")
+
+    if [[ ${#metadata[@]} -ge 1 ]]; then
+      printf "   └ %s\n" "Metadata:"
+      for m in "${metadata[@]}"; do
+        m=$(highlight_match "$m") # Colorize match in metadata
+        printf "     ┆ %s\n" "$m"
+      done
+    fi
+  fi
+
+  # --image-info
+  if [[ -n "$OPT_IMAGE_INFO" ]] && [[ "$version" != DOWN ]]; then
+    local image_info="$(curl -s http://localhost:${port}/image-version.txt)"
+    if [[ "$image_info" =~ ^Built ]]; then
+      printf "   └ %s\n" "Image info:"
+      echo "${image_info}" | sed 's/^/     ┆ /'
+    fi
+  fi
+}
+
+colorize_ls() {
+  # Colorize the status indicators
+  if [[ -n "$NCOLORS" ]]; then
+    sed "
+      # Colorize matching string in instance name
+      s/^\([^ ]\{2\} [^ ]*\)\(${PROJECT_NAME}\)\( \?.*\)$/\1$(tput smso)\2$(tput rmso)\3/;
+      # Use colored dots for instance status
+      s/^${SYM_NORMAL}/ ${COL_GREEN}${BULLET}${COL_NORMAL}/;
+      s/^${SYM_UNKNOWN}/ ${COL_YELLOW}${BULLET}${COL_NORMAL}/;
+      s/^${SYM_ERROR}/ ${COL_RED}${BULLET}${COL_NORMAL}/
+      "
+  else
+    cat -
+  fi
+}
+
 list_instances() {
   # Find instances and filter based on search term.
   # PROJECT_NAME is used as a grep -E search pattern here.
@@ -407,130 +580,14 @@ list_instances() {
     # 1. instance name/project dir matches
     if grep -E -q "$PROJECT_NAME" <<< "$(basename $instance)"; then :
     # 2. metadata matches
-    elif [[ $OPT_METADATA ]] && [[ -f "${instance}/metadata.txt" ]] &&
+    elif [[ -n "$OPT_METADATA_SEARCH" ]] && [[ -f "${instance}/metadata.txt" ]] &&
       grep -E -q "$PROJECT_NAME" "${instance}/metadata.txt"; then :
     else
       continue
     fi
 
-    # Determine instance state
-    local shortname=$(basename "$instance")
-    local port=$(local_port "$instance")
-    local sym="$SYM_NORMAL"
-    # If we can fetch the version string from the app this is an indicator of
-    # a fully functional instance.  If we cannot this could either mean that
-    # the instance has been stopped or that it is only partially working.
-    local version=$(ping_instance_websocket "$port")
-    if [[ -z "$version" ]]; then
-      local sym="$SYM_UNKNOWN"
-      # The following function simply checks if the reverse proxy port is open.
-      # If it is the instance is *supposed* to be running but is not fully
-      # functional; otherwise, it is assumed to be turned off on purpose.
-      ping_instance_simple "$port" || sym="$SYM_ERROR"
-      version="DOWN"
-    fi
-
-    # Filter online/offline instances
-    case "$FILTER" in
-      online)
-        [[ "$version" != "DOWN" ]] || continue ;;
-      offline)
-        [[ "$version" = "DOWN" ]] || continue ;;
-      *) ;;
-    esac
-
-    # Parse docker-compose.yml
-    local git_commit=$(value_from_yaml "$instance" "REPOSITORY_URL")
-    local git_repo=$(value_from_yaml "$instance" "GIT_CHECKOUT")
-
-    if [[ -z "$git_commit" ]]; then
-      local image=$(value_from_yaml "$instance" "image")
-    fi
-
-    # Parse admin credentials file
-    local OPENSLIDES_ADMIN_PASSWORD="—"
-    if [[ -f "${instance}/secrets/${ADMIN_SECRETS_FILE}" ]]; then
-      source "${instance}/secrets/${ADMIN_SECRETS_FILE}"
-    fi
-
-    # Parse user credentials file
-    local OPENSLIDES_USER_FIRSTNAME=
-    local OPENSLIDES_USER_LASTNAME=
-    local OPENSLIDES_USER_PASSWORD=
-    local user_name=
-    if [[ -f "${instance}/secrets/${USER_SECRETS_FILE}" ]]; then
-      source "${instance}/secrets/${USER_SECRETS_FILE}"
-      local user_name="${OPENSLIDES_USER_FIRSTNAME} ${OPENSLIDES_USER_LASTNAME}"
-    fi
-
-    # Parse metadata file
-    local metadata=()
-    local first_metadatum=
-    if [[ -r "${instance}/metadata.txt" ]]; then
-      readarray -t metadata < <(grep -v '^\s*#' "${instance}/metadata.txt")
-      if [[ ${#metadata[@]} -ge 1 ]]; then
-        first_metadatum="${metadata[0]}"
-        # Shorten if necessary.  This string will be printed as a column of the
-        # general output, so it should not cause linebreaks.  Since the same
-        # information will additionally be displayed in the extended output,
-        # we can just cut if off here.
-        # Ideally, we'd dynamically adjust to how much space is available.
-        [[ "${#first_metadatum}" -le 40 ]] || {
-          first_metadatum="${first_metadatum:0:30}"
-          # append ellipsis and reset formatting.  The latter may be necessary
-          # because we might be cutting this off above.
-          first_metadatum+="…[0m"
-        }
-      fi
-    fi
-
-    printf "%s %-40s\t%s\n" "$sym" "$shortname" "$first_metadatum"
-    if [[ -n "$OPT_LONGLIST" ]]; then
-      printf "   ├ %-12s %s\n" "Directory:" "$instance"
-      printf "   ├ %-12s %s\n" "Version:" "$version"
-      if [[ -n "$git_commit" ]]; then
-        printf "   ├ %-12s %s\n" "Git rev:" "$git_commit"
-        printf "   ├ %-12s %s\n" "Git repo:" "$git_repo"
-      elif [[ -n "$image" ]]; then
-        printf "   ├ %-12s %s\n" "Image:" "$image"
-      fi
-      printf "   ├ %-12s %s\n" "Local port:" "$port"
-      printf "   ├ %-12s %s : %s\n" "Login:" "admin" "$OPENSLIDES_ADMIN_PASSWORD"
-
-      # include secondary account credentials if available
-      [[ -n "$user_name" ]] &&
-        printf "   ├ %-12s \"%s\" : %s\n" \
-          "Login:" "$user_name" "$OPENSLIDES_USER_PASSWORD"
-    fi
-
-    if [[ -n "$OPT_METADATA" ]]; then
-      if [[ ${#metadata[@]} -ge 1 ]]; then
-        printf "   └ %s\n" "Metadata:"
-        for m in "${metadata[@]}"; do
-          printf "     ┆ %s\n" "$m"
-        done
-      fi
-    fi
-
-    if [[ -n "$OPT_IMAGE_INFO" ]] && [[ "$version" != DOWN ]]; then
-      local image_info="$(curl -s http://localhost:${port}/image-version.txt)"
-      if [[ "$image_info" =~ ^Built ]]; then
-        printf "   └ %s\n" "Image info:"
-        echo "${image_info}" | sed 's/^/     ┆ /'
-      fi
-    fi
-
-  done |
-  # Colorize the status indicators
-  if [[ -n "$NCOLORS" ]]; then
-    sed "
-      s/^${SYM_NORMAL}/ ${COL_GREEN}${BULLET}${COL_NORMAL}/;
-      s/^${SYM_UNKNOWN}/ ${COL_YELLOW}${BULLET}${COL_NORMAL}/;
-      s/^${SYM_ERROR}/ ${COL_RED}${BULLET}${COL_NORMAL}/
-    "
-  else
-    cat -
-  fi
+    ls_instance "$instance" || continue
+  done | colorize_ls
 }
 
 clone_secrets() {
@@ -647,6 +704,7 @@ longopt=(
   offline
   metadata
   image-info
+  fast
 
   # adding instances
   clone-from:
@@ -709,6 +767,7 @@ while true; do
       ;;
     -m|--metadata)
       OPT_METADATA=1
+      OPT_METADATA_SEARCH=1
       shift 1
       ;;
     -i|--image-info)
@@ -741,6 +800,10 @@ while true; do
       ;;
     --force)
       OPT_FORCE=1
+      shift 1
+      ;;
+    --fast)
+      OPT_FAST=1
       shift 1
       ;;
     -h|--help) usage; exit 0 ;;
@@ -835,10 +898,12 @@ fi
 # Deduce project name from path
 if [[ -n "$PROJECT_DIR" ]]; then
   PROJECT_NAME=$(basename $(readlink -f "$PROJECT_DIR"))
+  OPT_METADATA_SEARCH=
 # Treat the project name "." as --project-dir=.
 elif [[ "$PROJECT_NAME" = "." ]]; then
   PROJECT_NAME=$(basename $(readlink -f "$PROJECT_NAME"))
   PROJECT_DIR="${INSTANCES}/${PROJECT_NAME}"
+  OPT_METADATA_SEARCH=
 else
   PROJECT_DIR="${INSTANCES}/${PROJECT_NAME}"
 fi
