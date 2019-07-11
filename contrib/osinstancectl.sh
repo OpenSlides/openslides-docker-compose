@@ -393,6 +393,15 @@ info_from_yaml() {
     "${instance}/docker-compose.yml"
 }
 
+highlight_match() {
+  # Highlight search term match in string
+  if [[ -n "$NCOLORS" ]] && [[ -n "$PROJECT_NAME" ]]; then
+    sed -e "s/${PROJECT_NAME}/$(tput smso)&$(tput rmso)/g" <<< "$1"
+  else
+    echo "$1"
+  fi
+}
+
 list_instances() {
   # Find instances and filter based on search term.
   # PROJECT_NAME is used as a grep -E search pattern here.
@@ -482,6 +491,9 @@ list_instances() {
       fi
     fi
 
+    # Colorize match in instance name
+    local shortname=$(highlight_match "$shortname")
+
     printf "%s %-40s\t%s\n" "$sym" "$shortname" "$first_metadatum"
     if [[ -n "$OPT_LONGLIST" ]]; then
       printf "   ├ %-12s %s\n" "Directory:" "$instance"
@@ -501,6 +513,7 @@ list_instances() {
       if [[ ${#metadata[@]} -ge 1 ]]; then
         printf "   └ %s\n" "Metadata:"
         for m in "${metadata[@]}"; do
+          m=$(highlight_match "$m") # Colorize match in metadata
           printf "     ┆ %s\n" "$m"
         done
       fi
