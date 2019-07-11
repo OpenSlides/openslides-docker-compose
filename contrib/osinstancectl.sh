@@ -562,7 +562,7 @@ list_instances() {
     # 1. instance name/project dir matches
     if grep -E -q "$PROJECT_NAME" <<< "$(basename $instance)"; then :
     # 2. metadata matches
-    elif [[ $OPT_METADATA_SEARCH ]] && [[ -f "${instance}/metadata.txt" ]] &&
+    elif [[ -n "$OPT_METADATA_SEARCH" ]] && [[ -f "${instance}/metadata.txt" ]] &&
       grep -E -q "$PROJECT_NAME" "${instance}/metadata.txt"; then :
     else
       continue
@@ -871,10 +871,12 @@ fi
 # Deduce project name from path
 if [[ -n "$PROJECT_DIR" ]]; then
   PROJECT_NAME=$(basename $(readlink -f "$PROJECT_DIR"))
+  OPT_METADATA_SEARCH=
 # Treat the project name "." as --project-dir=.
 elif [[ "$PROJECT_NAME" = "." ]]; then
   PROJECT_NAME=$(basename $(readlink -f "$PROJECT_NAME"))
   PROJECT_DIR="${INSTANCES}/${PROJECT_NAME}"
+  OPT_METADATA_SEARCH=
 else
   PROJECT_DIR="${INSTANCES}/${PROJECT_NAME}"
 fi
