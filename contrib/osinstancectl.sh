@@ -636,7 +636,7 @@ instance_update() {
   fi
   local build_opt=
   [[ -z "$OPT_FORCE" ]] || local build_opt="--no-cache"
-  _docker_compose "$PROJECT_DIR" build "$build_opt" server
+  _docker_compose "$PROJECT_DIR" build "$build_opt" server prioserver
   echo "Creating services"
   _docker_compose "$PROJECT_DIR" up --no-start
   local server="$(_docker_compose "$PROJECT_DIR" ps -q server)"
