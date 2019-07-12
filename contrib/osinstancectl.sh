@@ -533,14 +533,26 @@ ls_instance() {
 colorize_ls() {
   # Colorize the status indicators
   if [[ -n "$NCOLORS" ]]; then
-    sed "
-      # Colorize matching string in instance name
-      s/^\([^ ]\{2\} [^ ]*\)\(${PROJECT_NAME}\)\( \?.*\)$/\1$(tput smso)\2$(tput rmso)\3/;
-      # Use colored dots for instance status
-      s/^${SYM_NORMAL}/ ${COL_GREEN}${BULLET}${COL_NORMAL}/;
-      s/^${SYM_UNKNOWN}/ ${COL_YELLOW}${BULLET}${COL_NORMAL}/;
-      s/^${SYM_ERROR}/ ${COL_RED}${BULLET}${COL_NORMAL}/
-      "
+    gawk \
+      -v m="$PROJECT_NAME" \
+      -v hlstart="$(tput smso)" \
+      -v hlstop="$(tput rmso)" \
+      -v bullet="${BULLET}" \
+      -v normal="${COL_NORMAL}" \
+      -v green="${COL_GREEN}" \
+      -v yellow="${COL_YELLOW}" \
+      -v red="${COL_RED}" \
+    'BEGIN {
+      FPAT = "([[:space:]]*[[:alnum:][:punct:][:digit:][:cntrl:]]+)"
+      OFS = ""
+    }
+    # highlight matches in instance name
+    /^[^ ]/ { gsub(m, hlstart "&" hlstop, $2) }
+    # bullets
+    /^OK/   { $1 = " " green  bullet normal }
+    /^\?\?/ { $1 = " " yellow bullet normal }
+    /^XX/   { $1 = " " red    bullet normal }
+    1'
   else
     cat -
   fi
