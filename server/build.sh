@@ -19,7 +19,7 @@ Options:
                      (default: $REPOSITORY_URL)
   -D, --docker-repo  Specify a Docker repository
                      (default: unspecified, i.e., system default)
-  -t, --tag          Tag the Docker image (default: $DOCKER_TAG")
+  -t, --tag          Tag the Docker image (default: $DOCKER_TAG)
 EOF
 }
 
@@ -77,8 +77,8 @@ esac
 
 set -x
 docker build \
-  --build-arg "$REPOSITORY_URL" \
-  --build-arg "$GIT_CHECKOUT" \
+  --build-arg "REPOSITORY_URL=${REPOSITORY_URL}" \
+  --build-arg "GIT_CHECKOUT=${GIT_CHECKOUT}" \
   --tag "$IMG" \
   --pull \
   .
