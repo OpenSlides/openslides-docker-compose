@@ -670,9 +670,9 @@ instance_update() {
   gawk -v image="$DOCKER_IMAGE_NAME_OPENSLIDES" \
       -v tag="$DOCKER_IMAGE_TAG_OPENSLIDES" '
     BEGIN {FS=":"; OFS=FS}
-    $0 ~ /^  (prio)?server:$/ {s=1}
-    image != "" && $1 ~ /image/ && s { $2 = " " image; s=0 }
-    tag != "" && $1 ~ /image/ && s { $3 = tag; s=0 }
+    $0 ~ /^  (prio)?server:$/ {i=1; t=1}
+    image != "" && $1 ~ /image/ && i { $2 = " " image; i=0 }
+    tag != "" && $1 ~ /image/ && t { $3 = tag; t=0 }
     1
     ' "${DCCONFIG}" > "${DCCONFIG}.tmp" &&
   mv -f "${DCCONFIG}.tmp" "${DCCONFIG}"
