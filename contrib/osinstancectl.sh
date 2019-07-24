@@ -207,8 +207,9 @@ next_free_port() {
   #  instances outside of the regular instances directory)
   n=0
   while ! ss -tnHl | awk -v port="$PORT" '$4 ~ port { exit 2 }'; do
-    [[ $n -lt 5 ]] || { fatal "Could not find free port"; }
+    [[ $n -le 25 ]] || { fatal "Could not find free port"; }
     ((PORT+=1))
+    [[ $PORT -le 65535 ]] || { fatal "Ran out of ports"; }
     ((n+=1))
   done
   echo "$PORT"
