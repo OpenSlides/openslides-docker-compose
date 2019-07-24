@@ -561,7 +561,7 @@ colorize_ls() {
       -v yellow="${COL_YELLOW}" \
       -v red="${COL_RED}" \
     'BEGIN {
-      FPAT = "([[:space:]]*[[:alnum:][:punct:][:digit:][:cntrl:]]+)"
+      FPAT = "([[:space:]]*[^[:space:]]+)"
       OFS = ""
     }
     # highlight matches in instance name
