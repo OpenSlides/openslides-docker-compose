@@ -70,7 +70,7 @@ enable_color() {
 
 usage() {
 cat <<EOF
-Usage: ${BASH_SOURCE[0]} [options] <action> <instance>
+Usage: $ME [options] <action> <instance>
 
 Manage docker-compose-based OpenSlides instances.
 
@@ -1014,6 +1014,6 @@ case "$MODE" in
     instance_flush
     ;;
   *)
-    usage
+    fatal "Missing command.  Please consult $ME --help."
     ;;
 esac
