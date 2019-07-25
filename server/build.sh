@@ -7,6 +7,7 @@ REPOSITORY_URL="https://github.com/OpenSlides/OpenSlides.git"
 GIT_CHECKOUT="master"
 DOCKER_REPOSITORY=
 DOCKER_TAG="latest"
+CONFIG="/etc/osinstancectl"
 
 usage() {
   cat << EOF
@@ -22,6 +23,12 @@ Options:
   -t, --tag          Tag the Docker image (default: $DOCKER_TAG)
 EOF
 }
+
+# Config file
+if [[ -f "$CONFIG" ]]; then
+  echo "Found ${CONFIG} file."
+  source "$CONFIG"
+fi
 
 shortopt="hr:R:D:t:"
 longopt="help,revision:,repo:,docker-repo:,tag:"
