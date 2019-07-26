@@ -16,6 +16,7 @@
 # a clone instead.
 
 set -e
+set -o pipefail
 
 BASEDIR="/srv/openslides/docker-instances"
 FROM="$1"
@@ -30,6 +31,14 @@ REMOTE="$(host "$FROM" |
 )"
 
 [[ -n "$REMOTE" ]] || exit 23
+
+# check if remote is really (still) remote.  This may change
+# in case of failover IPs.
+ip address show | awk -v ip="$REMOTE" -v from="$FROM" '
+  $1 ~ /^inet/ && $2 ~ ip {
+    printf("ERROR: %s (%s) routes to this host.\n", from, ip)
+    exit 3
+  }'
 
 FROM="${BASEDIR}/${FROM}/"
 TO="${BASEDIR}/${TO}/"
