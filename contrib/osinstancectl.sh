@@ -149,6 +149,8 @@ arg_check() {
       return 2
     }
   fi
+  echo "$DOCKER_IMAGE_NAME_OPENSLIDES" | grep -q -v ':' ||
+    fatal "Image names must not contain colons.  Tags can be specified with --tag."
 }
 
 marker_check() {
