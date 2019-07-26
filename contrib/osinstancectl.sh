@@ -180,14 +180,13 @@ query_user_account_name() {
 
 verify_domain() {
   # Verify provided domain
-  HOSTNAME=$(hostname -f)
-  IP=$(host "$HOSTNAME" | awk '/has address/ { print $4; exit; } /has IPv6 address/ { print $5}')
-  host "$PROJECT_NAME" | grep -q "$IP" || {
-    fatal "$PROJECT_NAME does not point to this host?"
+  local ip=$(dig +short "$PROJECT_NAME")
+  [[ -n "$ip" ]] || fatal "Hostname not found"
+  hostname -I | grep -q -F "$ip" || {
+    fatal "$PROJECT_NAME does not point to this host.  Override with --force."
     return 3
   }
 }
-
 
 next_free_port() {
   # Select new port
@@ -903,6 +902,7 @@ DEPS=(
   gawk
   acmetool
   nc
+  dig
 )
 # Check dependencies
 for i in "${DEPS[@]}"; do
