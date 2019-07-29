@@ -1,9 +1,6 @@
 #!/bin/bash
 
-# Set up a new OpenSlides docker-compose instance
-#
-# This script makes some assumptions and would need more options to become more
-# flexible
+# Manage dockerized OpenSlides instances
 
 set -eu
 set -o noclobber
