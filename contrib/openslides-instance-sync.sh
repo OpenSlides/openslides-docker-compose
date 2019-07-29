@@ -77,7 +77,7 @@ fi
 EOF
 
 # instance sync
-rsync -ax --del \
+rsync -ax --compress --del \
   --exclude=settings.py \
   --exclude=personal_data \
   --exclude=metadata.txt \
