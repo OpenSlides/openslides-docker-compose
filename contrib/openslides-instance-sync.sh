@@ -62,7 +62,7 @@ cd "${FROM}/"
 
 # dump DB
 docker exec -u postgres "\$(docker-compose ps -q postgres)" \
-  /bin/bash -c "pg_dump openslides" > latest.sql
+  /bin/bash -c "pg_dump --clean openslides" > latest.sql
 
 # link personal_data
 if [[ ! -h personal_data ]]; then
@@ -91,8 +91,8 @@ rsync -ax "${REMOTE}:${FROM}/personal_data/" ./personal_data/
 # import DB
 docker-compose stop server prioserver client
 docker-compose up -d --no-deps postgres
-sleep 10 # :(
-docker exec -i -u postgres "$(docker-compose ps -q postgres)" \
-  bash -c "dropdb openslides; createdb openslides"
-docker exec -i -u postgres "$(docker-compose ps -q postgres)" \
-  psql -U openslides openslides < latest.sql
+
+docker exec -i -u postgres "$(docker-compose ps -q postgres)" bash -c \
+  "psql openslides" < latest.sql > import.log
+
+verbose "Done."
