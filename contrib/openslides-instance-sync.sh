@@ -18,6 +18,10 @@
 set -e
 set -o pipefail
 
+verbose() {
+  printf "INFO: %s\n" "$*"
+}
+
 BASEDIR="/srv/openslides/docker-instances"
 FROM="$1"
 TO="$2"
@@ -45,7 +49,7 @@ TO="${BASEDIR}/${TO}/"
 
 cd "${TO}/"
 
-# link volume in locally, once
+verbose "linking volume in local instance"
 if [[ ! -h personal_data ]]; then
   dir=$(
     docker inspect --format \
@@ -56,7 +60,7 @@ if [[ ! -h personal_data ]]; then
   ln -s "$dir" personal_data
 fi
 
-# remote: setup and dump
+verbose "Remote: dumping DB and linking personal_data"
 ssh -T "${REMOTE}" << EOF
 cd "${FROM}/"
 
@@ -76,7 +80,7 @@ if [[ ! -h personal_data ]]; then
 fi
 EOF
 
-# instance sync
+verbose "Downloading main instance files"
 rsync -ax --compress --del \
   --exclude=settings.py \
   --exclude=personal_data \
@@ -85,13 +89,17 @@ rsync -ax --compress --del \
   "${REMOTE}:${FROM}/" ./
 
 # personal_data sync (separate so we can use -x both times)
+verbose "Creating instance (network, volumes)"
 docker-compose up --no-start # Make sure volumes exist
+verbose "Sync personal_data files"
 rsync -ax "${REMOTE}:${FROM}/personal_data/" ./personal_data/
 
-# import DB
+# prepare DB import
+verbose "Starting/stopping services"
 docker-compose stop server prioserver client
 docker-compose up -d --no-deps postgres
 
+verbose "Importing DB"
 docker exec -i -u postgres "$(docker-compose ps -q postgres)" bash -c \
   "psql openslides" < latest.sql > import.log
 
