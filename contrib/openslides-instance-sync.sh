@@ -18,9 +18,27 @@
 set -e
 set -o pipefail
 
+usage () {
+cat << EOF
+$0 <from hostname> <to hostname>
+
+This is a one-way mirroring script for OpenSlides Docker instances.
+
+It refuses to run if both hostnames resolve to localhost because it is assumed
+that in such a case a failover event has happened.
+
+Example:
+
+  $0 production.openlides.example.com synctarget.server2.example.com
+EOF
+}
+
 verbose() {
   printf "INFO: %s\n" "$*"
 }
+
+# check args
+[[ $# -eq 2 ]] || { usage; exit 2; }
 
 BASEDIR="/srv/openslides/docker-instances"
 FROM="$1"
