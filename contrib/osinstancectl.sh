@@ -484,8 +484,8 @@ ls_instance() {
   if [[ -n "$OPT_LONGLIST" ]]; then
 
     # Parse docker-compose.yml
-    local git_commit=$(value_from_yaml "$instance" "REPOSITORY_URL")
-    local git_repo=$(value_from_yaml "$instance" "GIT_CHECKOUT")
+    local git_repo=$(value_from_yaml "$instance" "REPOSITORY_URL")
+    local git_commit=$(value_from_yaml "$instance" "GIT_CHECKOUT")
 
     if [[ -z "$git_commit" ]]; then
       local image=$(value_from_yaml "$instance" "image")
