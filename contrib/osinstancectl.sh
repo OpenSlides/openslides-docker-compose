@@ -93,12 +93,14 @@ Options:
                        auto.
 
   for ls:
-    -l, --long         Include more information in extended listing format
-    -m, --metadata     Include metadata in instance list
-    -n, --online       Show only online instances
-    -f, --offline      Show only offline instances
-    -i, --image-info   Show image version info (requires instance to be started)
-    --fast             Include less information to increase listing speed
+    -l, --long             Include more information in extended listing format
+    -m, --metadata         Include metadata in instance list
+    -M, --search-metadata  Include metadata in instance list
+    -n, --online           Show only online instances
+    -f, --offline          Show only offline instances
+    -i, --image-info       Show image version info (requires instance to be
+                           started)
+    --fast                 Include less information to increase listing speed
 
   for add & update:
     -I, --image        Specify the OpenSlides server Docker image
@@ -115,15 +117,15 @@ Options:
                        is the host system)
 
 Meaning of colored status indicators in ls mode:
-  green              The instance appears to be fully functional
-  red                The instance is unreachable, probably stopped
-  yellow             The instance is started but a websocket connection cannot
-                     be established.  This usually means that the instance is
-                     starting or, if the status persists, that something is
-                     wrong.  Check the docker-compose logs in this case.
-                     (If --fast is given, however, this is the best possible
-                     status due to uncertainty and does not necessarily
-                     indicate a problem.)
+  green                The instance appears to be fully functional
+  red                  The instance is unreachable, probably stopped
+  yellow               The instance is started but a websocket connection
+                       cannot be established.  This usually means that the
+                       instance is starting or, if the status persists, that
+                       something is wrong.  Check the docker-compose logs in
+                       this case.  (If --fast is given, however, this is the
+                       best possible status due to uncertainty and does not
+                       necessarily indicate a problem.)
 EOF
 }
 
@@ -729,7 +731,7 @@ if [[ -f /usr/bin/env_parallel.bash ]]; then
   OPT_USE_PARALLEL=1
 fi
 
-shortopt="hlminfd:I:t:"
+shortopt="hlmiMnfd:I:t:"
 longopt=(
   help
   color:
@@ -743,6 +745,7 @@ longopt=(
   metadata
   image-info
   fast
+  search-metadata
 
   # adding instances
   clone-from:
@@ -805,6 +808,9 @@ while true; do
       ;;
     -m|--metadata)
       OPT_METADATA=1
+      shift 1
+      ;;
+    -M|--search-metadata)
       OPT_METADATA_SEARCH=1
       shift 1
       ;;
