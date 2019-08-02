@@ -93,13 +93,14 @@ Options:
                        auto.
 
   for ls:
+    -a, --all              Equivalent to -l -m -i
     -l, --long             Include more information in extended listing format
     -m, --metadata         Include metadata in instance list
-    -M, --search-metadata  Include metadata in instance list
-    -n, --online           Show only online instances
-    -f, --offline          Show only offline instances
     -i, --image-info       Show image version info (requires instance to be
                            started)
+    -n, --online           Show only online instances
+    -f, --offline          Show only offline instances
+    -M, --search-metadata  Include metadata in instance list
     --fast                 Include less information to increase listing speed
 
   for add & update:
@@ -731,7 +732,7 @@ if [[ -f /usr/bin/env_parallel.bash ]]; then
   OPT_USE_PARALLEL=1
 fi
 
-shortopt="hlmiMnfd:I:t:"
+shortopt="halmiMnfd:I:t:"
 longopt=(
   help
   color:
@@ -740,6 +741,7 @@ longopt=(
   force
 
   # filtering
+  all
   online
   offline
   metadata
@@ -800,6 +802,12 @@ while true; do
       ;;
     --no-add-account)
       OPT_ADD_ACCOUNT=
+      shift 1
+      ;;
+    -a|--all)
+      OPT_LONGLIST=1
+      OPT_METADATA=1
+      OPT_IMAGE_INFO=1
       shift 1
       ;;
     -l|--long)
