@@ -55,6 +55,9 @@ SYM_NORMAL="OK"
 SYM_ERROR="XX"
 SYM_UNKNOWN="??"
 
+# Internal options
+OPT_USE_PARALLEL=
+
 enable_color() {
   NCOLORS=$(tput colors) # no. of colors
   if [[ -n "$NCOLORS" ]] && [[ "$NCOLORS" -ge 8 ]]; then
@@ -579,6 +582,7 @@ list_instances() {
   # Find instances and filter based on search term.
   # PROJECT_NAME is used as a grep -E search pattern here.
   local i=()
+  local j=()
   readarray -d '' i < <(
     find "${INSTANCES}" -mindepth 1 -maxdepth 1 -type d -print0 |
     sort -z
@@ -597,8 +601,20 @@ list_instances() {
       continue
     fi
 
-    ls_instance "$instance" || continue
-  done | colorize_ls
+    j+=("$instance")
+  done
+
+  # return here if no matches
+  [[ "${#j[@]}" -ge 1 ]] || return
+
+  # list instances, either one by one or in parallel
+  if [[ $OPT_USE_PARALLEL ]]; then
+    env_parallel --no-notice --keep-order ls_instance ::: ${j[@]}
+  else
+    for instance in "${j[@]}"; do
+      ls_instance "$instance" || continue
+    done
+  fi | colorize_ls
 }
 
 clone_secrets() {
@@ -706,6 +722,12 @@ instance_flush() {
   _docker_compose "$PROJECT_DIR" up -d --scale server=1 --scale prioserver=1
 }
 
+
+# Use GNU parallel if found
+if [[ -f /usr/bin/env_parallel.bash ]]; then
+  source /usr/bin/env_parallel.bash
+  OPT_USE_PARALLEL=1
+fi
 
 shortopt="hlminfd:I:t:"
 longopt=(
