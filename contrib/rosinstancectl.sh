@@ -17,4 +17,4 @@ readarray a < "$CONF"
 printf -v nodes ",%s" ${a[@]}
 
 [[ -n "$nodes" ]] || fatal "Nodes list is empty"
-exec clush -o "-ttq -o BatchMode=yes" -b -w "${nodes:1}" osinstancectl $*
+exec clush -o "-ttq -o BatchMode=yes" -qS -b -w "${nodes:1}" osinstancectl $*
