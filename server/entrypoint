@@ -77,16 +77,16 @@ sudo /usr/local/bin/update-openslides-app
 # Enable OpenSlides-specific DEBUG output
 export OPENSLIDES_LOG_LEVEL=DEBUG
 
-if [[ ! -f /app/personal_data/var/settings.py ]]; then
-  configure
-fi
-
 # For secondary server instances, skip migrations etc. and instead
 # only wait for the main server instance to become available.
 if [[ "$SERVER_IS_SECONDARY" ]]; then
   echo "This is a secondary server instance.  Waiting for main server..."
   wait-for-it --timeout=20 prioserver:8000
   exec $*
+fi
+
+if [[ ! -f /app/personal_data/var/settings.py ]]; then
+  configure
 fi
 
 wait-for-it --timeout=5 postgres:5432
