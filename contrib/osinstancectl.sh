@@ -707,11 +707,11 @@ instance_update() {
   _docker_compose "$PROJECT_DIR" build "$build_opt" server prioserver
   echo "Creating services"
   _docker_compose "$PROJECT_DIR" up --no-start
-  local server="$(_docker_compose "$PROJECT_DIR" ps -q server)"
+  local prioserver="$(_docker_compose "$PROJECT_DIR" ps -q prioserver)"
   # Delete staticfiles volume
   local vol=$(docker inspect --format \
       '{{ range .Mounts }}{{ if eq .Destination "/app/openslides/static" }}{{ .Name }}{{ end }}{{ end }}' \
-      "$server"
+      "$prioserver"
   )
   echo "Scaling down"
   _docker_compose "$PROJECT_DIR" up -d \

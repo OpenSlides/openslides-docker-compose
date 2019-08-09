@@ -20,7 +20,6 @@ services:
     restart: always
     volumes:
       - "personaldata:/app/personal_data"
-      - "staticfiles:/app/openslides/static"
     depends_on:
       - postfix
       - postgres
@@ -40,7 +39,7 @@ services:
       - SERVER_IS_SECONDARY=1
   prioserver:
     # This service is basically a simple copy of the main server service
-    # (above).  It will share all the same resources (DB, Redis, static files)
+    # (above).  It will share all the same resources (e.g., DB, Redis)
     # as the main server, so it is crucial that it is always kept at
     # compatible versions.
     image: openslides:latest
