@@ -81,7 +81,7 @@ export OPENSLIDES_LOG_LEVEL=DEBUG
 # only wait for the main server instance to become available.
 if [[ "$SERVER_IS_SECONDARY" ]]; then
   echo "This is a secondary server instance.  Waiting for main server..."
-  wait-for-it --timeout=20 prioserver:8000
+  wait-for-it --timeout=0 prioserver:8000
   exec $*
 fi
 
@@ -89,7 +89,7 @@ if [[ ! -f /app/personal_data/var/settings.py ]]; then
   configure
 fi
 
-wait-for-it --timeout=5 postgres:5432
+wait-for-it --timeout=60 postgres:5432
 
 echo 'running migrations'
 python manage.py migrate
