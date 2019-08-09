@@ -93,6 +93,8 @@ services:
       - front
     ports:
       - 61000:80
+    deploy:
+      mode: global
   postgres:
     image: sameersbn/postgresql:10
     labels:
