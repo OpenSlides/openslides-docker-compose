@@ -70,6 +70,12 @@ services:
     command: ["redis-server", "--save", ""]
     networks:
       - back
+  rediscache-slave:
+    image: redis:alpine
+    restart: always
+    command: ["redis-server", "--save", "", "--slaveof", "rediscache", "6379"]
+    networks:
+      - back
   client:
     image: openslides-proxy:latest
     build: ./client
