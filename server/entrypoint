@@ -87,6 +87,19 @@ fi
 
 if [[ ! -f /app/personal_data/var/settings.py ]]; then
   configure
+  if [[ "$INSTANCE_IS_READONLY" ]]; then
+    echo "DEBUG: Configuring instance as read-only mirror"
+    {
+      echo -e '\n# Read-only instance configuration'
+      # Revert CHANNEL_LAYERS to back default settings
+      echo 'CHANNEL_LAYERS = {"default": {"BACKEND": "channels.layers.InMemoryChannelLayer"}}'
+      # Read-only mode specific settings
+      echo 'PUSH_INTERVAL = 5'
+      echo 'CACHE_RETRY_TIME = 10'
+      # XXX this should be here only temporarily until it becomes the default
+      echo 'REDIS_ADDRESS = "redis://rediscache-slave:6379/0"'
+    } >> /app/personal_data/var/settings.py
+  fi
 fi
 
 wait-for-it --timeout=60 postgres:5432
