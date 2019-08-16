@@ -79,7 +79,8 @@ if [[ ! -h personal_data ]]; then
 fi
 
 verbose "Remote: dumping DB and linking personal_data"
-ssh -T "${REMOTE}" << EOF
+ssh -T "${REMOTE}" bash << EOF
+set -e
 cd "${FROM}/"
 
 # dump DB
