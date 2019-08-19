@@ -6,9 +6,6 @@ secrets:
     file: ./secrets/usersecret.env
 services:
   server:
-    secrets:
-      - os_admin
-      - os_user
     image: openslides:latest
     # Below is the default command.  You can uncomment it to override the
     # number of workers, for example:
@@ -57,6 +54,9 @@ services:
     networks:
       - front
       - back
+    secrets:
+      - os_admin
+      - os_user
   redis:
     image: redis:alpine
     restart: always
