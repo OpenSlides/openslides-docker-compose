@@ -4,29 +4,37 @@
 
 set -e
 
-sudo /usr/local/bin/update-openslides-app
-
-# Enable OpenSlides-specific DEBUG output
-export OPENSLIDES_LOG_LEVEL=DEBUG
-
-# For secondary/priority server instances, skip migrations etc. and instead
-# only wait for the main server instance to become available.
-if [[ "$SERVER_IS_SECONDARY" ]]; then
-  echo "This is a secondary server instance.  Waiting for main server..."
-  wait-for-it --timeout=20 server:8000
-  exec $*
-fi
-
-if [[ ! -f personal_data/var/settings.py ]]; then
+configure() {
   python manage.py createsettings
   echo "Creating settings.py"
+
+  # Set our own the Django secret key to make sure it is consistent across
+  # nodes
+  if [[ -f /run/secrets/django ]]; then
+    awk -v sec="'$(< /run/secrets/django)'" '$1 == "SECRET_KEY" { $3 = sec }1' \
+      /app/personal_data/var/settings.py > /app/personal_data/var/settings.py.tmp &&
+      mv /app/personal_data/var/settings.py.tmp /app/personal_data/var/settings.py
+  else
+    cat <<-EOF
+                 ==============================================
+                                    WARNING
+                 ==============================================
+
+                   WARNING: no Django SECRET_KEY configured!
+
+               We will be using the Django-generated secret key.
+
+Please be aware that this is an unsuitable setup for for multi-node setups (but
+                           fine for Docker Compose).
+EOF
+fi
 
   # settings.py customizations for docker-compose setup
   # Email server: use postfix service
   sed -i \
     -e "/EMAIL_HOST\ /s/localhost/postfix/" \
     -e "/EMAIL_PORT/s/587/25/" \
-    personal_data/var/settings.py
+    /app/personal_data/var/settings.py
 
   # database: use postgres service
   sed -i \
@@ -36,35 +44,52 @@ if [[ ! -f personal_data/var/settings.py ]]; then
         'PASSWORD': 'openslides',\n \
         'HOST': 'postgres',\n \
         'PORT': '5432'" \
-    personal_data/var/settings.py
+    /app/personal_data/var/settings.py
 
   # Enable redis
   sed -i \
     -e "/use_redis/s/False/True/" \
-    personal_data/var/settings.py
+    /app/personal_data/var/settings.py
 
   # Redis for Django channels
   sed -i \
     -e "/\"hosts\":.*6379/s/localhost/redis/" \
-    personal_data/var/settings.py
+    /app/personal_data/var/settings.py
 
   # Redis for collection cache
   sed -i \
     -e "/REDIS_ADDRESS/s/127\.0\.0\.1/rediscache:6379\/0/" \
-    personal_data/var/settings.py
+    /app/personal_data/var/settings.py
 
   # Redis for session backend
   sed -i \
     -e "/'host':/s/127\.0\.0\.1/redis/" \
-    personal_data/var/settings.py
+    /app/personal_data/var/settings.py
 
   # Disable DEBUG
   sed -i \
     -e "/^DEBUG/s/True/False/" \
-    personal_data/var/settings.py
+    /app/personal_data/var/settings.py
+}
+
+sudo /usr/local/bin/update-openslides-app
+
+# Enable OpenSlides-specific DEBUG output
+export OPENSLIDES_LOG_LEVEL=DEBUG
+
+# For secondary server instances, skip migrations etc. and instead
+# only wait for the main server instance to become available.
+if [[ "$SERVER_IS_SECONDARY" ]]; then
+  echo "This is a secondary server instance.  Waiting for main server..."
+  wait-for-it --timeout=0 prioserver:8000
+  exec $*
 fi
 
-wait-for-it --timeout=5 postgres:5432
+if [[ ! -f /app/personal_data/var/settings.py ]]; then
+  configure
+fi
+
+wait-for-it --timeout=60 postgres:5432
 
 echo 'running migrations'
 python manage.py migrate

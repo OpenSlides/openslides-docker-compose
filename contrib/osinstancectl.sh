@@ -268,6 +268,14 @@ gen_pw() {
   echo "$PW"
 }
 
+create_django_secrets_file() {
+  echo "Generating Django secret key (for settings.py)..."
+  [[ -d "${PROJECT_DIR}/secrets" ]] ||
+    mkdir -m 700 "${PROJECT_DIR}/secrets"
+  printf "%s\n" "$(gen_pw)" \
+    >> "${PROJECT_DIR}/secrets/django"
+}
+
 create_admin_secrets_file() {
   echo "Generating admin password..."
   [[ -d "${PROJECT_DIR}/secrets" ]] ||
@@ -699,11 +707,11 @@ instance_update() {
   _docker_compose "$PROJECT_DIR" build "$build_opt" server prioserver
   echo "Creating services"
   _docker_compose "$PROJECT_DIR" up --no-start
-  local server="$(_docker_compose "$PROJECT_DIR" ps -q server)"
+  local prioserver="$(_docker_compose "$PROJECT_DIR" ps -q prioserver)"
   # Delete staticfiles volume
   local vol=$(docker inspect --format \
       '{{ range .Mounts }}{{ if eq .Destination "/app/openslides/static" }}{{ .Name }}{{ end }}{{ end }}' \
-      "$server"
+      "$prioserver"
   )
   echo "Scaling down"
   _docker_compose "$PROJECT_DIR" up -d \
@@ -985,6 +993,7 @@ case "$MODE" in
     create_instance_dir
     create_config_from_template "${PROJECT_DIR}/docker-compose.yml.example" \
       "${PROJECT_DIR}/docker-compose.yml"
+    create_django_secrets_file
     create_admin_secrets_file
     create_user_secrets_file "${OPENSLIDES_USER_FIRSTNAME}" "${OPENSLIDES_USER_LASTNAME}"
     update_nginx_config
