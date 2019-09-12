@@ -39,6 +39,13 @@ RUN apt-get install --no-install-recommends -y \
   procps \
   traceroute
 
+# Install saml requirements
+RUN apt-get install --no-install-recommends -y \
+  libxml2-dev \
+  libxmlsec1-dev \
+  libxmlsec1-openssl \
+  pkg-config
+
 # Install script which will be used to copy the files build below into the
 # container's volume upon creation.
 COPY update-openslides-app.sh /usr/local/bin/update-openslides-app
