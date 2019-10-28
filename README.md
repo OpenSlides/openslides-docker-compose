@@ -43,11 +43,11 @@ Build the OpenSlides ```server``` image:
 
     ./server/build.sh
 
-By default, the admin user's login password is "admin".  You can and should
+By default, the admin user's login password is `admin`.  You can and should
 change it before you start the instance.  To do so, make a copy of the example
 configuration file and add a secure password:
 
-  cp -p ./secrets/adminsecret.env.example ./secrets/adminsecret.env
+    cp -p ./secrets/adminsecret.env.example ./secrets/adminsecret.env
 
 To build and start the instance, run:
 
@@ -70,8 +70,8 @@ The database cluster is stored in a volume.  It's path can be identified with:
 ```contrib``` contains tools that should come in handy if you are running
 multiple OpenSlides instances:
 
-  - osinstancectl.sh: instance management tool
-  - rosinstancectl.sh: wrapper around clustershell to run osinstancectl on
+  - `osinstancectl.sh`: instance management tool
+  - `rosinstancectl.sh`: wrapper around clustershell to run `osinstancectl` on
     multiple hosts
-  - openslides-docker-pg-dump.sh: creates SQL dumps for all instances
-  - openslides-logwatch.sh: Traceback monitoring
+  - `openslides-docker-pg-dump.sh`: creates SQL dumps for all instances
+  - `openslides-logwatch.sh`: Traceback monitoring
