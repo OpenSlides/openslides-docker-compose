@@ -22,7 +22,6 @@ CONFIG="/etc/osinstancectl"
 MARKER=".osinstancectl-marker"
 DOCKER_IMAGE_NAME_OPENSLIDES=
 DOCKER_IMAGE_TAG_OPENSLIDES=
-NGINX_TEMPLATE=
 PROJECT_NAME=
 PROJECT_DIR=
 PORT=
@@ -107,7 +106,7 @@ Options:
     -I, --image        Specify the OpenSlides server Docker image
     -t, --tag          Specify the OpenSlides server Docker image
     --no-add-account   Do not add an additional, customized local admin account
-    --local-only       Create an instance without setting up Nginx and Let's
+    --local-only       Create an instance without setting up HAProxy and Let's
                        Encrypt certificates.  Such an instance is only
                        accessible on localhost, e.g., http://127.1:61000.
     --clone-from       Create the new instance based on the specified existing
@@ -300,21 +299,13 @@ EOF
   fi
 }
 
-update_nginx_config() {
-  # Create Nginx configs
+gen_tls_cert() {
+  # Generate Let's Encrypt certificate
   [[ -z "$OPT_LOCALONLY" ]] || return 0
 
   # add optional www subdomain
   local www=
   [[ -z "$OPT_WWW" ]] || www="www.${PROJECT_NAME}"
-
-  # First, without TLS
-  sed -e "/server_name/s/<INSTANCE>/${PROJECT_NAME} ${www}/" \
-      -e "s/<INSTANCE>/${PROJECT_NAME}/" \
-      -e "/proxy_pass/s/61000/${PORT}/" \
-      "$NGINX_TEMPLATE" > /etc/nginx/sites-available/"${PROJECT_NAME}".conf
-  ln -s ../sites-available/"${PROJECT_NAME}".conf /etc/nginx/sites-enabled/ || true
-  systemctl reload nginx
 
   # Generate Let's Encrypt certificate
   echo "Generating certificate..."
@@ -323,11 +314,44 @@ update_nginx_config() {
   else
     acmetool want "${PROJECT_NAME}" "${www}"
   fi
+}
 
-  # Update Nginx to use TLS certs
-  ex -s +"g/ssl-cert-snakeoil/d" +"g/ssl_certificate/s/#\ //" +x \
-    /etc/nginx/sites-available/"${PROJECT_NAME}".conf
-  systemctl reload nginx
+add_to_haproxy_cfg() {
+  [[ -z "$OPT_LOCALONLY" ]] || return 0
+  cp -f /etc/haproxy/haproxy.cfg /etc/haproxy/haproxy.cfg.osbak &&
+  gawk -v target="${PROJECT_NAME}" -v port="${PORT}" '
+    BEGIN {
+      begin_block = "-----BEGIN AUTOMATIC OPENSLIDES CONFIG-----"
+      end_block   = "-----END AUTOMATIC OPENSLIDES CONFIG-----"
+      use_server_tmpl = "\tuse-server %s if { ssl_fc_sni_end -i %s }"
+      server_tmpl     = "\tserver     %s 127.1:%d  weight 0 check"
+    }
+    $0 ~ begin_block { b = 1 }
+    $0 ~ end_block   { e = 1 }
+    !e
+    b && e {
+      printf(use_server_tmpl "\n", target, target)
+      printf(server_tmpl "\n", target, port)
+      print
+      e = 0
+    }
+  ' /etc/haproxy/haproxy.cfg.osbak >| /etc/haproxy/haproxy.cfg &&
+    systemctl reload haproxy
+}
+
+rm_from_haproxy_cfg() {
+  cp -f /etc/haproxy/haproxy.cfg /etc/haproxy/haproxy.cfg.osbak &&
+  gawk -v target="${PROJECT_NAME}" -v port="${PORT}" '
+    BEGIN {
+      begin_block = "-----BEGIN AUTOMATIC OPENSLIDES CONFIG-----"
+      end_block   = "-----END AUTOMATIC OPENSLIDES CONFIG-----"
+    }
+    $0 ~ begin_block { b = 1 }
+    $0 ~ end_block   { e = 1 }
+    b && !e && $0 ~ target { next }
+    1
+  ' /etc/haproxy/haproxy.cfg.osbak >| /etc/haproxy/haproxy.cfg &&
+    systemctl reload haproxy
 }
 
 link_settingspy() {
@@ -362,12 +386,10 @@ remove() {
   instance_erase
   echo "Removing instance repo dir..."
   rm -rf "${PROJECT_DIR}"
-  echo "Remove config from Nginx..."
-  rm -f /etc/nginx/sites-available/"${PROJECT_NAME}".conf \
-     /etc/nginx/sites-enabled/"${PROJECT_NAME}".conf
-  systemctl reload nginx
   echo "acmetool unwant..."
   acmetool unwant "$PROJECT_NAME"
+  echo "remove HAProxy config..."
+  rm_from_haproxy_cfg
   echo "Done."
 }
 
@@ -970,7 +992,6 @@ else
 fi
 
 DCCONFIG="${PROJECT_DIR}/docker-compose.yml"
-NGINX_TEMPLATE="${PROJECT_DIR}/contrib/nginx.conf.in"
 
 case "$MODE" in
   remove)
@@ -996,10 +1017,11 @@ case "$MODE" in
     create_django_secrets_file
     create_admin_secrets_file
     create_user_secrets_file "${OPENSLIDES_USER_FIRSTNAME}" "${OPENSLIDES_USER_LASTNAME}"
-    update_nginx_config
+    gen_tls_cert
+    add_to_haproxy_cfg
     append_metadata "$PROJECT_DIR" "$(date +"%F %H:%M"): Instance created"
     [[ -z "$OPT_LOCALONLY" ]] ||
-      append_metadata "$PROJECT_DIR" "No Nginx config added (--local-only)"
+      append_metadata "$PROJECT_DIR" "No HAProxy config added (--local-only)"
     ask_start
     link_settingspy
     ;;
@@ -1023,10 +1045,11 @@ case "$MODE" in
     clone_secrets
     clone_files
     clone_db
-    update_nginx_config
+    gen_tls_cert
+    add_to_haproxy_cfg
     append_metadata "$PROJECT_DIR" "Cloned from $CLONE_FROM on $(date)"
     [[ -z "$OPT_LOCALONLY" ]] ||
-      append_metadata "$PROJECT_DIR" "No Nginx config added (--local-only)"
+      append_metadata "$PROJECT_DIR" "No HAProxy config added (--local-only)"
     ask_start
     link_settingspy
     ;;
