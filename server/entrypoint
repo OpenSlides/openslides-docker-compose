@@ -59,6 +59,7 @@ fi
   # Redis for collection cache
   sed -i \
     -e "/REDIS_ADDRESS/s/127\.0\.0\.1/rediscache:6379\/0/" \
+    -e '/REDIS_ADDRESS/a\ \ \ \ REDIS_READ_ONLY_ADDRESS = "redis://rediscache-slave:6379/0"' \
     /app/personal_data/var/settings.py
 
   # Redis for session backend
