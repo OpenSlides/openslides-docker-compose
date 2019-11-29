@@ -42,7 +42,7 @@ fi
     -e "/^\s*'NAME'/s/\(^.*'NAME':\).*/\1\ 'openslides',/" \
     -e "/^\s*'NAME'/a\ \ \ \ \ \ \ \ 'USER': 'openslides',\n \
         'PASSWORD': 'openslides',\n \
-        'HOST': 'postgres',\n \
+        'HOST': 'db',\n \
         'PORT': '5432'" \
     /app/personal_data/var/settings.py
 
@@ -102,7 +102,7 @@ if [[ ! -f /app/personal_data/var/settings.py ]]; then
   fi
 fi
 
-wait-for-it --timeout=60 postgres:5432
+wait-for-it --timeout=60 db:5432
 
 echo 'running migrations'
 python manage.py migrate
