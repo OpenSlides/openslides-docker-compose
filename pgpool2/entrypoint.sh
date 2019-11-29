@@ -14,13 +14,20 @@ setup() {
     /^log_standby_delay/s/none/if_over_threshold/;
   ' "$ORIG_CONFIG" > "$CONFIG"
 
+  # Failover/failback settings
+  sed -i '
+    /^failover_on_backend_error/s/\<on\>/off/;
+    /^search_primary_node_timeout/s/300/0/;
+  ' "$CONFIG"
+
   # Delete settings that will be appended below
   sed -i '
     /pid_file_name/d;
-    /^sr_check_/d;
-    /^backend_/d;
     /^socket_dir/d;
     /^pcp_socket_dir/d;
+    /^sr_check_/d;
+    /^health_check_max_retries/d;
+    /^backend_/d;
   ' "$CONFIG"
 
 cat >> "$CONFIG" << EOF
@@ -33,6 +40,8 @@ sr_check_period = 0
 sr_check_user = 'repmgr'
 sr_check_password = 'repmgr'
 sr_check_database = 'repmgr'
+
+health_check_max_retries = 10
 
 EOF
 
