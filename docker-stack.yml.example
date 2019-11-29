@@ -17,8 +17,7 @@ services:
           nocopy: true
     depends_on:
       - prioserver
-      - postfix
-      - postgres
+      - pgpool2
       - redis
       - rediscache
     networks:
@@ -56,7 +55,7 @@ services:
           nocopy: true
     depends_on:
       - postfix
-      - postgres
+      - pgpool2
       - redis
       - rediscache
     networks:
@@ -102,22 +101,6 @@ services:
       - 61000:80
     deploy:
       mode: global
-  postgres:
-    image: sameersbn/postgresql:10
-    labels:
-      org.openslides.role: "postgres"
-    volumes:
-      - "dbdata:/var/lib/postgresql"
-    environment:
-      - DB_USER=openslides
-      - DB_PASS=openslides
-      - DB_NAME=openslides
-    networks:
-      - back
-    deploy:
-      replicas: 1
-      placement:
-        constraints: [node.role == manager]
   postfix:
     image: openslides-postfix:latest
     environment:
@@ -129,21 +112,48 @@ services:
       replicas: 1
       placement:
         constraints: [node.role == manager]
+  pg_node1:
+    environment:
+      - REPMGR_NODE_ID=1
+    image: repmgr:latest
+    build: ./repmgr
+    restart: always
+    networks:
+      - back
+    volumes:
+      - "dbdata:/var/lib/postgresql"
+  pg_node2:
+    environment:
+      - REPMGR_NODE_ID=2
+    image: repmgr:latest
+    build: ./repmgr
+    restart: always
+    networks:
+      - back
+  pg_node3:
+    environment:
+      - REPMGR_NODE_ID=3
+    image: repmgr:latest
+    build: ./repmgr
+    restart: always
+    networks:
+      - back
+  pgpool2:
+    environment:
+      - PG_NODE_LIST=pg_node1:0,pg_node2:1,pg_node3:2
+    image: pgpool2:latest
+    build: ./pgpool2
+    restart: always
+    networks:
+      back:
+        aliases:
+          - db
+          - postgres
 volumes:
   dbdata:
   redisdata:
   staticfiles:
-    driver: local
-    driver_opts:
-      type: nfs
-      o: "addr=nfs.example.com,rw,soft,nolock"
-      device: ":/srv/openslides/nfs/staticfiles"
   personaldata:
-    driver: local
-    driver_opts:
-      type: nfs
-      o: "addr=nfs.example.com,rw,soft,nolock"
-      device: ":/srv/openslides/nfs/personaldata"
 networks:
   front:
   back:

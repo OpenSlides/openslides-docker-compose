@@ -19,7 +19,7 @@ services:
       - "personaldata:/app/personal_data"
     depends_on:
       - postfix
-      - postgres
+      - pgpool2
       - redis
       - rediscache
       - prioserver
@@ -48,7 +48,7 @@ services:
       - "staticfiles:/app/openslides/static"
     depends_on:
       - postfix
-      - postgres
+      - pgpool2
       - redis
       - rediscache
     networks:
@@ -88,19 +88,6 @@ services:
       - front
     ports:
       - "127.0.0.1:61000:80"
-  postgres:
-    image: sameersbn/postgresql:10
-    labels:
-      org.openslides.role: "postgres"
-    restart: always
-    volumes:
-      - "dbdata:/var/lib/postgresql"
-    environment:
-      - DB_USER=openslides
-      - DB_PASS=openslides
-      - DB_NAME=openslides
-    networks:
-      - back
   postfix:
     build: ./postfix
     image: openslides-postfix:latest
@@ -110,6 +97,44 @@ services:
       - RELAYHOST=localhost
     networks:
       - back
+  pg_node1:
+    environment:
+      - REPMGR_NODE_ID=1
+    image: repmgr:latest
+    build: ./repmgr
+    restart: always
+    networks:
+      - back
+    volumes:
+      - "dbdata:/var/lib/postgresql"
+  pg_node2:
+    environment:
+      - REPMGR_NODE_ID=2
+    image: repmgr:latest
+    build: ./repmgr
+    restart: always
+    networks:
+      - back
+  pg_node3:
+    environment:
+      - REPMGR_NODE_ID=3
+    image: repmgr:latest
+    build: ./repmgr
+    restart: always
+    networks:
+      - back
+  pgpool2:
+    environment:
+      - PG_NODE_LIST=pg_node1:0,pg_node2:1,pg_node3:2
+    image: pgpool2:latest
+    build: ./pgpool2
+    restart: always
+    networks:
+      back:
+        aliases:
+          - db
+          - postgres
+
 volumes:
   dbdata:
   personaldata:
