@@ -25,6 +25,7 @@ RUN apt-get -y update && apt-get -y upgrade && \
     gnupg2 \
     libpq-dev \
     make \
+    postgresql-client \
     rsync \
     sudo \
     wait-for-it \
