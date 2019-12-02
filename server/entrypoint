@@ -105,6 +105,32 @@ insert_settings_into_db() {
       )"
 }
 
+create_or_retrieve_settings() {
+  if [[ ! -f /app/personal_data/var/settings.py ]]; then
+    # if file does not exist yet, check if it already exists in DB
+    echo "settings.py file not found"
+    settings_exist_in_db="$(psql -h db -d instancecfg -qtA \
+      -c "SELECT exists(SELECT 1 FROM django WHERE filename = 'settings.py')")"
+    if [[ "$settings_exist_in_db" = "t" ]]; then
+      echo "settings.py file found in database; retrieving..."
+      retrieve_settingspy_from_db
+    else
+      echo "settings.py also not found in database"
+      # this container is the first to generate settings.py
+      echo "Generating a new settings.py from template..."
+      configure
+      if [[ "$INSTANCE_IS_READONLY" ]]; then
+        echo "Configuring instance as read-only mirror"
+        configure_read_only
+      fi
+      echo "Storing settings.py in database..."
+      insert_settings_into_db
+    fi
+  else
+    echo "Found settings.py file"
+  fi
+}
+
 
 sudo /usr/local/bin/update-openslides-app
 
@@ -116,31 +142,13 @@ export OPENSLIDES_LOG_LEVEL=DEBUG
 if [[ "$SERVER_IS_SECONDARY" ]]; then
   echo "This is a secondary server instance.  Waiting for main server..."
   wait-for-it --timeout=0 prioserver:8000
+  create_or_retrieve_settings
   exec $*
 fi
 
 wait-for-it --timeout=60 db:5432
 
-if [[ ! -f /app/personal_data/var/settings.py ]]; then
-  # if file does not exist yet, check if it already exists in DB
-  echo "settings.py file not found"
-  settings_exist_in_db="$(psql -h db -d instancecfg -qtA -c "SELECT exists(SELECT 1 FROM django WHERE filename = 'settings.py')")"
-  if [[ "settings_exist_in_db" = "t" ]]; then
-    echo "settings.py file found in database; retrieving..."
-    retrieve_settingspy_from_db
-  else
-    # this container is the first to generate settings.py
-    echo "Generating a new settings.py from template..."
-    configure
-    if [[ "$INSTANCE_IS_READONLY" ]]; then
-      echo "Configuring instance as read-only mirror"
-      configure_read_only
-    fi
-    echo "Storing settings.py in database..."
-    insert_settings_into_db
-  fi
-fi
-
+create_or_retrieve_settings
 # Transfer file-based markers from legacy DBs to database
 if [[ -f /app/personal_data/admin-password-set ]]; then
     psql -h db -d instancecfg -a \
