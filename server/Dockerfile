@@ -91,6 +91,7 @@ RUN cd client && \
 
 WORKDIR /app
 
+COPY update-settings.sh /usr/local/bin/update-settings
 COPY entrypoint /usr/local/bin/
 ENTRYPOINT ["/usr/local/bin/entrypoint"]
 CMD ["gunicorn", "-w", "8", "--preload", "-b", "0.0.0.0:8000", "-k", \
