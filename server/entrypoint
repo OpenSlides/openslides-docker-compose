@@ -98,10 +98,11 @@ retrieve_settingspy_from_db() {
 insert_settings_into_db() {
   local b64="$(base64 < "/app/personal_data/var/settings.py")"
   psql -h db -d instancecfg \
-    -c "INSERT INTO django(filename, data)
+    -c "INSERT INTO django(filename, data, from_host)
       VALUES(
         'settings.py',
-        convert_from(decode('$b64','base64'), 'utf-8')
+        convert_from(decode('$b64','base64'), 'utf-8'),
+        '$(hostname)'
       )"
 }
 

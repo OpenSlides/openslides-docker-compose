@@ -8,10 +8,11 @@ set -e
 insert_settings_into_db() {
   local b64="$(base64 < "/app/personal_data/var/settings.py")"
   psql -h db -d instancecfg \
-    -c "INSERT INTO django(filename, data)
+    -c "INSERT INTO django(filename, data, from_host)
       VALUES(
         'settings.py',
-        convert_from(decode('$b64','base64'), 'utf-8')
+        convert_from(decode('$b64','base64'), 'utf-8'),
+        '$(hostname)'
       )"
 }
 
@@ -20,7 +21,7 @@ insert_settings_into_db
 echo "settings.py updated:"
 
 psql -h db -d instancecfg \
-    -c "SELECT id, created FROM django
+    -c "SELECT id, created, from_host FROM django
       WHERE filename = 'settings.py'
       ORDER BY id DESC LIMIT 1"
 

@@ -40,9 +40,10 @@ primary_node_setup() {
     -c "CREATE TABLE markers (name text, configured bool DEFAULT false);" \
     -c "INSERT INTO markers VALUES('admin', false), ('user', false);" \
     -c "CREATE TABLE django (id SERIAL PRIMARY KEY,
+      filename VARCHAR NOT NULL,
+      data VARCHAR NOT NULL,
       created TIMESTAMP DEFAULT now(),
-      filename VARCHAR,
-      data VARCHAR);"
+      from_host VARCHAR);"
 
   pg_ctlcluster 11 main stop
   sed -i -e '/^port/s/5433/5432/' \
