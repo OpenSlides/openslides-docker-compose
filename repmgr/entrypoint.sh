@@ -35,8 +35,8 @@ primary_node_setup() {
   createuser -s openslides && createdb openslides -O openslides
 
   # create settings table
-  createdb syscfg -O openslides
-  psql -1 -d syscfg -c "
+  createdb instancecfg -O openslides
+  psql -1 -d instancecfg -c "
     CREATE TABLE markers (name text, configured bool DEFAULT false);
     INSERT INTO markers VALUES('admin', false), ('user', false)
     "

@@ -5,7 +5,7 @@
 set -e
 
 configure() {
-  echo "postgres:5432:syscfg:openslides:openslides" > "${HOME}/.pgpass"
+  echo "postgres:5432:instancecfg:openslides:openslides" > "${HOME}/.pgpass"
   chmod 600 "${HOME}/.pgpass"
 
   python manage.py createsettings
@@ -109,20 +109,20 @@ wait-for-it --timeout=60 db:5432
 
 # Transfer file-based markers from legacy DBs to database
 if [[ -f /app/personal_data/admin-password-set ]]; then
-    psql -h db -d syscfg -a \
+    psql -h db -d instancecfg -a \
         -c "UPDATE markers SET configured = true WHERE name = 'admin'"
     rm /app/personal_data/admin-password-set
 fi
 if [[ -f /app/personal_data/user-added ]]; then
-    psql -h db -d syscfg -a \
+    psql -h db -d instancecfg -a \
         -c "UPDATE markers SET configured = true WHERE name = 'user'"
     rm /app/personal_data/user-added
 fi
 
 # Read config from database
-read -ra admin_marker < <(psql -h db -d syscfg -qtAF, \
+read -ra admin_marker < <(psql -h db -d instancecfg -qtAF, \
     -c "SELECT configured FROM markers WHERE name = 'admin'")
-read -ra user_marker < <(psql -h db -d syscfg -qtAF, \
+read -ra user_marker < <(psql -h db -d instancecfg -qtAF, \
     -c "SELECT configured FROM markers WHERE name = 'user'")
 
 echo 'running migrations'
@@ -139,7 +139,7 @@ if [[ -f /run/secrets/os_admin ]]; then
     echo 'change admin password'
     python manage.py insecurechangepassword admin "${OPENSLIDES_ADMIN_PASSWORD}"
     # Make note of changed admin password
-    psql -h db -d syscfg -a \
+    psql -h db -d instancecfg -a \
         -c "UPDATE markers SET configured = true WHERE name = 'admin'"
   fi
 elif [[ "$admin_marker" = "t" ]]; then
@@ -174,7 +174,7 @@ if [[ -f /run/secrets/os_user ]] && [[ "$user_marker" = "f" ]]; then
       "${OPENSLIDES_USER_PASSWORD}" \
       2
     # Make note of changed admin password
-    psql -h db -d syscfg -a \
+    psql -h db -d instancecfg -a \
         -c "UPDATE markers SET configured = true WHERE name = 'user'"
   else
     echo "Incomplete user account data.  Skipping account creation."
