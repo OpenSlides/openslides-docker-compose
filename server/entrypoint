@@ -75,6 +75,37 @@ fi
     /app/personal_data/var/settings.py
 }
 
+configure_read_only() {
+  {
+    echo -e '\n# Read-only instance configuration'
+    # Revert CHANNEL_LAYERS to back default settings
+    echo 'CHANNEL_LAYERS = {"default": {"BACKEND": "channels.layers.InMemoryChannelLayer"}}'
+    # Read-only mode specific settings
+    echo 'PUSH_INTERVAL = 5'
+    echo 'CACHE_RETRY_TIME = 10'
+    # XXX this should be here only temporarily until it becomes the default
+    echo 'REDIS_ADDRESS = "redis://rediscache-slave:6379/0"'
+  } >> /app/personal_data/var/settings.py
+}
+
+retrieve_settingspy_from_db() {
+  mkdir -p /app/personal_data/var
+  psql -h db -d instancecfg -qtA \
+    -c 'SELECT data from django ORDER BY id DESC LIMIT 1' > \
+    /app/personal_data/var/settings.py
+}
+
+insert_settings_into_db() {
+  local b64="$(base64 < "/app/personal_data/var/settings.py")"
+  psql -h db -d instancecfg \
+    -c "INSERT INTO django(filename, data)
+      VALUES(
+        'settings.py',
+        convert_from(decode('$b64','base64'), 'utf-8')
+      )"
+}
+
+
 sudo /usr/local/bin/update-openslides-app
 
 # Enable OpenSlides-specific DEBUG output
@@ -88,24 +119,27 @@ if [[ "$SERVER_IS_SECONDARY" ]]; then
   exec $*
 fi
 
+wait-for-it --timeout=60 db:5432
+
 if [[ ! -f /app/personal_data/var/settings.py ]]; then
-  configure
-  if [[ "$INSTANCE_IS_READONLY" ]]; then
-    echo "DEBUG: Configuring instance as read-only mirror"
-    {
-      echo -e '\n# Read-only instance configuration'
-      # Revert CHANNEL_LAYERS to back default settings
-      echo 'CHANNEL_LAYERS = {"default": {"BACKEND": "channels.layers.InMemoryChannelLayer"}}'
-      # Read-only mode specific settings
-      echo 'PUSH_INTERVAL = 5'
-      echo 'CACHE_RETRY_TIME = 10'
-      # XXX this should be here only temporarily until it becomes the default
-      echo 'REDIS_ADDRESS = "redis://rediscache-slave:6379/0"'
-    } >> /app/personal_data/var/settings.py
+  # if file does not exist yet, check if it already exists in DB
+  echo "settings.py file not found"
+  settings_exist_in_db="$(psql -h db -d instancecfg -qtA -c "SELECT exists(SELECT 1 FROM django WHERE filename = 'settings.py')")"
+  if [[ "settings_exist_in_db" = "t" ]]; then
+    echo "settings.py file found in database; retrieving..."
+    retrieve_settingspy_from_db
+  else
+    # this container is the first to generate settings.py
+    echo "Generating a new settings.py from template..."
+    configure
+    if [[ "$INSTANCE_IS_READONLY" ]]; then
+      echo "Configuring instance as read-only mirror"
+      configure_read_only
+    fi
+    echo "Storing settings.py in database..."
+    insert_settings_into_db
   fi
 fi
-
-wait-for-it --timeout=60 db:5432
 
 # Transfer file-based markers from legacy DBs to database
 if [[ -f /app/personal_data/admin-password-set ]]; then
