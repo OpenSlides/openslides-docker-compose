@@ -87,11 +87,16 @@ configure_read_only() {
   } >> /app/personal_data/var/settings.py
 }
 
-retrieve_settingspy_from_db() {
+retrieve_configs_from_db() {
   mkdir -p /app/personal_data/var
-  psql -h db -d instancecfg -qtA \
-    -c 'SELECT data from django ORDER BY id DESC LIMIT 1' > \
-    /app/personal_data/var/settings.py
+  readarray -d '' config_files < \
+    <(psql -At0 -h db -d instancecfg -c 'SELECT DISTINCT filename FROM django')
+  for i in "${config_files[@]}"; do
+    echo "Retrieving config file from database: ${i}..."
+    psql -h db -d instancecfg -qtA \
+      -c "SELECT data from django WHERE filename = '${i}' ORDER BY id DESC LIMIT 1" \
+      > "${i}"
+  done
 }
 
 insert_settings_into_db() {
@@ -99,22 +104,13 @@ insert_settings_into_db() {
   psql -h db -d instancecfg \
     -c "INSERT INTO django(filename, data, from_host)
       VALUES(
-        'settings.py',
+        '/app/personal_data/var/settings.py',
         convert_from(decode('$b64','base64'), 'utf-8'),
         '$(hostname)'
       )"
 }
 
-create_or_retrieve_settings() {
-  settings_exist_in_db="$(psql -h db -d instancecfg -qtA \
-    -c "SELECT exists(SELECT 1 FROM django WHERE filename = 'settings.py')")"
-  if [[ "$settings_exist_in_db" = "t" ]]; then
-    echo "settings.py file found in database; retrieving..."
-    retrieve_settingspy_from_db
-  else
-    # this container is the first to generate settings.py
-    echo "settings.py not found in database."
-    echo "Generating a new settings.py from template..."
+create_settings() {
     configure
     if [[ "$INSTANCE_IS_READONLY" ]]; then
       echo "Configuring instance as read-only mirror"
@@ -122,7 +118,6 @@ create_or_retrieve_settings() {
     fi
     echo "Storing settings.py in database..."
     insert_settings_into_db
-  fi
 }
 
 
@@ -136,13 +131,22 @@ export OPENSLIDES_LOG_LEVEL=DEBUG
 if [[ "$SERVER_IS_SECONDARY" ]]; then
   echo "This is a secondary server instance.  Waiting for main server..."
   wait-for-it --timeout=0 prioserver:8000
-  create_or_retrieve_settings
+  retrieve_configs_from_db
   exec $*
 fi
 
 wait-for-it --timeout=60 db:5432
 
-create_or_retrieve_settings
+# Get all available config files from database
+retrieve_configs_from_db
+
+# Generate settings.py if necessary
+if [[ ! -f "/app/personal_data/var/settings.py" ]]; then
+  # this container is the first to generate settings.py
+  echo "settings.py not found in database."
+  echo "Generating a new settings.py from template..."
+  create_settings
+fi
 
 # Transfer file-based markers from legacy DBs to database
 if [[ -f /app/personal_data/admin-password-set ]]; then
