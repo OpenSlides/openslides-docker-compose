@@ -9,7 +9,6 @@ configure() {
   chmod 600 "${HOME}/.pgpass"
 
   python manage.py createsettings
-  echo "Creating settings.py"
 
   # Set our own the Django secret key to make sure it is consistent across
   # nodes
@@ -107,28 +106,22 @@ insert_settings_into_db() {
 }
 
 create_or_retrieve_settings() {
-  if [[ ! -f /app/personal_data/var/settings.py ]]; then
-    # if file does not exist yet, check if it already exists in DB
-    echo "settings.py file not found"
-    settings_exist_in_db="$(psql -h db -d instancecfg -qtA \
-      -c "SELECT exists(SELECT 1 FROM django WHERE filename = 'settings.py')")"
-    if [[ "$settings_exist_in_db" = "t" ]]; then
-      echo "settings.py file found in database; retrieving..."
-      retrieve_settingspy_from_db
-    else
-      echo "settings.py also not found in database"
-      # this container is the first to generate settings.py
-      echo "Generating a new settings.py from template..."
-      configure
-      if [[ "$INSTANCE_IS_READONLY" ]]; then
-        echo "Configuring instance as read-only mirror"
-        configure_read_only
-      fi
-      echo "Storing settings.py in database..."
-      insert_settings_into_db
-    fi
+  settings_exist_in_db="$(psql -h db -d instancecfg -qtA \
+    -c "SELECT exists(SELECT 1 FROM django WHERE filename = 'settings.py')")"
+  if [[ "$settings_exist_in_db" = "t" ]]; then
+    echo "settings.py file found in database; retrieving..."
+    retrieve_settingspy_from_db
   else
-    echo "Found settings.py file"
+    # this container is the first to generate settings.py
+    echo "settings.py not found in database."
+    echo "Generating a new settings.py from template..."
+    configure
+    if [[ "$INSTANCE_IS_READONLY" ]]; then
+      echo "Configuring instance as read-only mirror"
+      configure_read_only
+    fi
+    echo "Storing settings.py in database..."
+    insert_settings_into_db
   fi
 }
 
@@ -150,6 +143,7 @@ fi
 wait-for-it --timeout=60 db:5432
 
 create_or_retrieve_settings
+
 # Transfer file-based markers from legacy DBs to database
 if [[ -f /app/personal_data/admin-password-set ]]; then
     psql -h db -d instancecfg -a \
