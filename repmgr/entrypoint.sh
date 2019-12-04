@@ -39,7 +39,7 @@ primary_node_setup() {
   psql -1 -d instancecfg \
     -c "CREATE TABLE markers (name text, configured bool DEFAULT false);" \
     -c "INSERT INTO markers VALUES('admin', false), ('user', false);" \
-    -c "CREATE TABLE django (id SERIAL PRIMARY KEY,
+    -c "CREATE TABLE files (id SERIAL PRIMARY KEY,
       filename VARCHAR NOT NULL,
       data VARCHAR NOT NULL,
       created TIMESTAMP DEFAULT now(),
