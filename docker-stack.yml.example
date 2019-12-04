@@ -122,6 +122,10 @@ services:
       - back
     volumes:
       - "dbdata:/var/lib/postgresql"
+    deploy:
+      replicas: 1
+      placement:
+        constraints: [node.role == manager]
   pg_node2:
     environment:
       - REPMGR_NODE_ID=2
@@ -130,6 +134,10 @@ services:
     restart: always
     networks:
       - back
+    deploy:
+      replicas: 1
+      placement:
+        constraints: [node.role == manager]
   pg_node3:
     environment:
       - REPMGR_NODE_ID=3
@@ -138,6 +146,10 @@ services:
     restart: always
     networks:
       - back
+    deploy:
+      replicas: 1
+      placement:
+        constraints: [node.role == manager]
   pgpool2:
     environment:
       - PG_NODE_LIST=pg_node1:0,pg_node2:1,pg_node3:2
@@ -149,6 +161,9 @@ services:
         aliases:
           - db
           - postgres
+    deploy:
+      placement:
+        constraints: [node.role == manager]
 volumes:
   dbdata:
   redisdata:
