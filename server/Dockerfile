@@ -32,13 +32,14 @@ RUN apt-get -y update && apt-get -y upgrade && \
     wget \
     xz-utils
 
-# Install basic debugging tools
+# Install additional tools
 RUN apt-get install --no-install-recommends -y \
   dnsutils \
   iputils-ping \
   netcat \
   procps \
-  traceroute
+  traceroute \
+  vim
 
 # Install saml requirements
 RUN apt-get install --no-install-recommends -y \
