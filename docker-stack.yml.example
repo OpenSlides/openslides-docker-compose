@@ -115,7 +115,7 @@ services:
   pg_node1:
     environment:
       - REPMGR_NODE_ID=1
-    image: repmgr:latest
+    image: openslides-repmgr:latest
     build: ./repmgr
     restart: always
     networks:
@@ -129,7 +129,7 @@ services:
   pg_node2:
     environment:
       - REPMGR_NODE_ID=2
-    image: repmgr:latest
+    image: openslides-repmgr:latest
     build: ./repmgr
     restart: always
     networks:
@@ -141,7 +141,7 @@ services:
   pg_node3:
     environment:
       - REPMGR_NODE_ID=3
-    image: repmgr:latest
+    image: openslides-repmgr:latest
     build: ./repmgr
     restart: always
     networks:
@@ -153,7 +153,7 @@ services:
   pgpool2:
     environment:
       - PG_NODE_LIST=pg_node1:0,pg_node2:1,pg_node3:2
-    image: pgpool2:latest
+    image: openslides-pgpool2:latest
     build: ./pgpool2
     restart: always
     networks:
