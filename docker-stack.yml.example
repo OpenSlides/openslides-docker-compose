@@ -53,7 +53,7 @@ services:
     # environment:
     #  - INSTANCE_IS_READONLY=1
     deploy:
-      replicas: 1
+      mode: global
   redis:
     image: redis:alpine
     volumes:
