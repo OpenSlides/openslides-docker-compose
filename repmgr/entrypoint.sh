@@ -47,11 +47,11 @@ standby_node_setup() {
   # Remove cluster data dir, so it can be cloned into
   rm -r "$PGDATA" && mkdir "$PGDATA"
   # wait for master node
-  wait-for-it pg_node1:5432
+  wait-for-it pgnode1:5432
   # Give the master a little more time to start up.  This isn't strictly
   # necessary but may avoid a few container restarts.
   sleep 10
-  repmgr -h pg_node1 -U repmgr -d repmgr -f /etc/repmgr.conf standby clone
+  repmgr -h pgnode1 -U repmgr -d repmgr -f /etc/repmgr.conf standby clone
   pg_ctlcluster 11 main start
   wait-for-it localhost:5432
   repmgr -f /etc/repmgr.conf standby register

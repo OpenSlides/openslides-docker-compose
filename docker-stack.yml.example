@@ -112,7 +112,7 @@ services:
       replicas: 1
       placement:
         constraints: [node.role == manager]
-  pg_node1:
+  pgnode1:
     environment:
       - REPMGR_NODE_ID=1
     image: openslides-repmgr:latest
@@ -126,7 +126,7 @@ services:
       replicas: 1
       placement:
         constraints: [node.role == manager]
-  pg_node2:
+  pgnode2:
     environment:
       - REPMGR_NODE_ID=2
     image: openslides-repmgr:latest
@@ -138,7 +138,7 @@ services:
       replicas: 1
       placement:
         constraints: [node.role == manager]
-  pg_node3:
+  pgnode3:
     environment:
       - REPMGR_NODE_ID=3
     image: openslides-repmgr:latest
@@ -152,7 +152,7 @@ services:
         constraints: [node.role == manager]
   pgpool2:
     environment:
-      - PG_NODE_LIST=pg_node1:0,pg_node2:1,pg_node3:2
+      - PG_NODE_LIST=pgnode1:0,pgnode2:1,pgnode3:2
     image: openslides-pgpool2:latest
     build: ./pgpool2
     restart: always

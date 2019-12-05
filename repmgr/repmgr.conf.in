@@ -1,6 +1,6 @@
 node_id=<NODEID>
-node_name=pg_node<NODEID>
-conninfo='host=pg_node<NODEID> user=repmgr dbname=repmgr connect_timeout=2'
+node_name=pgnode<NODEID>
+conninfo='host=pgnode<NODEID> user=repmgr dbname=repmgr connect_timeout=2'
 data_directory='/var/lib/postgresql/11/main/'
 pg_bindir='/usr/lib/postgresql/11/bin/'
 
