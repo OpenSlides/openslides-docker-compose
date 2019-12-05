@@ -93,6 +93,8 @@ retrieve_configs_from_db() {
     <(psql -At0 -h db -d instancecfg -c 'SELECT DISTINCT filename FROM files')
   for i in "${config_files[@]}"; do
     echo "Retrieving config file from database: ${i}..."
+    d="$(dirname "$i")"
+    [[ -d "$d" ]] || mkdir -p "$d"
     psql -h db -d instancecfg -qtA \
       -c "SELECT data from files WHERE filename = '${i}' ORDER BY id DESC LIMIT 1" \
       > "${i}"
