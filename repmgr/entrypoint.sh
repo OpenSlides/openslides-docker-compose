@@ -43,6 +43,15 @@ primary_node_setup() {
       created TIMESTAMP DEFAULT now(),
       from_host VARCHAR);"
 
+  # create mediafiles table (taken from mediafile-server repository)
+  createdb mediafiledata -O openslides
+  psql -1 -d mediafiledata \
+    -c "CREATE TABLE IF NOT EXISTS mediafile_data (
+        id int PRIMARY KEY,
+        data BYTEA,
+        mimetype VARCHAR(255)
+    );"
+
   pg_ctlcluster 11 main stop
   sed -i -e '/^port/s/5433/5432/' \
     /etc/postgresql/11/main/postgresql.conf
