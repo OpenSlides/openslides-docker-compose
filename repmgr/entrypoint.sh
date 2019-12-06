@@ -19,10 +19,6 @@ update_configs() {
   #
   cat /var/lib/postgresql/pg_hba.conf \
       >> /etc/postgresql/11/main/pg_hba.conf
-  #
-  echo "Configuring repmgr"
-  sed -e "s/<NODEID>/${REPMGR_NODE_ID}/" /etc/repmgr.conf.in |
-  tee /etc/repmgr.conf
 }
 
 primary_node_setup() {
@@ -57,6 +53,10 @@ standby_node_setup() {
   repmgr -f /etc/repmgr.conf standby register
   repmgr -f /etc/repmgr.conf cluster show
 }
+
+echo "Configuring repmgr"
+sed -e "s/<NODEID>/${REPMGR_NODE_ID}/" /etc/repmgr.conf.in |
+tee /etc/repmgr.conf
 
 if [[ ! -f "$MARKER" ]]; then
   echo "New container: creating new database cluster"

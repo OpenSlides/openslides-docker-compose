@@ -107,6 +107,7 @@ services:
       - back
     volumes:
       - "dbdata:/var/lib/postgresql"
+      - "dbcfg:/etc/postgresql"
   pgnode2:
     environment:
       - REPMGR_NODE_ID=2
@@ -137,6 +138,7 @@ services:
 
 volumes:
   dbdata:
+  dbcfg:
   personaldata:
   redisdata:
   staticfiles:
