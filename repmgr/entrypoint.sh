@@ -50,7 +50,7 @@ standby_node_setup() {
   repmgr -h pgnode1 -U repmgr -d repmgr -f /etc/repmgr.conf standby clone
   pg_ctlcluster 11 main start
   wait-for-it localhost:5432
-  repmgr -f /etc/repmgr.conf standby register
+  repmgr -f /etc/repmgr.conf standby register --force
   repmgr -f /etc/repmgr.conf cluster show
 }
 
