@@ -483,6 +483,7 @@ ls_instance() {
 
   # Determine instance state
   local shortname=$(basename "$instance")
+  local normalized_shortname="$(echo "$shortname" | tr -d '.')"
   local port=$(local_port "$instance")
   local sym="$SYM_UNKNOWN"
   local version=
@@ -555,6 +556,9 @@ ls_instance() {
     fi
 
     printf "   ├ %-12s %s\n" "Directory:" "$instance"
+    if [[ -n "$normalized_shortname" ]]; then
+      printf "   ├ %-12s %s\n" "Stack name:" "$normalized_shortname (computed)"
+    fi
     printf "   ├ %-12s %s\n" "Version:" "$version"
     if [[ -n "$git_commit" ]]; then
       printf "   ├ %-12s %s\n" "Git rev:" "$git_commit"
