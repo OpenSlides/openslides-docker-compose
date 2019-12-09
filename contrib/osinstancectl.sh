@@ -833,11 +833,9 @@ instance_erase() {
     "stack")
       local vol=()
       instance_stop || true
-      echo "Waiting for volumes to become dangling..."
-      sleep 10
       readarray -t vol < <(
-        docker volume ls --format '{{ .Name }}' --filter 'dangling=true' |
-        grep "${PROJECT_STACK_NAME}_"
+        docker volume ls --format '{{ .Name }}' |
+        grep "^${PROJECT_STACK_NAME}_"
       )
       if [[ "${#vol[@]}" -gt 0 ]]; then
         echo "Please manually verify and remove the instance's volumes:"
