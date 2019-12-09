@@ -724,9 +724,6 @@ instance_update() {
     1
     ' "${DCCONFIG}" > "${DCCONFIG}.tmp" &&
   mv -f "${DCCONFIG}.tmp" "${DCCONFIG}"
-  local build_opt=
-  [[ -z "$OPT_FORCE" ]] || local build_opt="--no-cache"
-  _docker_compose "$PROJECT_DIR" build "$build_opt" server prioserver
   echo "Creating services"
   _docker_compose "$PROJECT_DIR" up --no-start
   local prioserver="$(_docker_compose "$PROJECT_DIR" ps -q prioserver)"
