@@ -393,16 +393,6 @@ remove() {
   [[ -d "$PROJECT_DIR" ]] || {
     fatal "$PROJECT_DIR does not exist."
   }
-  # Ask for confirmation
-  local ANS=
-  echo "Delete the following instance including all of its data and configuration?"
-  # Show instance listing
-  OPT_LONGLIST=1 OPT_METADATA=1 OPT_METADATA_SEARCH= \
-    ls_instance "$PROJECT_DIR" | colorize_ls
-  echo
-  read -p "Really delete? (uppercase YES to confirm) " ANS
-  [[ "$ANS" = "YES" ]] || return 0
-
   echo "Stopping and removing containers..."
   instance_erase
   echo "Removing instance repo dir..."
@@ -1176,6 +1166,15 @@ case "$MODE" in
   remove)
     arg_check || { usage; exit 2; }
     [[ -n "$OPT_FORCE" ]] || marker_check
+    # Ask for confirmation
+    ANS=
+    echo "Delete the following instance including all of its data and configuration?"
+    # Show instance listing
+    OPT_LONGLIST=1 OPT_METADATA=1 OPT_METADATA_SEARCH= \
+      ls_instance "$PROJECT_DIR" | colorize_ls
+    echo
+    read -p "Really delete? (uppercase YES to confirm) " ANS
+    [[ "$ANS" = "YES" ]] || exit 0
     remove "$PROJECT_NAME"
     ;;
   create)
@@ -1243,13 +1242,16 @@ case "$MODE" in
     instance_stop ;;
   erase)
     arg_check || { usage; exit 2; }
-    echo "WARNING: This will stop the instance, and remove its containers and volumes!"
-    ERASE=
-    read -p "Continue? [y/N] " ERASE
-    case "$ERASE" in
-      Y|y|Yes|yes|YES)
-        instance_erase ;;
-    esac
+    # Ask for confirmation
+    ANS=
+    echo "Stop the following instance, and remove its containers and volumes?"
+    # Show instance listing
+    OPT_LONGLIST=1 OPT_METADATA=1 OPT_METADATA_SEARCH= \
+      ls_instance "$PROJECT_DIR" | colorize_ls
+    echo
+    read -p "Really delete? (uppercase YES to confirm) " ANS
+    [[ "$ANS" = "YES" ]] || exit 0
+    instance_erase
     ;;
   update)
     [[ -f "$CONFIG" ]] && echo "Found ${CONFIG} file." || true
