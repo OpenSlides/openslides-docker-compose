@@ -26,7 +26,7 @@ setup() {
     /^socket_dir/d;
     /^pcp_socket_dir/d;
     /^sr_check_/d;
-    /^health_check_max_retries/d;
+    /^health_check_/d;
     /^backend_/d;
   ' "$CONFIG"
 
@@ -41,7 +41,13 @@ sr_check_user = 'repmgr'
 sr_check_password = 'repmgr'
 sr_check_database = 'repmgr'
 
+health_check_period = 20
 health_check_max_retries = 10
+health_check_user = 'repmgr'
+health_check_password = 'repmgr'
+health_check_database = 'repmgr'
+health_check_max_retries = 10
+health_check_retry_delay = 10
 
 EOF
 
