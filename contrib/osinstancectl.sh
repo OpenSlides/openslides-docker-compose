@@ -88,7 +88,6 @@ Actions:
   update               Update OpenSlides to a new --image
   erase                Remove an instance's volumes (stops the instance if
                        necessary)
-  flush                Flush Redis cache
 
 Options:
   -d, --project-dir    Directly specify the project directory
@@ -869,8 +868,6 @@ instance_update() {
         --scale server=0 --scale prioserver=0 --scale client=0
       echo "Deleting staticfiles volume"
       docker volume rm "$vol"
-      echo "Flushing redis cache"
-      instance_flush
       echo "OK.  Bringing up all services"
       _docker_compose "$PROJECT_DIR" up -d
       ;;
@@ -881,21 +878,11 @@ instance_update() {
       # docker stack deploy -c "${PROJECT_DIR}/docker-stack.yml" "$STACK_NAME"
       docker service update $force_opt "${PROJECT_STACK_NAME}_server"
       docker service update $force_opt "${PROJECT_STACK_NAME}_prioserver"
-      # XXX: rm volumes, flush redis?
       ;;
   esac
   append_metadata "$PROJECT_DIR" "$(date +"%F %H:%M"): Updated to" \
     "${DOCKER_IMAGE_NAME_OPENSLIDES}:${DOCKER_IMAGE_TAG_OPENSLIDES}"
 }
-
-instance_flush() {
-  # TODO stack
-  _docker_compose "$PROJECT_DIR" up -d --scale server=0 --scale prioserver=0
-  local redis="$(_docker_compose "$PROJECT_DIR" ps -q rediscache)"
-  docker exec "$redis" redis-cli flushall
-  _docker_compose "$PROJECT_DIR" up -d --scale server=1 --scale prioserver=1
-}
-
 
 # Use GNU parallel if found
 if [[ -f /usr/bin/env_parallel.bash ]]; then
@@ -1084,11 +1071,6 @@ for arg; do
       MODE=erase
       shift 1
       ;;
-    flush)
-      [[ -z "$MODE" ]] || { usage; exit 2; }
-      MODE=flush
-      shift 1
-      ;;
     update)
       [[ -z "$MODE" ]] || { usage; exit 2; }
       MODE=update
@@ -1257,9 +1239,6 @@ case "$MODE" in
     [[ -f "$CONFIG" ]] && echo "Found ${CONFIG} file." || true
     arg_check || { usage; exit 2; }
     instance_update
-    ;;
-  flush)
-    instance_flush
     ;;
   *)
     fatal "Missing command.  Please consult $ME --help."
