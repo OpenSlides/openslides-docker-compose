@@ -76,4 +76,4 @@ pg_ctlcluster 11 main status || pg_ctlcluster 11 main start
 # sudo /etc/init.d/ssh start
 wait-for-it localhost:5432
 # Start repmgrd in foreground
-repmgrd -f /etc/repmgr.conf --pid-file /dev/shm/repmgrd.pid --daemonize=false
+exec repmgrd -f /etc/repmgr.conf --pid-file /dev/shm/repmgrd.pid --daemonize=false
