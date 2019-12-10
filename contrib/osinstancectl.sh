@@ -148,12 +148,18 @@ arg_check() {
   [[ -n "$PROJECT_NAME" ]] || {
     fatal "Please specify a project name"; return 2;
   }
-  if [[ "$MODE" = "clone" ]]; then
-    [[ -d "$CLONE_FROM_DIR" ]] || {
-      fatal "$CLONE_FROM_DIR does not exist."
-      return 2
-    }
-  fi
+  case "$MODE" in
+    "start" | "stop" | "remove" | "erase" | "update")
+      [[ -d "$PROJECT_DIR" ]] || {
+        fatal "Instance '${PROJECT_NAME}' not found."
+      }
+      ;;
+    "clone")
+      [[ -d "$CLONE_FROM_DIR" ]] || {
+        fatal "$CLONE_FROM_DIR does not exist."
+      }
+      ;;
+  esac
   echo "$DOCKER_IMAGE_NAME_OPENSLIDES" | grep -q -v ':' ||
     fatal "Image names must not contain colons.  Tags can be specified with --tag."
 }
