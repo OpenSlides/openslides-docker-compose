@@ -76,6 +76,7 @@ services:
       - back
   client:
     image: openslides/openslides-proxy:latest
+    build: ./client
     volumes:
       - type: volume
         source: "staticfiles"
@@ -92,6 +93,7 @@ services:
       mode: global
   postfix:
     image: openslides/openslides-postfix:latest
+    build: ./postfix
     environment:
       - MYHOSTNAME=localhost
       - RELAYHOST=localhost
