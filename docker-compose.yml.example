@@ -1,5 +1,38 @@
 version: '3.4'
 services:
+  prioserver:
+    # This service is the main server service in that it is responsible for
+    # database migrations, adding the initial user credentials etc.  However,
+    # the direct access to this service's resources is only granted to select,
+    # prioritized OpenSlides users or groups.  The general workload is handled
+    # by the regular "server" service below.
+    # It will share all the same resources (DB, Redis, static files)
+    # as the regular server, so it is crucial that it is always kept at
+    # compatible versions.
+    image: openslides/openslides:latest
+    secrets:
+      - django
+      - os_admin
+      - os_user
+    command: "gunicorn -w 1 --preload -b 0.0.0.0:8000
+      -k uvicorn.workers.UvicornWorker openslides.asgi:application"
+    restart: always
+    volumes:
+      - type: volume
+        source: "staticfiles"
+        target: "/app/openslides/static"
+        volume:
+          nocopy: true
+    depends_on:
+      - postfix
+      - pgbouncer
+      - redis
+      - rediscache
+    networks:
+      - front
+      - back
+    # environment:
+    #  - INSTANCE_IS_READONLY=1
   server:
     image: openslides/openslides:latest
     # Below is the default command.  You can uncomment it to override the
@@ -28,54 +61,6 @@ services:
       - SERVER_IS_SECONDARY=1
     secrets:
       - django
-  prioserver:
-    # This service is basically a simple copy of the main server service
-    # (above).  It will share all the same resources (DB, Redis, static files)
-    # as the main server, so it is crucial that it is always kept at
-    # compatible versions.
-    image: openslides/openslides:latest
-    secrets:
-      - django
-      - os_admin
-      - os_user
-    command: "gunicorn -w 1 --preload -b 0.0.0.0:8000
-      -k uvicorn.workers.UvicornWorker openslides.asgi:application"
-    restart: always
-    volumes:
-      - type: volume
-        source: "staticfiles"
-        target: "/app/openslides/static"
-        volume:
-          nocopy: true
-    depends_on:
-      - postfix
-      - pgbouncer
-      - redis
-      - rediscache
-    networks:
-      - front
-      - back
-    # environment:
-    #  - INSTANCE_IS_READONLY=1
-  redis:
-    image: redis:alpine
-    restart: always
-    volumes:
-      - "redisdata:/data"
-    networks:
-      - back
-  rediscache:
-    image: redis:alpine
-    restart: always
-    command: ["redis-server", "--save", ""]
-    networks:
-      - back
-  rediscache-slave:
-    image: redis:alpine
-    restart: always
-    command: ["redis-server", "--save", "", "--slaveof", "rediscache", "6379"]
-    networks:
-      - back
   client:
     image: openslides/openslides-proxy:latest
     build: ./client
@@ -92,15 +77,6 @@ services:
       - front
     ports:
       - "127.0.0.1:61000:80"
-  postfix:
-    image: openslides/openslides-postfix:latest
-    build: ./postfix
-    restart: always
-    environment:
-      - MYHOSTNAME=localhost
-      - RELAYHOST=localhost
-    networks:
-      - back
   pgnode1:
     environment:
       - REPMGR_NODE_ID=1
@@ -142,11 +118,38 @@ services:
         aliases:
           - db
           - postgres
+  postfix:
+    image: openslides/openslides-postfix:latest
+    build: ./postfix
+    restart: always
+    environment:
+      - MYHOSTNAME=localhost
+      - RELAYHOST=localhost
+    networks:
+      - back
+  redis:
+    image: redis:alpine
+    restart: always
+    volumes:
+      - "redisdata:/data"
+    networks:
+      - back
+  rediscache:
+    image: redis:alpine
+    restart: always
+    command: ["redis-server", "--save", ""]
+    networks:
+      - back
+  rediscache-slave:
+    image: redis:alpine
+    restart: always
+    command: ["redis-server", "--save", "", "--slaveof", "rediscache", "6379"]
+    networks:
+      - back
 volumes:
   dbdata1:
   dbdata2:
   dbdata3:
-  personaldata:
   redisdata:
   staticfiles:
 networks:
