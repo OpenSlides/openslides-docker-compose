@@ -1,9 +1,4 @@
-version: '3.1'
-secrets:
-  os_admin:
-    file: ./secrets/adminsecret.env
-  os_user:
-    file: ./secrets/usersecret.env
+version: '3.4'
 services:
   server:
     image: openslides/openslides:latest
@@ -15,14 +10,11 @@ services:
     # Uncomment the following line to use daphne instead of gunicorn:
     # command: "daphne -b 0.0.0.0 -p 8000 openslides.asgi:application"
     restart: always
-    volumes:
-      - "personaldata:/app/personal_data"
     depends_on:
-      - postfix
+      - prioserver
       - pgbouncer
       - redis
       - rediscache
-      - prioserver
     networks:
       - front
       - back
@@ -34,18 +26,27 @@ services:
       # instance by, e.g., running migations.  This is exclusively left up to
       # the main service to avoid conflicts.
       - SERVER_IS_SECONDARY=1
+    secrets:
+      - django
   prioserver:
     # This service is basically a simple copy of the main server service
-    # (above).  It will share all the same resources (e.g., DB, Redis)
+    # (above).  It will share all the same resources (DB, Redis, static files)
     # as the main server, so it is crucial that it is always kept at
     # compatible versions.
     image: openslides/openslides:latest
+    secrets:
+      - django
+      - os_admin
+      - os_user
     command: "gunicorn -w 1 --preload -b 0.0.0.0:8000
       -k uvicorn.workers.UvicornWorker openslides.asgi:application"
     restart: always
     volumes:
-      - "personaldata:/app/personal_data"
-      - "staticfiles:/app/openslides/static"
+      - type: volume
+        source: "staticfiles"
+        target: "/app/openslides/static"
+        volume:
+          nocopy: true
     depends_on:
       - postfix
       - pgbouncer
@@ -54,9 +55,8 @@ services:
     networks:
       - front
       - back
-    secrets:
-      - os_admin
-      - os_user
+    # environment:
+    #  - INSTANCE_IS_READONLY=1
   redis:
     image: redis:alpine
     restart: always
@@ -81,16 +81,20 @@ services:
     build: ./client
     restart: always
     volumes:
-      - "staticfiles:/usr/share/nginx/html"
+      - type: volume
+        source: "staticfiles"
+        target: "/usr/share/nginx/html"
+        volume:
+          nocopy: true
     depends_on:
-      - server
+      - prioserver
     networks:
       - front
     ports:
       - "127.0.0.1:61000:80"
   postfix:
-    build: ./postfix
     image: openslides/openslides-postfix:latest
+    build: ./postfix
     restart: always
     environment:
       - MYHOSTNAME=localhost
@@ -148,5 +152,12 @@ volumes:
 networks:
   front:
   back:
+secrets:
+  os_admin:
+    file: ./secrets/adminsecret.env
+  os_user:
+    file: ./secrets/usersecret.env
+  django:
+    file: ./secrets/django
 
 # vim: set ft=yaml sw=2 et:
