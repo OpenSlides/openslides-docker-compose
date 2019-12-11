@@ -23,3 +23,4 @@ _osinstancectl()
 }
 
 complete -F _osinstancectl osinstancectl
+complete -F _osinstancectl osstackctl
