@@ -130,8 +130,6 @@ services:
   redis:
     image: redis:alpine
     restart: always
-    volumes:
-      - "redisdata:/data"
     networks:
       - back
   rediscache:
@@ -150,7 +148,6 @@ volumes:
   dbdata1:
   dbdata2:
   dbdata3:
-  redisdata:
   staticfiles:
 networks:
   front:

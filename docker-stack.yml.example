@@ -144,8 +144,6 @@ services:
         constraints: [node.role == manager]
   redis:
     image: redis:alpine
-    volumes:
-      - "redisdata:/data"
     networks:
       - back
     deploy:
@@ -166,7 +164,6 @@ volumes:
   dbdata1:
   dbdata2:
   dbdata3:
-  redisdata:
   staticfiles:
 networks:
   front:
