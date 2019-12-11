@@ -6,7 +6,7 @@ secrets:
     file: ./secrets/usersecret.env
 services:
   server:
-    image: openslides:latest
+    image: openslides/openslides:latest
     # Below is the default command.  You can uncomment it to override the
     # number of workers, for example:
     # command: "gunicorn -w 8 --preload -b 0.0.0.0:8000
@@ -39,7 +39,7 @@ services:
     # (above).  It will share all the same resources (e.g., DB, Redis)
     # as the main server, so it is crucial that it is always kept at
     # compatible versions.
-    image: openslides:latest
+    image: openslides/openslides:latest
     command: "gunicorn -w 1 --preload -b 0.0.0.0:8000
       -k uvicorn.workers.UvicornWorker openslides.asgi:application"
     restart: always
@@ -77,7 +77,7 @@ services:
     networks:
       - back
   client:
-    image: openslides-proxy:latest
+    image: openslides/openslides-proxy:latest
     build: ./client
     restart: always
     volumes:
@@ -90,7 +90,7 @@ services:
       - "127.0.0.1:61000:80"
   postfix:
     build: ./postfix
-    image: openslides-postfix:latest
+    image: openslides/openslides-postfix:latest
     restart: always
     environment:
       - MYHOSTNAME=localhost
@@ -100,7 +100,7 @@ services:
   pgnode1:
     environment:
       - REPMGR_NODE_ID=1
-    image: openslides-repmgr:latest
+    image: openslides/openslides-repmgr:latest
     build: ./repmgr
     restart: always
     networks:
@@ -110,7 +110,7 @@ services:
   pgnode2:
     environment:
       - REPMGR_NODE_ID=2
-    image: openslides-repmgr:latest
+    image: openslides/openslides-repmgr:latest
     build: ./repmgr
     restart: always
     networks:
@@ -120,7 +120,7 @@ services:
   pgnode3:
     environment:
       - REPMGR_NODE_ID=3
-    image: openslides-repmgr:latest
+    image: openslides/openslides-repmgr:latest
     build: ./repmgr
     restart: always
     networks:

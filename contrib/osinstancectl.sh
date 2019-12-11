@@ -5,22 +5,18 @@
 set -eu
 set -o noclobber
 
-# XXX: stack vars
-DEPLOYMENT_MODE=
-PROJECT_STACK_NAME=
-REPOSITORY_URL= # default repo
-
 # Defaults (override in /etc/osinstancectl)
 TEMPLATE_REPO="/srv/openslides/openslides-docker-compose"
 # TEMPLATE_REPO="https://github.com/OpenSlides/openslides-docker-compose"
 OSDIR="/srv/openslides"
 INSTANCES="${OSDIR}/docker-instances"
-DEFAULT_DOCKER_IMAGE_NAME_OPENSLIDES=openslides
+DEFAULT_DOCKER_IMAGE_NAME_OPENSLIDES=openslides/openslides
 DEFAULT_DOCKER_IMAGE_TAG_OPENSLIDES=latest
 # If set, these variables override the defaults in the
 # docker-compose.yml.example template file.  They can be configured on the
 # command line as well as in /etc/osinstancectl.
 RELAYHOST=
+MAIN_REPOSITORY_URL= # default repo used for all openslides/* images
 
 ME=$(basename -s .sh "${BASH_SOURCE[0]}")
 CONFIG="/etc/osinstancectl"
@@ -29,7 +25,9 @@ DOCKER_IMAGE_NAME_OPENSLIDES=
 DOCKER_IMAGE_TAG_OPENSLIDES=
 PROJECT_NAME=
 PROJECT_DIR=
+PROJECT_STACK_NAME=
 PORT=
+DEPLOYMENT_MODE=
 MODE=
 OPT_LONGLIST=
 OPT_METADATA=
@@ -107,6 +105,8 @@ Options:
     --fast                 Include less information to increase listing speed
 
   for add & update:
+    -r, --default-repo Specifcy the default Docker repository for OpenSlides
+                       images
     -I, --image        Specify the OpenSlides server Docker image
     -t, --tag          Specify the OpenSlides server Docker image
     --no-add-account   Do not add an additional, customized local admin account
@@ -260,10 +260,12 @@ create_config_from_template() {
     relay != "" && $1 ~ /RELAYHOST$/ { $2 = relay }
     1
   ' |
-  gawk -v repo="$REPOSITORY_URL" '
-    # Configure all images for custom Docker repository
+  gawk -v repo="$MAIN_REPOSITORY_URL" '
+    # Configure all OpenSlides-specific images for custom Docker repository
     BEGIN { FS=": "; OFS=FS; }
-    $1 ~ / +image/ && repo { $2 = repo "/" $2 }
+    repo && $1 ~ / +image/ && $2 ~ /openslides\// {
+      sub(/openslides\//, repo "/", $2)
+    }
     1
   ' > "$config"
 }
@@ -911,7 +913,7 @@ case "$(basename "${BASH_SOURCE[0]}")" in
     ;;
 esac
 
-shortopt="halmiMnfd:I:t:"
+shortopt="halmiMnfd:r:I:t:"
 longopt=(
   help
   color:
@@ -929,6 +931,7 @@ longopt=(
   search-metadata
 
   # adding instances
+  default-repo:
   clone-from:
   local-only
   no-add-account
@@ -965,6 +968,10 @@ while true; do
   case "$1" in
     -d|--project-dir)
       PROJECT_DIR="$2"
+      shift 2
+      ;;
+    -r|--default-repo)
+      MAIN_REPOSITORY_URL="$2"
       shift 2
       ;;
     -I|--image)
