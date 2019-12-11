@@ -200,6 +200,8 @@ services:
       - DB_NAME=mediafiledata
       - DB_USER=openslides
       - DB_PASSWORD=openslides
+    deploy:
+      replicas: 25
     networks:
       front:
       back:
