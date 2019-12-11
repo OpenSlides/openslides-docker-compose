@@ -91,7 +91,6 @@ services:
     environment:
       - REPMGR_NODE_ID=2
     image: openslides/openslides-repmgr:latest
-    build: ./repmgr
     restart: always
     networks:
       - back
@@ -101,7 +100,6 @@ services:
     environment:
       - REPMGR_NODE_ID=3
     image: openslides/openslides-repmgr:latest
-    build: ./repmgr
     restart: always
     networks:
       - back

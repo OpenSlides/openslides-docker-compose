@@ -93,7 +93,6 @@ services:
       - REPMGR_NODE_ID=2
       - REPMGR_PRIMARY=pgnode1
     image: openslides/openslides-repmgr:latest
-    build: ./repmgr
     networks:
       - back
     volumes:
@@ -107,7 +106,6 @@ services:
       - REPMGR_NODE_ID=3
       - REPMGR_PRIMARY=pgnode1
     image: openslides/openslides-repmgr:latest
-    build: ./repmgr
     networks:
       - back
     volumes:
