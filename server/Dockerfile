@@ -25,19 +25,21 @@ RUN apt-get -y update && apt-get -y upgrade && \
     gnupg2 \
     libpq-dev \
     make \
+    postgresql-client \
     rsync \
     sudo \
     wait-for-it \
     wget \
     xz-utils
 
-# Install basic debugging tools
+# Install additional tools
 RUN apt-get install --no-install-recommends -y \
   dnsutils \
   iputils-ping \
   netcat \
   procps \
-  traceroute
+  traceroute \
+  vim
 
 # Install saml requirements
 RUN apt-get install --no-install-recommends -y \
@@ -48,9 +50,9 @@ RUN apt-get install --no-install-recommends -y \
 
 # Install script which will be used to copy the files build below into the
 # container's volume upon creation.
-COPY update-openslides-app.sh /usr/local/bin/update-openslides-app
+COPY update-openslides-app.sh /usr/local/sbin/update-openslides-app
 RUN umask 0222 && \
-  echo 'openslides ALL=(root) NOPASSWD: /usr/local/bin/update-openslides-app' \
+  echo 'openslides ALL=(root) NOPASSWD: /usr/local/sbin/update-openslides-app' \
   > /etc/sudoers.d/openslides
 
 # NodeJS
@@ -90,7 +92,8 @@ RUN cd client && \
 
 WORKDIR /app
 
-COPY entrypoint /usr/local/bin/
-ENTRYPOINT ["/usr/local/bin/entrypoint"]
+COPY openslides-config.sh /usr/local/bin/openslides-config
+COPY entrypoint /usr/local/sbin/
+ENTRYPOINT ["/usr/local/sbin/entrypoint"]
 CMD ["gunicorn", "-w", "8", "--preload", "-b", "0.0.0.0:8000", "-k", \
   "uvicorn.workers.UvicornWorker", "openslides.asgi:application"]

@@ -9,12 +9,6 @@ services:
     #
     # Uncomment the following line to use daphne instead of gunicorn:
     # command: "daphne -b 0.0.0.0 -p 8000 openslides.asgi:application"
-    volumes:
-      - type: volume
-        source: "personaldata"
-        target: "/app/personal_data"
-        volume:
-          nocopy: true
     depends_on:
       - prioserver
       - pgpool2
@@ -48,11 +42,6 @@ services:
         target: "/app/openslides/static"
         volume:
           nocopy: true
-      - type: volume
-        source: "personaldata"
-        target: "/app/personal_data"
-        volume:
-          nocopy: true
     depends_on:
       - postfix
       - pgpool2
@@ -64,7 +53,7 @@ services:
     # environment:
     #  - INSTANCE_IS_READONLY=1
     deploy:
-      replicas: 1
+      mode: global
   redis:
     image: redis:alpine
     volumes:
@@ -170,7 +159,6 @@ volumes:
   dbcfg:
   redisdata:
   staticfiles:
-  personaldata:
 networks:
   front:
   back:

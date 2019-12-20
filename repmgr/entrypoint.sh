@@ -34,6 +34,17 @@ primary_node_setup() {
   # create OpenSlides specific user and db
   createuser -s openslides && createdb openslides -O openslides
 
+  # create settings table
+  createdb instancecfg -O openslides
+  psql -1 -d instancecfg \
+    -c "CREATE TABLE markers (name text, configured bool DEFAULT false);" \
+    -c "INSERT INTO markers VALUES('admin', false), ('user', false);" \
+    -c "CREATE TABLE files (id SERIAL PRIMARY KEY,
+      filename VARCHAR NOT NULL,
+      data VARCHAR NOT NULL,
+      created TIMESTAMP DEFAULT now(),
+      from_host VARCHAR);"
+
   pg_ctlcluster 11 main stop
   sed -i -e '/^port/s/5433/5432/' \
     /etc/postgresql/11/main/postgresql.conf
