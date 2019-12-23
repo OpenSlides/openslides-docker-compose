@@ -7,18 +7,16 @@ export PGDATA=/var/lib/postgresql/11/main
 MARKER=/var/lib/postgresql/do-not-remove-this-file
 
 update_configs() {
-  sed -i \
-      -e '/^#archive_mode/s/off/on/' \
-      -e '/^#listen_addresses/s/localhost/*/' \
-      -e '/^#listen_addresses/s/#//' \
-      -e '/^#wal_log_hints/s/off/on/' \
-      -e '/^#wal_log_hints/s/#//' \
-      /etc/postgresql/11/main/postgresql.conf
-  echo "shared_preload_libraries = 'repmgr'" \
-      >> /etc/postgresql/11/main/postgresql.conf
-  #
+  # Update pg_hba.conf from image template
   cat /var/lib/postgresql/pg_hba.conf \
       >> /etc/postgresql/11/main/pg_hba.conf
+
+  psql \
+    -c "ALTER SYSTEM SET listen_addresses = '*';" \
+    -c "ALTER SYSTEM SET archive_mode = on;" \
+    -c "ALTER SYSTEM SET archive_command = '/bin/true';" \
+    -c "ALTER SYSTEM SET wal_log_hints = on;" \
+    -c "ALTER SYSTEM SET shared_preload_libraries = 'repmgr';"
 }
 
 primary_node_setup() {
@@ -30,6 +28,7 @@ primary_node_setup() {
     echo "Waiting for Postgres cluster to become available..."
     sleep 3
   done
+  update_configs && pg_ctlcluster 11 main restart
   createuser -s repmgr && createdb repmgr -O repmgr
   repmgr -f /etc/repmgr.conf -p 5433 primary register
   repmgr -f /etc/repmgr.conf -p 5433 cluster show
@@ -67,6 +66,7 @@ standby_node_setup() {
     echo "Waiting for Postgres cluster to become available..."
     sleep 3
   done
+  update_configs && pg_ctlcluster 11 main restart
   repmgr -f /etc/repmgr.conf standby register --force
   repmgr -f /etc/repmgr.conf cluster show
 }
@@ -79,7 +79,6 @@ if [[ ! -f "$MARKER" ]]; then
   echo "New container: creating new database cluster"
   pg_dropcluster 11 main || true
   pg_createcluster 11 main
-  update_configs
   if [[ "$REPMGR_NODE_ID" -eq 1 ]]; then
     primary_node_setup
   else
