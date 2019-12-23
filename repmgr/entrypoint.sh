@@ -26,7 +26,10 @@ primary_node_setup() {
   sed -i -e '/^port/s/5432/5433/' \
     /etc/postgresql/11/main/postgresql.conf
   pg_ctlcluster 11 main start
-  wait-for-it localhost:5433
+  until pg_isready -p 5433; do
+    echo "Waiting for Postgres cluster to become available..."
+    sleep 3
+  done
   createuser -s repmgr && createdb repmgr -O repmgr
   repmgr -f /etc/repmgr.conf -p 5433 primary register
   repmgr -f /etc/repmgr.conf -p 5433 cluster show
@@ -54,13 +57,16 @@ standby_node_setup() {
   # Remove cluster data dir, so it can be cloned into
   rm -r "$PGDATA" && mkdir "$PGDATA"
   # wait for master node
-  wait-for-it pgnode1:5432
-  # Give the master a little more time to start up.  This isn't strictly
-  # necessary but may avoid a few container restarts.
-  sleep 10
+  until pg_isready -h pgnode1; do
+    echo "Waiting for Postgres master server to become available..."
+    sleep 3
+  done
   repmgr -h pgnode1 -U repmgr -d repmgr -f /etc/repmgr.conf standby clone
   pg_ctlcluster 11 main start
-  wait-for-it localhost:5432
+  until pg_isready; do
+    echo "Waiting for Postgres cluster to become available..."
+    sleep 3
+  done
   repmgr -f /etc/repmgr.conf standby register --force
   repmgr -f /etc/repmgr.conf cluster show
 }
@@ -85,6 +91,9 @@ fi
 # Start cluster in background
 pg_ctlcluster 11 main status || pg_ctlcluster 11 main start
 # sudo /etc/init.d/ssh start
-wait-for-it localhost:5432
+until pg_isready; do
+  echo "Waiting for Postgres cluster to become available..."
+  sleep 3
+done
 # Start repmgrd in foreground
 exec repmgrd -f /etc/repmgr.conf --pid-file /dev/shm/repmgrd.pid --daemonize=false

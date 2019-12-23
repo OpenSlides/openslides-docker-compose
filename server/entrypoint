@@ -138,7 +138,10 @@ if [[ "$SERVER_IS_SECONDARY" ]]; then
   exec $*
 fi
 
-wait-for-it --timeout=60 db:5432
+until pg_isready -h db; do
+  echo "Waiting for Postgres cluster to become available..."
+  sleep 3
+done
 
 # Get all available config files from database
 retrieve_configs_from_db
