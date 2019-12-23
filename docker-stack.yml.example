@@ -111,7 +111,6 @@ services:
       - back
     volumes:
       - "dbdata:/var/lib/postgresql"
-      - "dbcfg:/etc/postgresql"
     deploy:
       replicas: 1
       placement:
@@ -156,7 +155,6 @@ services:
         constraints: [node.role == manager]
 volumes:
   dbdata:
-  dbcfg:
   redisdata:
   staticfiles:
 networks:
