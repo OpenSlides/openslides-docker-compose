@@ -64,7 +64,7 @@ standby_node_setup() {
   done
   update_pgconf && pg_ctlcluster 11 main restart
   repmgr -f /etc/repmgr.conf standby register --force
-  repmgr -f /etc/repmgr.conf cluster show
+  repmgr -f /etc/repmgr.conf cluster show || true
 }
 
 echo "Configuring repmgr"
