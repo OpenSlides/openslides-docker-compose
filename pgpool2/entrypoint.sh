@@ -79,12 +79,11 @@ EOF
 if [[ ! -f "$CONFIG" ]]; then
   setup
 
-  # Sleep to give Postgres services a chance to start.
-  # The standby services may take significantly longer but hopefully it is enough
-  # time for the master to get ready.  Obviously, we do not want to use
-  # wait-for-it in this case.
-  echo "Sleeping 15 seconds..."
-  sleep 15
+  # Wait for the main Postgres node.
+  until pg_isready -h pgnode1; do
+    echo "Waiting for Postgres master server to become available..."
+    sleep 15
+  done
 fi
 
 exec pgpool -f "$CONFIG" -n
