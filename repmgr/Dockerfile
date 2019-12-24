@@ -5,7 +5,7 @@ ENV DEBIAN_PRIORITY critical
 ENV DEBCONF_NOWARNINGS yes
 
 RUN apt-get update && \
-  apt-get install -y \
+  apt-get install --yes --no-install-recommends \
     iproute2 \
     man \
     less \
@@ -13,13 +13,11 @@ RUN apt-get update && \
     postgresql-11 \
     postgresql-client \
     repmgr \
-    wait-for-it \
     pgtop \
     rsync \
     openssh-server \
-    openssh-client
-
-RUN rm -rf /var/lib/apt/lists/*
+    openssh-client && \
+  rm -rf /var/lib/apt/lists/*
 
 COPY repmgr.conf.in /etc/
 RUN touch /etc/repmgr.conf && chown postgres /etc/repmgr.conf
