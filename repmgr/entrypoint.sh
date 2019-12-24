@@ -1,6 +1,5 @@
 #!/bin/bash
 
-set -x
 set -e
 
 export PGDATA=/var/lib/postgresql/11/main
@@ -84,7 +83,7 @@ if [[ ! -f "$MARKER" ]]; then
   else
     standby_node_setup
   fi
-  echo "Successful repmgr setup as node id $REPMGR_NODE_ID" > "$MARKER"
+  echo "Successful repmgr setup as node id $REPMGR_NODE_ID" | tee "$MARKER"
 fi
 
 # Update pg_hba.conf from image template

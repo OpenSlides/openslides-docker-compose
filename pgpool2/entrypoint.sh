@@ -1,7 +1,5 @@
 #!/bin/bash
 
-set -x
-
 ORIG_CONFIG="/etc/pgpool2/pgpool.conf"
 CONFIG="/etc/pgpool2/pgpool-customized.conf"
 
