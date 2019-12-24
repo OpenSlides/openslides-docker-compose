@@ -28,8 +28,6 @@ COPY id_ed25519* /var/lib/postgresql/.ssh/
 COPY id_ed25519 /etc/ssh/ssh_host_ed25519_key
 COPY id_ed25519.pub /etc/ssh/ssh_host_ed25519_key.pub
 
-RUN pg_dropcluster 11 main
-
 USER postgres
 
 ENTRYPOINT entrypoint

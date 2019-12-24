@@ -71,10 +71,6 @@ sed -e "s/<NODEID>/${REPMGR_NODE_ID}/" /etc/repmgr.conf.in |
 tee /etc/repmgr.conf
 
 if [[ ! -f "$MARKER" ]]; then
-  echo "New container: creating new database cluster"
-  pg_dropcluster 11 main || true
-  pg_createcluster 11 main
-
   # Update pg_hba.conf from image template (new cluster)
   cp -fv /var/lib/postgresql/pg_hba.conf /etc/postgresql/11/main/pg_hba.conf
 
