@@ -24,10 +24,17 @@ RUN touch /etc/repmgr.conf && chown postgres /etc/repmgr.conf
 COPY pg_hba.conf /var/lib/postgresql/
 COPY entrypoint.sh /usr/local/bin/entrypoint
 
+
+# SSH config
+COPY ssh_host_ed25519_key* /etc/ssh/
 COPY id_ed25519* /var/lib/postgresql/.ssh/
-COPY id_ed25519 /etc/ssh/ssh_host_ed25519_key
-COPY id_ed25519.pub /etc/ssh/ssh_host_ed25519_key.pub
+COPY postgres_known_hosts /var/lib/postgresql/.ssh/known_hosts
+COPY postgres_authorized_keys /var/lib/postgresql/.ssh/authorized_keys
 
-USER postgres
+RUN chmod 600 /etc/ssh/ssh_host_ed25519_key && \
+    chmod 600 /var/lib/postgresql/.ssh/id_ed25519 && \
+    chmod 700 /var/lib/postgresql/.ssh/ && \
+    chown -R postgres:postgres /var/lib/postgresql/.ssh/
+RUN echo "HostKey /etc/ssh/ssh_host_ed25519_key" >> /etc/ssh/sshd_config
 
-ENTRYPOINT entrypoint
+ENTRYPOINT /etc/init.d/ssh start && su postgres -c entrypoint
