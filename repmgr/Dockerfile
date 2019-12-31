@@ -23,7 +23,7 @@ COPY repmgr.conf.in /etc/
 RUN touch /etc/repmgr.conf && chown postgres /etc/repmgr.conf
 COPY pg_hba.conf /var/lib/postgresql/
 COPY entrypoint.sh /usr/local/bin/entrypoint
-
+COPY current-primary.sh /usr/local/bin/current-primary
 
 # SSH config
 COPY ssh_host_ed25519_key* /etc/ssh/
