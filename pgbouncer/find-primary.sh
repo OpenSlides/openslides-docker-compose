@@ -5,11 +5,13 @@
 
 PG_NODE_LIST="${PG_NODE_LIST:-pgnode1,pgnode2,pgnode3}"
 PRIMARY=
+OLD_PRIMARY="${OLD_PRIMARY:-}"
 
 IFS="," read -ra node_list <<< "$PG_NODE_LIST"
 
 echo "Trying all configured nodes (${PG_NODE_LIST})..."
 for node in "${node_list[@]}"; do
+  [[ "$node" = "$OLD_PRIMARY" ]] && continue
   if wait-for-it -q --timeout=20 "${node}:22"; then
     NEW_PRIMARY="$(ssh "${node}" current-primary)" && break
   fi
