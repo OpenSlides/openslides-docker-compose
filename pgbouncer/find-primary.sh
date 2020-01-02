@@ -22,6 +22,7 @@ if [[ -n "$PRIMARY" ]]; then
   printf "PRIMARY: %s\n" "$PRIMARY" > /etc/primary
 else
   echo "ERROR: Failed to find primary node."
+  pkill -SIGUSR1 pgbouncer # PAUSE
   exit 2
 fi
 

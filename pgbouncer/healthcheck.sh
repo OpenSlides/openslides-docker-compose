@@ -31,10 +31,12 @@ fi
 if [[ "$OLD_PRIMARY" != "$PRIMARY" ]]; then
   echo "Primary changed from '$OLD_PRIMARY' to '$PRIMARY'!"
   update_config "$PRIMARY" &&
-  pkill -HUP pgbouncer
+  pkill -HUP pgbouncer &&
+  pkill -SIGUSR2 pgbouncer # RESUME
   exit 3
 else
   echo "Primary unchanged (${PRIMARY})."
+  pkill -SIGUSR2 pgbouncer # RESUME
 fi
 
 exit 0
