@@ -11,7 +11,7 @@ services:
     # command: "daphne -b 0.0.0.0 -p 8000 openslides.asgi:application"
     depends_on:
       - prioserver
-      - pgpool2
+      - pgbouncer
       - redis
       - rediscache
     networks:
@@ -44,7 +44,7 @@ services:
           nocopy: true
     depends_on:
       - postfix
-      - pgpool2
+      - pgbouncer
       - redis
       - rediscache
     networks:
@@ -139,11 +139,11 @@ services:
       replicas: 1
       placement:
         constraints: [node.role == manager]
-  pgpool2:
-    environment:
-      - PG_NODE_LIST=pgnode1:0,pgnode2:1,pgnode3:2
-    image: openslides-pgpool2:latest
-    build: ./pgpool2
+  pgbouncer:
+    # environment:
+    #   - PG_NODE_LIST=pgnode1,pgnode2,pgnode3
+    image: openslides-pgbouncer:latest
+    build: ./pgbouncer
     restart: always
     networks:
       back:
