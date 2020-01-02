@@ -8,6 +8,11 @@ error() {
   printf "ERROR: %s\n" "$*" 1>&2
 }
 
+until pg_isready -p 5432 > /dev/null; do
+  echo "Waiting for Postgres to become available..."
+  sleep 3
+done
+
 # Print primary if it is unquestionable
 repmgr cluster show > /dev/null && {
   PRIMARY=$(repmgr cluster show --csv |
