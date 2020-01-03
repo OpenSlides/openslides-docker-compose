@@ -117,7 +117,7 @@ services:
   pgbouncer:
     # environment:
     #   - PG_NODE_LIST=pgnode1,pgnode2,pgnode3
-    image: openslides-pgbouncer:latest
+    image: openslides/openslides-pgbouncer:latest
     build: ./pgbouncer
     restart: always
     networks:
