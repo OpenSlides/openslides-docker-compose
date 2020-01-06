@@ -13,7 +13,7 @@ EOF
 }
 
 fatal() {
-  printf "ERROR: %s\n", "$*"
+  printf "ERROR: %s\n" "$*"
   exit 23
 }
 
