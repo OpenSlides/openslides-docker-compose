@@ -5,6 +5,9 @@ set -e
 export PGDATA=/var/lib/postgresql/11/main
 MARKER=/var/lib/postgresql/do-not-remove-this-file
 
+# Configure WAL archiving through ENV
+REPMGR_ENABLE_ARCHIVE="${REPMGR_WAL_ARCHIVE:-on}"
+
 update_pgconf() {
   psql \
     -c "ALTER SYSTEM SET listen_addresses = '*';" \
@@ -12,6 +15,14 @@ update_pgconf() {
     -c "ALTER SYSTEM SET archive_command = '/bin/true';" \
     -c "ALTER SYSTEM SET wal_log_hints = on;" \
     -c "ALTER SYSTEM SET shared_preload_libraries = 'repmgr';"
+}
+
+enable_wal_archiving() {
+  mkdir -p "/var/lib/postgresql/wal-archive/"
+  psql \
+    -c "ALTER SYSTEM SET archive_mode = 'on';" \
+    -c "ALTER SYSTEM SET archive_command =
+        'gzip < %p > /var/lib/postgresql/wal-archive/%f'"
 }
 
 primary_node_setup() {
@@ -23,7 +34,9 @@ primary_node_setup() {
     echo "Waiting for Postgres cluster to become available..."
     sleep 3
   done
-  update_pgconf && pg_ctlcluster 11 main restart
+  update_pgconf
+  [[ "$REPMGR_WAL_ARCHIVE" = "off" ]] || enable_wal_archiving
+  pg_ctlcluster 11 main restart
   createuser -s repmgr && createdb repmgr -O repmgr
   repmgr -f /etc/repmgr.conf -p 5433 primary register
   repmgr -f /etc/repmgr.conf -p 5433 cluster show
@@ -72,7 +85,9 @@ standby_node_setup() {
     echo "Waiting for Postgres cluster to become available..."
     sleep 3
   done
-  update_pgconf && pg_ctlcluster 11 main restart
+  update_pgconf
+  [[ "$REPMGR_WAL_ARCHIVE" = "off" ]] || enable_wal_archiving
+  pg_ctlcluster 11 main restart
   repmgr -f /etc/repmgr.conf standby register --force
   repmgr -f /etc/repmgr.conf cluster show || true
 }
