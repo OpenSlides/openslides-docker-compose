@@ -19,7 +19,7 @@ services:
       - "personaldata:/app/personal_data"
     depends_on:
       - postfix
-      - pgpool2
+      - pgbouncer
       - redis
       - rediscache
       - prioserver
@@ -48,7 +48,7 @@ services:
       - "staticfiles:/app/openslides/static"
     depends_on:
       - postfix
-      - pgpool2
+      - pgbouncer
       - redis
       - rediscache
     networks:
@@ -123,18 +123,17 @@ services:
     restart: always
     networks:
       - back
-  pgpool2:
-    environment:
-      - PG_NODE_LIST=pgnode1:0,pgnode2:1,pgnode3:2
-    image: openslides-pgpool2:latest
-    build: ./pgpool2
+  pgbouncer:
+    # environment:
+    #   - PG_NODE_LIST=pgnode1,pgnode2,pgnode3
+    image: openslides-pgbouncer:latest
+    build: ./pgbouncer
     restart: always
     networks:
       back:
         aliases:
           - db
           - postgres
-
 volumes:
   dbdata:
   personaldata:
