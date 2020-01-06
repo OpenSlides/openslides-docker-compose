@@ -477,10 +477,18 @@ highlight_match() {
 
 ls_instance() {
   local instance="$1"
+  local shortname=$(basename "$instance")
+  local normalized_shortname=
+
+  #  For stacks, get the normalized shortname
+  if [[ -f "${instance}/.env" ]]; then
+    PROJECT_STACK_NAME=
+    source "${instance}/.env"
+    [[ -z "${PROJECT_STACK_NAME}" ]] ||
+      local normalized_shortname="${PROJECT_STACK_NAME}"
+  fi
 
   # Determine instance state
-  local shortname=$(basename "$instance")
-  local normalized_shortname="$(echo "$shortname" | tr -d '.')"
   local port=$(local_port "$instance")
   local sym="$SYM_UNKNOWN"
   local version=
@@ -554,7 +562,7 @@ ls_instance() {
 
     printf "   ├ %-12s %s\n" "Directory:" "$instance"
     if [[ -n "$normalized_shortname" ]]; then
-      printf "   ├ %-12s %s\n" "Stack name:" "$normalized_shortname (computed)"
+      printf "   ├ %-12s %s\n" "Stack name:" "$normalized_shortname"
     fi
     printf "   ├ %-12s %s\n" "Version:" "$version"
     if [[ -n "$git_commit" ]]; then
