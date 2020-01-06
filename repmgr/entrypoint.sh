@@ -51,11 +51,11 @@ standby_node_setup() {
   # Remove cluster data dir, so it can be cloned into
   rm -r "$PGDATA" && mkdir "$PGDATA"
   # wait for master node
-  until pg_isready -h pgnode1; do
+  until pg_isready -h "$REPMGR_PRIMARY"; do
     echo "Waiting for Postgres master server to become available..."
     sleep 3
   done
-  repmgr -h pgnode1 -U repmgr -d repmgr -f /etc/repmgr.conf standby clone
+  repmgr -h "$REPMGR_PRIMARY" -U repmgr -d repmgr -f /etc/repmgr.conf standby clone
   pg_ctlcluster 11 main start
   until pg_isready; do
     echo "Waiting for Postgres cluster to become available..."
@@ -74,7 +74,7 @@ if [[ ! -f "$MARKER" ]]; then
   # Update pg_hba.conf from image template (new cluster)
   cp -fv /var/lib/postgresql/pg_hba.conf /etc/postgresql/11/main/pg_hba.conf
 
-  if [[ "$REPMGR_NODE_ID" -eq 1 ]]; then
+  if [[ -z "$REPMGR_PRIMARY" ]]; then
     primary_node_setup
   else
     standby_node_setup

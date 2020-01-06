@@ -118,6 +118,7 @@ services:
   pgnode2:
     environment:
       - REPMGR_NODE_ID=2
+      - REPMGR_PRIMARY=pgnode1
     image: openslides-repmgr:latest
     build: ./repmgr
     restart: always
@@ -130,6 +131,7 @@ services:
   pgnode3:
     environment:
       - REPMGR_NODE_ID=3
+      - REPMGR_PRIMARY=pgnode1
     image: openslides-repmgr:latest
     build: ./repmgr
     restart: always
