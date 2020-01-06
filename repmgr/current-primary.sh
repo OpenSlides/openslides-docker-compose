@@ -8,7 +8,12 @@ error() {
   printf "ERROR: %s\n" "$*" 1>&2
 }
 
+retries=0
 until pg_isready -p 5432 > /dev/null; do
+  ((retries++)); [[ $retries -le 3 ]] || {
+    echo "ERROR: Could not connect to Postgres ($retries retries)"
+    exit 1
+  }
   echo "Waiting for Postgres to become available..."
   sleep 3
 done
