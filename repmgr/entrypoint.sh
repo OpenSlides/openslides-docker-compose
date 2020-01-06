@@ -55,7 +55,8 @@ standby_node_setup() {
     echo "Waiting for Postgres master server to become available..."
     sleep 3
   done
-  repmgr -h "$REPMGR_PRIMARY" -U repmgr -d repmgr -f /etc/repmgr.conf standby clone
+  repmgr -h "$REPMGR_PRIMARY" -U repmgr -d repmgr \
+    -f /etc/repmgr.conf standby clone --fast-checkpoint
   pg_ctlcluster 11 main start
   until pg_isready; do
     echo "Waiting for Postgres cluster to become available..."
