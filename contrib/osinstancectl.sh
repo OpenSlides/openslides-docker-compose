@@ -884,8 +884,14 @@ instance_update() {
       [[ -z "$OPT_FORCE" ]] || local force_opt="--force"
       source "${PROJECT_DIR}/.env"
       # docker stack deploy -c "${PROJECT_DIR}/docker-stack.yml" "$STACK_NAME"
-      docker service update $force_opt "${PROJECT_STACK_NAME}_server"
-      docker service update $force_opt "${PROJECT_STACK_NAME}_prioserver"
+      for i in prioserver server; do
+        if docker service ls --format '{{.Name}}' | grep -q "${PROJECT_STACK_NAME}_${i}"
+        then
+          docker service update $force_opt "${PROJECT_STACK_NAME}_${i}"
+        else
+          echo "WARN: ${PROJECT_STACK_NAME}_${i} is not running."
+        fi
+      done
       ;;
   esac
   append_metadata "$PROJECT_DIR" "$(date +"%F %H:%M"): Updated to" \
