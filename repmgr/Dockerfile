@@ -20,6 +20,7 @@ RUN apt-get update && \
     sudo \
   && rm -rf /var/lib/apt/lists/*
 
+COPY repmgr-promote.sh /usr/local/bin/repmgr-promote
 COPY repmgr.conf.in /etc/
 RUN touch /etc/repmgr.conf && chown postgres /etc/repmgr.conf
 COPY pg_hba.conf /var/lib/postgresql/
