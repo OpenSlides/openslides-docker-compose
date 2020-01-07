@@ -115,6 +115,8 @@ services:
       replicas: 1
       placement:
         constraints: [node.role == manager]
+    labels:
+      org.openslides.role: "postgres"
   pgnode2:
     environment:
       - REPMGR_NODE_ID=2
@@ -130,6 +132,8 @@ services:
       replicas: 1
       placement:
         constraints: [node.role == manager]
+    labels:
+      org.openslides.role: "postgres"
   pgnode3:
     environment:
       - REPMGR_NODE_ID=3
@@ -145,6 +149,8 @@ services:
       replicas: 1
       placement:
         constraints: [node.role == manager]
+    labels:
+      org.openslides.role: "postgres"
   pgbouncer:
     # environment:
     #   - PG_NODE_LIST=pgnode1,pgnode2,pgnode3

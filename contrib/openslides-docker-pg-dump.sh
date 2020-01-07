@@ -49,7 +49,7 @@ done
 
 NAME_FILTER="$*"
 
-docker ps --filter=name="_postgres_" --format "{{.ID}} {{.Names}} {{.Labels}}" |
+docker ps --filter=name="_pgnode" --format "{{.ID}} {{.Names}} {{.Labels}}" |
 while read id name labels; do
   # The _postgres_ part of the container name represents the service name from
   # the docker-compose file.  There is no way to know if this is an OpenSlides
@@ -57,6 +57,6 @@ while read id name labels; do
   # label as well:
   printf "$labels" | grep -q "org.openslides.role=postgres" || continue
   printf "$name" | grep -q "$NAME_FILTER" || continue
-  docker exec -u postgres "$id" /bin/bash -c 'pg_dump openslides' \
+  docker exec -u postgres "$id" pg_dumpall \
     > "${BACKUP_PATH}/${name}-$(date +'%F-%T').sql"
 done
