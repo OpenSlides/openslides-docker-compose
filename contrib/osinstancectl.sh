@@ -696,7 +696,7 @@ containerid_from_service_name() {
 
 get_clone_from_id() (
   source "${1}/.env"
-  containerid_from_service_name "${PROJECT_STACK_NAME}_pgpool2"
+  containerid_from_service_name "${PROJECT_STACK_NAME}_pgnode1"
 )
 
 clone_db() {
@@ -705,12 +705,10 @@ clone_db() {
   local available_dbs
   case "$DEPLOYMENT_MODE" in
     "compose")
-      _docker_compose "$PROJECT_DIR" up -d --no-deps postgres
-      local clone_from_id="$(_docker_compose "$CLONE_FROM_DIR" ps -q postgres)"
-      local clone_to_id=$(_docker_compose "$PROJECT_DIR" ps -q postgres)
-      sleep 3 # XXX
-      docker exec -u postgres "$clone_from_id" pg_dump -c --if-exists openslides |
-      docker exec -i -u postgres "$clone_to_id" psql openslides
+      _docker_compose "$PROJECT_DIR" up -d --no-deps pgnode1
+      local clone_from_id="$(_docker_compose "$CLONE_FROM_DIR" ps -q pgnode1)"
+      local clone_to_id=$(_docker_compose "$PROJECT_DIR" ps -q pgnode1)
+      sleep 20 # XXX
       ;;
     "stack")
       clone_from_id="$(get_clone_from_id "$CLONE_FROM_DIR")"
@@ -719,44 +717,44 @@ clone_db() {
       echo "Waiting 20 seconds for database to become available..."
       sleep 20 # XXX
       clone_to_id="$(containerid_from_service_name "${PROJECT_STACK_NAME}_pgnode1")"
-      echo "DEBUG: from: $clone_from_id to: $clone_to_id"
-
-      # Clone instance databases individually using pg_dump
-      #
-      # pg_dump's advantage is that it requires no special access (unlike
-      # pg_dumpall) and does not require the cluster to be reinitialized
-      # (unlike pg_basebackup).
-      #
-      # The origin cluster is being accessed through the pgpool2 service, so it
-      # is should be possible to clone even from secondary Postgres nodes if
-      # a failover occured.  It is assumed, however, that both the origin's
-      # pgpool2 instance as well as the cloned instance's pgnode1 are running
-      # on localhost because both get accessed using `docker exec`.
-      #
-      # The pg_dump/psql method may very well run into issues with large
-      # mediafile databases, however.  pg_dump/pg_restore using the custom
-      # format could be worth a try.
-      available_dbs=("$(docker exec "$clone_from_id" \
-        psql -U openslides -h db -d openslides -c '\l' -AtF '	' | cut -f1)")
-      for db in openslides instancecfg mediafiledata; do
-        echo "${available_dbs[@]}" | grep -wq "$db" || {
-          echo "DB $db not found; skipping..."
-          sleep 10
-          continue
-        }
-        echo "Recreating db for new instance: ${db}..."
-        docker exec "$clone_to_id" psql -q -c "SELECT pg_terminate_backend(pid)
-            FROM pg_stat_activity WHERE datname='${db}';"
-        docker exec "$clone_to_id" dropdb --if-exists "$db"
-        docker exec "$clone_to_id" createdb -O openslides "$db"
-
-        echo "Cloning ${db}..."
-        docker exec "$clone_from_id" \
-          pg_dump -h db -U openslides -c --if-exists "$db" |
-        docker exec -i "$clone_to_id" psql -h pgnode1 -U openslides "$db"
-      done
       ;;
   esac
+  echo "DEBUG: from: $clone_from_id to: $clone_to_id"
+
+  # Clone instance databases individually using pg_dump
+  #
+  # pg_dump's advantage is that it requires no special access (unlike
+  # pg_dumpall) and does not require the cluster to be reinitialized (unlike
+  # pg_basebackup).
+  #
+  # In the future, the origin cluster will hopefully be accessed through the
+  # pgbouncer service, so it will be possible to clone even from secondary
+  # Postgres nodes if a failover occured.  It is assumed, however, that both
+  # the origin's pgbouncer instance as well as the cloned instance's pgnode1
+  # are running on localhost because both get accessed using `docker exec`.
+  #
+  # The pg_dump/psql method may very well run into issues with large mediafile
+  # databases, however.  pg_dump/pg_restore using the custom format could be
+  # worth a try.
+  available_dbs=("$(docker exec "$clone_from_id" \
+    psql -U openslides -h db -d openslides -c '\l' -AtF '	' | cut -f1)")
+  for db in openslides instancecfg mediafiledata; do
+    echo "${available_dbs[@]}" | grep -wq "$db" || {
+      echo "DB $db not found; skipping..."
+      sleep 10
+      continue
+    }
+    echo "Recreating db for new instance: ${db}..."
+    docker exec -u postgres "$clone_to_id" psql -q -c "SELECT pg_terminate_backend(pid)
+        FROM pg_stat_activity WHERE datname='${db}';"
+    docker exec -u postgres "$clone_to_id" dropdb --if-exists "$db"
+    docker exec -u postgres "$clone_to_id" createdb -O openslides "$db"
+
+    echo "Cloning ${db}..."
+    docker exec -u postgres "$clone_from_id" \
+      pg_dump -h db -U openslides -c --if-exists "$db" |
+    docker exec -u postgres -i "$clone_to_id" psql -h pgnode1 -U openslides "$db"
+  done
 }
 
 get_personaldata_dir() {
