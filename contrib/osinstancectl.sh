@@ -770,20 +770,6 @@ get_personaldata_dir() {
   esac
 }
 
-clone_files() {
-  case "$DEPLOYMENT_MODE" in
-    "compose")
-      _docker_compose "$PROJECT_DIR" up --no-start --no-deps server
-      local from_dir=$(get_personaldata_dir "$CLONE_FROM_DIR")
-      local to_dir=$(get_personaldata_dir "$PROJECT_DIR")
-      rsync -axv "${from_dir}/" "${to_dir}/"
-      ;;
-    "stack")
-      # Nothing to do because configs and mediafiles are kept in database
-      ;;
-  esac
-}
-
 append_metadata() {
   local m="${1}/metadata.txt"
   touch "$m"
@@ -1228,7 +1214,6 @@ case "$MODE" in
     create_config_from_template "${CLONE_FROM_DIR}/${CONFIG_FILE}.example" \
       "${PROJECT_DIR}/${CONFIG_FILE}"
     clone_secrets
-    clone_files
     clone_db
     gen_tls_cert
     add_to_haproxy_cfg
