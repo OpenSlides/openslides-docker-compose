@@ -34,6 +34,9 @@ services:
     #  - INSTANCE_IS_READONLY=1
     deploy:
       mode: global
+      restart_policy:
+        condition: on-failure
+        delay: 5s
   server:
     image: openslides/openslides:latest
     # Below is the default command.  You can uncomment it to override the
@@ -58,6 +61,11 @@ services:
       - SERVER_IS_SECONDARY=1
     secrets:
       - django
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 5s
   client:
     image: openslides/openslides-proxy:latest
     build: ./client
@@ -75,6 +83,9 @@ services:
       - "0.0.0.0:61000:80"
     deploy:
       mode: global
+      restart_policy:
+        condition: on-failure
+        delay: 5s
   pgnode1:
     environment:
       - REPMGR_NODE_ID=1
@@ -115,6 +126,9 @@ services:
     volumes:
       - "dbdata3:/var/lib/postgresql"
     deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 5s
       replicas: 1
       placement:
         constraints: [node.role == manager]
@@ -131,6 +145,9 @@ services:
           - db
           - postgres
     deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 5s
       placement:
         constraints: [node.role == manager]
   postfix:
@@ -142,6 +159,9 @@ services:
     networks:
       - back
     deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 5s
       replicas: 1
       placement:
         constraints: [node.role == manager]
@@ -151,6 +171,9 @@ services:
       - back
     deploy:
       replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 5s
   rediscache:
     image: redis:alpine
     command: ["redis-server", "--save", ""]
@@ -158,6 +181,9 @@ services:
       - back
     deploy:
       replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 5s
   rediscache-slave:
     image: redis:alpine
     command: ["redis-server", "--save", "", "--slaveof", "rediscache", "6379"]
