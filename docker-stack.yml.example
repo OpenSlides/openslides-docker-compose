@@ -1,35 +1,15 @@
 version: '3.4'
 services:
-  server:
-    image: openslides:latest
-    # Below is the default command.  You can uncomment it to override the
-    # number of workers, for example:
-    # command: "gunicorn -w 8 --preload -b 0.0.0.0:8000
-    #   -k uvicorn.workers.UvicornWorker openslides.asgi:application"
-    #
-    # Uncomment the following line to use daphne instead of gunicorn:
-    # command: "daphne -b 0.0.0.0 -p 8000 openslides.asgi:application"
-    depends_on:
-      - prioserver
-      - pgbouncer
-      - redis
-      - rediscache
-    networks:
-      - front
-      - back
-    environment:
-      # With this variable set this service will not attempt to prepare the
-      # instance by, e.g., running migations.  This is exclusively left up to
-      # the main service to avoid conflicts.
-      - SERVER_IS_SECONDARY=1
-    secrets:
-      - django
   prioserver:
-    # This service is basically a simple copy of the main server service
-    # (above).  It will share all the same resources (DB, Redis, static files)
-    # as the main server, so it is crucial that it is always kept at
+    # This service is the main server service in that it is responsible for
+    # database migrations, adding the initial user credentials etc.  However,
+    # the direct access to this service's resources is only granted to select,
+    # prioritized OpenSlides users or groups.  The general workload is handled
+    # by the regular "server" service below.
+    # It will share all the same resources (DB, Redis, static files)
+    # as the regular server, so it is crucial that it is always kept at
     # compatible versions.
-    image: openslides:latest
+    image: openslides/openslides:latest
     secrets:
       - django
       - os_admin
@@ -54,10 +34,120 @@ services:
     #  - INSTANCE_IS_READONLY=1
     deploy:
       mode: global
+  server:
+    image: openslides/openslides:latest
+    # Below is the default command.  You can uncomment it to override the
+    # number of workers, for example:
+    # command: "gunicorn -w 8 --preload -b 0.0.0.0:8000
+    #   -k uvicorn.workers.UvicornWorker openslides.asgi:application"
+    #
+    # Uncomment the following line to use daphne instead of gunicorn:
+    # command: "daphne -b 0.0.0.0 -p 8000 openslides.asgi:application"
+    depends_on:
+      - prioserver
+      - pgbouncer
+      - redis
+      - rediscache
+    networks:
+      - front
+      - back
+    environment:
+      # With this variable set this service will not attempt to prepare the
+      # instance by, e.g., running migations.  This is exclusively left up to
+      # the main service to avoid conflicts.
+      - SERVER_IS_SECONDARY=1
+    secrets:
+      - django
+  client:
+    image: openslides/openslides-proxy:latest
+    build: ./client
+    volumes:
+      - type: volume
+        source: "staticfiles"
+        target: "/usr/share/nginx/html"
+        volume:
+          nocopy: true
+    depends_on:
+      - prioserver
+    networks:
+      - front
+    ports:
+      - "0.0.0.0:61000:80"
+    deploy:
+      mode: global
+  pgnode1:
+    environment:
+      - REPMGR_NODE_ID=1
+    image: openslides/openslides-repmgr:latest
+    build: ./repmgr
+    networks:
+      - back
+    volumes:
+      - "dbdata1:/var/lib/postgresql"
+    deploy:
+      replicas: 1
+      placement:
+        constraints: [node.role == manager]
+    labels:
+      org.openslides.role: "postgres"
+  pgnode2:
+    environment:
+      - REPMGR_NODE_ID=2
+      - REPMGR_PRIMARY=pgnode1
+    image: openslides/openslides-repmgr:latest
+    networks:
+      - back
+    volumes:
+      - "dbdata2:/var/lib/postgresql"
+    deploy:
+      replicas: 1
+      placement:
+        constraints: [node.role == manager]
+    labels:
+      org.openslides.role: "postgres"
+  pgnode3:
+    environment:
+      - REPMGR_NODE_ID=3
+      - REPMGR_PRIMARY=pgnode1
+    image: openslides/openslides-repmgr:latest
+    networks:
+      - back
+    volumes:
+      - "dbdata3:/var/lib/postgresql"
+    deploy:
+      replicas: 1
+      placement:
+        constraints: [node.role == manager]
+    labels:
+      org.openslides.role: "postgres"
+  pgbouncer:
+    # environment:
+    #   - PG_NODE_LIST=pgnode1,pgnode2,pgnode3
+    image: openslides/openslides-pgbouncer:latest
+    build: ./pgbouncer
+    restart: always
+    networks:
+      back:
+        aliases:
+          - db
+          - postgres
+    deploy:
+      placement:
+        constraints: [node.role == manager]
+  postfix:
+    image: openslides/openslides-postfix:latest
+    build: ./postfix
+    environment:
+      - MYHOSTNAME=localhost
+      - RELAYHOST=localhost
+    networks:
+      - back
+    deploy:
+      replicas: 1
+      placement:
+        constraints: [node.role == manager]
   redis:
     image: redis:alpine
-    volumes:
-      - "redisdata:/data"
     networks:
       - back
     deploy:
@@ -74,102 +164,10 @@ services:
     command: ["redis-server", "--save", "", "--slaveof", "rediscache", "6379"]
     networks:
       - back
-  client:
-    image: openslides-proxy:latest
-    volumes:
-      - type: volume
-        source: "staticfiles"
-        target: "/usr/share/nginx/html"
-        volume:
-          nocopy: true
-    depends_on:
-      - prioserver
-    networks:
-      - front
-    ports:
-      - 61000:80
-    deploy:
-      mode: global
-  postfix:
-    image: openslides-postfix:latest
-    environment:
-      - MYHOSTNAME=localhost
-      - RELAYHOST=localhost
-    networks:
-      - back
-    deploy:
-      replicas: 1
-      placement:
-        constraints: [node.role == manager]
-  pgnode1:
-    environment:
-      - REPMGR_NODE_ID=1
-    image: openslides-repmgr:latest
-    build: ./repmgr
-    restart: always
-    networks:
-      - back
-    volumes:
-      - "dbdata1:/var/lib/postgresql"
-    deploy:
-      replicas: 1
-      placement:
-        constraints: [node.role == manager]
-    labels:
-      org.openslides.role: "postgres"
-  pgnode2:
-    environment:
-      - REPMGR_NODE_ID=2
-      - REPMGR_PRIMARY=pgnode1
-    image: openslides-repmgr:latest
-    build: ./repmgr
-    restart: always
-    networks:
-      - back
-    volumes:
-      - "dbdata2:/var/lib/postgresql"
-    deploy:
-      replicas: 1
-      placement:
-        constraints: [node.role == manager]
-    labels:
-      org.openslides.role: "postgres"
-  pgnode3:
-    environment:
-      - REPMGR_NODE_ID=3
-      - REPMGR_PRIMARY=pgnode1
-    image: openslides-repmgr:latest
-    build: ./repmgr
-    restart: always
-    networks:
-      - back
-    volumes:
-      - "dbdata3:/var/lib/postgresql"
-    deploy:
-      replicas: 1
-      placement:
-        constraints: [node.role == manager]
-    labels:
-      org.openslides.role: "postgres"
-  pgbouncer:
-    # environment:
-    #   - PG_NODE_LIST=pgnode1,pgnode2,pgnode3
-    image: openslides-pgbouncer:latest
-    build: ./pgbouncer
-    restart: always
-    networks:
-      back:
-        aliases:
-          - db
-          - postgres
-    deploy:
-      placement:
-        constraints: [node.role == manager]
 volumes:
   dbdata1:
   dbdata2:
   dbdata3:
-  redisdata:
   staticfiles:
 networks:
   front:

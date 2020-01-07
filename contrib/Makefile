@@ -13,6 +13,7 @@ all:
 install:
 	$(INSTALL) -d $(dest_bindir)
 	$(INSTALL) -pm 0755 osinstancectl.sh $(dest_bindir)/osinstancectl
+	$(INSTALL) -pm 0755 osstackctl.sh $(dest_bindir)/osstackctl
 	$(INSTALL) -pm 0755 openslides-docker-pg-dump.sh \
 	  $(dest_bindir)/openslides-docker-pg-dump
 	$(INSTALL) -pm 0755 openslides-instance-sync.sh \

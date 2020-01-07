@@ -1,12 +1,40 @@
-version: '3.1'
-secrets:
-  os_admin:
-    file: ./secrets/adminsecret.env
-  os_user:
-    file: ./secrets/usersecret.env
+version: '3.4'
 services:
+  prioserver:
+    # This service is the main server service in that it is responsible for
+    # database migrations, adding the initial user credentials etc.  However,
+    # the direct access to this service's resources is only granted to select,
+    # prioritized OpenSlides users or groups.  The general workload is handled
+    # by the regular "server" service below.
+    # It will share all the same resources (DB, Redis, static files)
+    # as the regular server, so it is crucial that it is always kept at
+    # compatible versions.
+    image: openslides/openslides:latest
+    secrets:
+      - django
+      - os_admin
+      - os_user
+    command: "gunicorn -w 1 --preload -b 0.0.0.0:8000
+      -k uvicorn.workers.UvicornWorker openslides.asgi:application"
+    restart: always
+    volumes:
+      - type: volume
+        source: "staticfiles"
+        target: "/app/openslides/static"
+        volume:
+          nocopy: true
+    depends_on:
+      - postfix
+      - pgbouncer
+      - redis
+      - rediscache
+    networks:
+      - front
+      - back
+    # environment:
+    #  - INSTANCE_IS_READONLY=1
   server:
-    image: openslides:latest
+    image: openslides/openslides:latest
     # Below is the default command.  You can uncomment it to override the
     # number of workers, for example:
     # command: "gunicorn -w 8 --preload -b 0.0.0.0:8000
@@ -15,14 +43,11 @@ services:
     # Uncomment the following line to use daphne instead of gunicorn:
     # command: "daphne -b 0.0.0.0 -p 8000 openslides.asgi:application"
     restart: always
-    volumes:
-      - "personaldata:/app/personal_data"
     depends_on:
-      - postfix
+      - prioserver
       - pgbouncer
       - redis
       - rediscache
-      - prioserver
     networks:
       - front
       - back
@@ -34,34 +59,81 @@ services:
       # instance by, e.g., running migations.  This is exclusively left up to
       # the main service to avoid conflicts.
       - SERVER_IS_SECONDARY=1
-  prioserver:
-    # This service is basically a simple copy of the main server service
-    # (above).  It will share all the same resources (e.g., DB, Redis)
-    # as the main server, so it is crucial that it is always kept at
-    # compatible versions.
-    image: openslides:latest
-    command: "gunicorn -w 1 --preload -b 0.0.0.0:8000
-      -k uvicorn.workers.UvicornWorker openslides.asgi:application"
+    secrets:
+      - django
+  client:
+    image: openslides/openslides-proxy:latest
+    build: ./client
     restart: always
     volumes:
-      - "personaldata:/app/personal_data"
-      - "staticfiles:/app/openslides/static"
+      - type: volume
+        source: "staticfiles"
+        target: "/usr/share/nginx/html"
+        volume:
+          nocopy: true
     depends_on:
-      - postfix
-      - pgbouncer
-      - redis
-      - rediscache
+      - prioserver
     networks:
       - front
+    ports:
+      - "127.0.0.1:61000:80"
+  pgnode1:
+    environment:
+      - REPMGR_NODE_ID=1
+    image: openslides/openslides-repmgr:latest
+    build: ./repmgr
+    restart: always
+    networks:
       - back
-    secrets:
-      - os_admin
-      - os_user
+    volumes:
+      - "dbdata1:/var/lib/postgresql"
+    labels:
+      org.openslides.role: "postgres"
+  pgnode2:
+    environment:
+      - REPMGR_NODE_ID=2
+    image: openslides/openslides-repmgr:latest
+    restart: always
+    networks:
+      - back
+    volumes:
+      - "dbdata2:/var/lib/postgresql"
+    labels:
+      org.openslides.role: "postgres"
+  pgnode3:
+    environment:
+      - REPMGR_NODE_ID=3
+    image: openslides/openslides-repmgr:latest
+    restart: always
+    networks:
+      - back
+    volumes:
+      - "dbdata3:/var/lib/postgresql"
+    labels:
+      org.openslides.role: "postgres"
+  pgbouncer:
+    # environment:
+    #   - PG_NODE_LIST=pgnode1,pgnode2,pgnode3
+    image: openslides/openslides-pgbouncer:latest
+    build: ./pgbouncer
+    restart: always
+    networks:
+      back:
+        aliases:
+          - db
+          - postgres
+  postfix:
+    image: openslides/openslides-postfix:latest
+    build: ./postfix
+    restart: always
+    environment:
+      - MYHOSTNAME=localhost
+      - RELAYHOST=localhost
+    networks:
+      - back
   redis:
     image: redis:alpine
     restart: always
-    volumes:
-      - "redisdata:/data"
     networks:
       - back
   rediscache:
@@ -76,83 +148,20 @@ services:
     command: ["redis-server", "--save", "", "--slaveof", "rediscache", "6379"]
     networks:
       - back
-  client:
-    image: openslides-proxy:latest
-    build: ./client
-    restart: always
-    volumes:
-      - "staticfiles:/usr/share/nginx/html"
-    depends_on:
-      - server
-    networks:
-      - front
-    ports:
-      - "127.0.0.1:61000:80"
-  postfix:
-    build: ./postfix
-    image: openslides-postfix:latest
-    restart: always
-    environment:
-      - MYHOSTNAME=localhost
-      - RELAYHOST=localhost
-    networks:
-      - back
-  pgnode1:
-    environment:
-      - REPMGR_NODE_ID=1
-    image: openslides-repmgr:latest
-    build: ./repmgr
-    restart: always
-    networks:
-      - back
-    volumes:
-      - "dbdata1:/var/lib/postgresql"
-    labels:
-      org.openslides.role: "postgres"
-  pgnode2:
-    environment:
-      - REPMGR_NODE_ID=2
-    image: openslides-repmgr:latest
-    build: ./repmgr
-    restart: always
-    networks:
-      - back
-    volumes:
-      - "dbdata2:/var/lib/postgresql"
-    labels:
-      org.openslides.role: "postgres"
-  pgnode3:
-    environment:
-      - REPMGR_NODE_ID=3
-    image: openslides-repmgr:latest
-    build: ./repmgr
-    restart: always
-    networks:
-      - back
-    volumes:
-      - "dbdata3:/var/lib/postgresql"
-    labels:
-      org.openslides.role: "postgres"
-  pgbouncer:
-    # environment:
-    #   - PG_NODE_LIST=pgnode1,pgnode2,pgnode3
-    image: openslides-pgbouncer:latest
-    build: ./pgbouncer
-    restart: always
-    networks:
-      back:
-        aliases:
-          - db
-          - postgres
 volumes:
   dbdata1:
   dbdata2:
   dbdata3:
-  personaldata:
-  redisdata:
   staticfiles:
 networks:
   front:
   back:
+secrets:
+  os_admin:
+    file: ./secrets/adminsecret.env
+  os_user:
+    file: ./secrets/usersecret.env
+  django:
+    file: ./secrets/django
 
 # vim: set ft=yaml sw=2 et:

@@ -10,22 +10,24 @@ TEMPLATE_REPO="/srv/openslides/openslides-docker-compose"
 # TEMPLATE_REPO="https://github.com/OpenSlides/openslides-docker-compose"
 OSDIR="/srv/openslides"
 INSTANCES="${OSDIR}/docker-instances"
-DEFAULT_DOCKER_IMAGE_NAME_OPENSLIDES=openslides
+DEFAULT_DOCKER_IMAGE_NAME_OPENSLIDES=openslides/openslides
 DEFAULT_DOCKER_IMAGE_TAG_OPENSLIDES=latest
 # If set, these variables override the defaults in the
 # docker-compose.yml.example template file.  They can be configured on the
 # command line as well as in /etc/osinstancectl.
 RELAYHOST=
+MAIN_REPOSITORY_URL= # default repo used for all openslides/* images
 
 ME=$(basename -s .sh "${BASH_SOURCE[0]}")
 CONFIG="/etc/osinstancectl"
 MARKER=".osinstancectl-marker"
 DOCKER_IMAGE_NAME_OPENSLIDES=
 DOCKER_IMAGE_TAG_OPENSLIDES=
-NGINX_TEMPLATE=
 PROJECT_NAME=
 PROJECT_DIR=
+PROJECT_STACK_NAME=
 PORT=
+DEPLOYMENT_MODE=
 MODE=
 OPT_LONGLIST=
 OPT_METADATA=
@@ -84,7 +86,6 @@ Actions:
   update               Update OpenSlides to a new --image
   erase                Remove an instance's volumes (stops the instance if
                        necessary)
-  flush                Flush Redis cache
 
 Options:
   -d, --project-dir    Directly specify the project directory
@@ -104,10 +105,12 @@ Options:
     --fast                 Include less information to increase listing speed
 
   for add & update:
+    -r, --default-repo Specifcy the default Docker repository for OpenSlides
+                       images
     -I, --image        Specify the OpenSlides server Docker image
     -t, --tag          Specify the OpenSlides server Docker image
     --no-add-account   Do not add an additional, customized local admin account
-    --local-only       Create an instance without setting up Nginx and Let's
+    --local-only       Create an instance without setting up HAProxy and Let's
                        Encrypt certificates.  Such an instance is only
                        accessible on localhost, e.g., http://127.1:61000.
     --clone-from       Create the new instance based on the specified existing
@@ -140,18 +143,23 @@ check_for_dependency () {
     which "$1" > /dev/null || { fatal "Dependency not found: $1"; }
 }
 
-
 arg_check() {
   [[ -d "$OSDIR" ]] || { fatal "$OSDIR not found!"; }
   [[ -n "$PROJECT_NAME" ]] || {
     fatal "Please specify a project name"; return 2;
   }
-  if [[ "$MODE" = "clone" ]]; then
-    [[ -d "$CLONE_FROM_DIR" ]] || {
-      fatal "$CLONE_FROM_DIR does not exist."
-      return 2
-    }
-  fi
+  case "$MODE" in
+    "start" | "stop" | "remove" | "erase" | "update")
+      [[ -d "$PROJECT_DIR" ]] || {
+        fatal "Instance '${PROJECT_NAME}' not found."
+      }
+      ;;
+    "clone")
+      [[ -d "$CLONE_FROM_DIR" ]] || {
+        fatal "$CLONE_FROM_DIR does not exist."
+      }
+      ;;
+  esac
   echo "$DOCKER_IMAGE_NAME_OPENSLIDES" | grep -q -v ':' ||
     fatal "Image names must not contain colons.  Tags can be specified with --tag."
 }
@@ -168,7 +176,7 @@ _docker_compose () {
   local project_dir="$1"
   shift
   docker-compose --project-directory "$project_dir" \
-    --file "${project_dir}/docker-compose.yml" $*
+    --file "${project_dir}/${CONFIG_FILE}" $*
 }
 
 query_user_account_name() {
@@ -199,7 +207,7 @@ next_free_port() {
   # `docker-compose port client 80` would be a nicer way to get the port
   # mapping; however, it is only available for running services.
   local HIGHEST_PORT_IN_USE=$(
-    find "${INSTANCES}" -type f -name docker-compose.yml -print0 |
+    find "${INSTANCES}" -type f -name ${CONFIG_FILE} -print0 |
     xargs -0 grep -h -o "127.0.0.1:61[0-9]\{3\}:80"|
     cut -d: -f2 | sort -rn | head -1
   )
@@ -246,9 +254,18 @@ create_config_from_template() {
     1
     ' "$templ" |
   gawk -v proj="$PROJECT_NAME" -v relay="$RELAYHOST" '
+    # Configure mail relay host
     BEGIN {FS="="; OFS=FS}
     $1 ~ /MYHOSTNAME$/ { $2 = proj }
     relay != "" && $1 ~ /RELAYHOST$/ { $2 = relay }
+    1
+  ' |
+  gawk -v repo="$MAIN_REPOSITORY_URL" '
+    # Configure all OpenSlides-specific images for custom Docker repository
+    BEGIN { FS=": "; OFS=FS; }
+    repo && $1 ~ / +image/ && $2 ~ /openslides\// {
+      sub(/openslides\//, repo "/", $2)
+    }
     1
   ' > "$config"
 }
@@ -261,6 +278,10 @@ create_instance_dir() {
     mkdir -m 700 "${PROJECT_DIR}/secrets"
   touch "${PROJECT_DIR}/secrets/${ADMIN_SECRETS_FILE}"
   touch "${PROJECT_DIR}/${MARKER}"
+  # Add stack name to .env file
+  touch "${PROJECT_DIR}/.env"
+  printf "%s=%s\n" "PROJECT_STACK_NAME" "${PROJECT_STACK_NAME}" \
+    >> "${PROJECT_DIR}/.env"
 }
 
 gen_pw() {
@@ -300,21 +321,13 @@ EOF
   fi
 }
 
-update_nginx_config() {
-  # Create Nginx configs
+gen_tls_cert() {
+  # Generate Let's Encrypt certificate
   [[ -z "$OPT_LOCALONLY" ]] || return 0
 
   # add optional www subdomain
   local www=
   [[ -z "$OPT_WWW" ]] || www="www.${PROJECT_NAME}"
-
-  # First, without TLS
-  sed -e "/server_name/s/<INSTANCE>/${PROJECT_NAME} ${www}/" \
-      -e "s/<INSTANCE>/${PROJECT_NAME}/" \
-      -e "/proxy_pass/s/61000/${PORT}/" \
-      "$NGINX_TEMPLATE" > /etc/nginx/sites-available/"${PROJECT_NAME}".conf
-  ln -s ../sites-available/"${PROJECT_NAME}".conf /etc/nginx/sites-enabled/ || true
-  systemctl reload nginx
 
   # Generate Let's Encrypt certificate
   echo "Generating certificate..."
@@ -323,23 +336,63 @@ update_nginx_config() {
   else
     acmetool want "${PROJECT_NAME}" "${www}"
   fi
+}
 
-  # Update Nginx to use TLS certs
-  ex -s +"g/ssl-cert-snakeoil/d" +"g/ssl_certificate/s/#\ //" +x \
-    /etc/nginx/sites-available/"${PROJECT_NAME}".conf
-  systemctl reload nginx
+add_to_haproxy_cfg() {
+  [[ -z "$OPT_LOCALONLY" ]] || return 0
+  cp -f /etc/haproxy/haproxy.cfg /etc/haproxy/haproxy.cfg.osbak &&
+  gawk -v target="${PROJECT_NAME}" -v port="${PORT}" '
+    BEGIN {
+      begin_block = "-----BEGIN AUTOMATIC OPENSLIDES CONFIG-----"
+      end_block   = "-----END AUTOMATIC OPENSLIDES CONFIG-----"
+      use_server_tmpl = "\tuse-server %s if { ssl_fc_sni_end -i %s }"
+      server_tmpl     = "\tserver     %s 127.1:%d  weight 0 check"
+    }
+    $0 ~ begin_block { b = 1 }
+    $0 ~ end_block   { e = 1 }
+    !e
+    b && e {
+      printf(use_server_tmpl "\n", target, target)
+      printf(server_tmpl "\n", target, port)
+      print
+      e = 0
+    }
+  ' /etc/haproxy/haproxy.cfg.osbak >| /etc/haproxy/haproxy.cfg &&
+    systemctl reload haproxy
+}
+
+rm_from_haproxy_cfg() {
+  cp -f /etc/haproxy/haproxy.cfg /etc/haproxy/haproxy.cfg.osbak &&
+  gawk -v target="${PROJECT_NAME}" -v port="${PORT}" '
+    BEGIN {
+      begin_block = "-----BEGIN AUTOMATIC OPENSLIDES CONFIG-----"
+      end_block   = "-----END AUTOMATIC OPENSLIDES CONFIG-----"
+    }
+    $0 ~ begin_block { b = 1 }
+    $0 ~ end_block   { e = 1 }
+    b && !e && $0 ~ target { next }
+    1
+  ' /etc/haproxy/haproxy.cfg.osbak >| /etc/haproxy/haproxy.cfg &&
+    systemctl reload haproxy
 }
 
 link_settingspy() {
-  # Create a symlink in the project directory to the settings file in Docker
-  # volume (usually in /var/lib/docker/volumes/...)
-  echo "Symlinking settings.py"
-  local settings="$(get_personaldata_dir "$PROJECT_DIR")/var/settings.py"
-  if [[ -f "$settings" ]]; then
-    ln -s "$settings" "${PROJECT_DIR}/settings.py"
-  else
-    echo "INFO: Not symlinking because the volume does not exist yet."
-  fi
+  case "$DEPLOYMENT_MODE" in
+    "compose")
+      # Create a symlink in the project directory to the settings file in Docker
+      # volume (usually in /var/lib/docker/volumes/...)
+      echo "Symlinking settings.py"
+      local settings="$(get_personaldata_dir "$PROJECT_DIR")/var/settings.py"
+      if [[ -f "$settings" ]]; then
+        ln -s "$settings" "${PROJECT_DIR}/settings.py"
+      else
+        echo "INFO: Not symlinking because the volume does not exist yet."
+      fi
+      ;;
+    "stack")
+      # Nothing to do because configs and mediafiles are kept in database
+      ;;
+  esac
 }
 
 remove() {
@@ -347,33 +400,20 @@ remove() {
   [[ -d "$PROJECT_DIR" ]] || {
     fatal "$PROJECT_DIR does not exist."
   }
-
-  # Ask for confirmation
-  local ANS=
-  echo "Delete the following instance including all of its data and configuration?"
-  # Show instance listing
-  OPT_LONGLIST=1 OPT_METADATA=1 OPT_METADATA_SEARCH= \
-    ls_instance "$PROJECT_DIR" | colorize_ls
-  echo
-  read -p "Really delete? (uppercase YES to confirm) " ANS
-  [[ "$ANS" = "YES" ]] || return 0
-
   echo "Stopping and removing containers..."
   instance_erase
   echo "Removing instance repo dir..."
   rm -rf "${PROJECT_DIR}"
-  echo "Remove config from Nginx..."
-  rm -f /etc/nginx/sites-available/"${PROJECT_NAME}".conf \
-     /etc/nginx/sites-enabled/"${PROJECT_NAME}".conf
-  systemctl reload nginx
   echo "acmetool unwant..."
   acmetool unwant "$PROJECT_NAME"
+  echo "remove HAProxy config..."
+  rm_from_haproxy_cfg
   echo "Done."
 }
 
 local_port() {
   # Retrieve the reverse proxy's published port from config file
-  [[ -f "${1}/docker-compose.yml" ]] &&
+  [[ -f "${1}/${CONFIG_FILE}" ]] &&
   gawk 'BEGIN { FS=":" }
     $0 ~ / +client:$/ { c = 1 }
     c && $0 ~ / +ports:$/ { s = 1; next; }
@@ -382,7 +422,7 @@ local_port() {
       gsub(/[\ "-]/, "")
       print $(NF - 1)
       exit
-    }' "${instance}/docker-compose.yml"
+    }' "${instance}/${CONFIG_FILE}"
   # better but slower:
   # docker inspect --format '{{ (index (index .NetworkSettings.Ports "80/tcp") 0).HostPort }}' \
   #   $(docker-compose ps -q client))
@@ -414,7 +454,7 @@ value_from_yaml() {
   instance="$1"
   awk -v m="^ *${2}:$" \
     '$1 ~ m { print $2; exit; }' \
-    "${instance}/docker-compose.yml"
+    "${instance}/${CONFIG_FILE}"
 }
 
 image_from_yaml() {
@@ -423,7 +463,7 @@ image_from_yaml() {
     BEGIN {FS=":"}
     $0 ~ /^  (prio)?server:$/ {s=1}
     $1 ~ /image/ && s { printf("%s\n%s\n", $2, $3); exit; }
-    ' "${instance}/docker-compose.yml"
+    ' "${instance}/${CONFIG_FILE}"
 }
 
 highlight_match() {
@@ -437,9 +477,18 @@ highlight_match() {
 
 ls_instance() {
   local instance="$1"
+  local shortname=$(basename "$instance")
+  local normalized_shortname=
+
+  #  For stacks, get the normalized shortname
+  if [[ -f "${instance}/.env" ]]; then
+    PROJECT_STACK_NAME=
+    source "${instance}/.env"
+    [[ -z "${PROJECT_STACK_NAME}" ]] ||
+      local normalized_shortname="${PROJECT_STACK_NAME}"
+  fi
 
   # Determine instance state
-  local shortname=$(basename "$instance")
   local port=$(local_port "$instance")
   local sym="$SYM_UNKNOWN"
   local version=
@@ -512,6 +561,9 @@ ls_instance() {
     fi
 
     printf "   ├ %-12s %s\n" "Directory:" "$instance"
+    if [[ -n "$normalized_shortname" ]]; then
+      printf "   ├ %-12s %s\n" "Stack name:" "$normalized_shortname"
+    fi
     printf "   ├ %-12s %s\n" "Version:" "$version"
     if [[ -n "$git_commit" ]]; then
       printf "   ├ %-12s %s\n" "Git rev:" "$git_commit"
@@ -600,7 +652,7 @@ list_instances() {
   )
   for instance in "${i[@]}"; do
     # skip directories that aren't instances
-    [[ -f "${instance}/docker-compose.yml" ]] || continue
+    [[ -f "${instance}/${CONFIG_FILE}" ]] || continue
 
     # Filter instances
     # 1. instance name/project dir matches
@@ -634,26 +686,104 @@ clone_secrets() {
   fi
 }
 
+containerid_from_service_name() {
+  local id
+  local containerid
+  id="$(docker service ps -q "$1")"
+  cid="$(docker inspect -f '{{.Status.ContainerStatus.ContainerID}}' ${id})"
+  echo "$cid"
+}
+
+get_clone_from_id() (
+  source "${1}/.env"
+  containerid_from_service_name "${PROJECT_STACK_NAME}_pgpool2"
+)
+
 clone_db() {
-  _docker_compose "$PROJECT_DIR" up -d --no-deps postgres
-  local clone_from_id=$(_docker_compose "$CLONE_FROM_DIR" ps -q postgres)
-  local clone_to_id=$(_docker_compose "$PROJECT_DIR" ps -q postgres)
-  sleep 3 # XXX
-  docker exec -u postgres "$clone_from_id" pg_dump -c --if-exists openslides |
-  docker exec -i -u postgres "$clone_to_id" psql openslides
+  local clone_from_id
+  local clone_to_id
+  local available_dbs
+  case "$DEPLOYMENT_MODE" in
+    "compose")
+      _docker_compose "$PROJECT_DIR" up -d --no-deps postgres
+      local clone_from_id="$(_docker_compose "$CLONE_FROM_DIR" ps -q postgres)"
+      local clone_to_id=$(_docker_compose "$PROJECT_DIR" ps -q postgres)
+      sleep 3 # XXX
+      docker exec -u postgres "$clone_from_id" pg_dump -c --if-exists openslides |
+      docker exec -i -u postgres "$clone_to_id" psql openslides
+      ;;
+    "stack")
+      clone_from_id="$(get_clone_from_id "$CLONE_FROM_DIR")"
+      source "${PROJECT_DIR}/.env"
+      instance_start
+      echo "Waiting 20 seconds for database to become available..."
+      sleep 20 # XXX
+      clone_to_id="$(containerid_from_service_name "${PROJECT_STACK_NAME}_pgnode1")"
+      echo "DEBUG: from: $clone_from_id to: $clone_to_id"
+
+      # Clone instance databases individually using pg_dump
+      #
+      # pg_dump's advantage is that it requires no special access (unlike
+      # pg_dumpall) and does not require the cluster to be reinitialized
+      # (unlike pg_basebackup).
+      #
+      # The origin cluster is being accessed through the pgpool2 service, so it
+      # is should be possible to clone even from secondary Postgres nodes if
+      # a failover occured.  It is assumed, however, that both the origin's
+      # pgpool2 instance as well as the cloned instance's pgnode1 are running
+      # on localhost because both get accessed using `docker exec`.
+      #
+      # The pg_dump/psql method may very well run into issues with large
+      # mediafile databases, however.  pg_dump/pg_restore using the custom
+      # format could be worth a try.
+      available_dbs=("$(docker exec "$clone_from_id" \
+        psql -U openslides -h db -d openslides -c '\l' -AtF '	' | cut -f1)")
+      for db in openslides instancecfg mediafiledata; do
+        echo "${available_dbs[@]}" | grep -wq "$db" || {
+          echo "DB $db not found; skipping..."
+          sleep 10
+          continue
+        }
+        echo "Recreating db for new instance: ${db}..."
+        docker exec "$clone_to_id" psql -q -c "SELECT pg_terminate_backend(pid)
+            FROM pg_stat_activity WHERE datname='${db}';"
+        docker exec "$clone_to_id" dropdb --if-exists "$db"
+        docker exec "$clone_to_id" createdb -O openslides "$db"
+
+        echo "Cloning ${db}..."
+        docker exec "$clone_from_id" \
+          pg_dump -h db -U openslides -c --if-exists "$db" |
+        docker exec -i "$clone_to_id" psql -h pgnode1 -U openslides "$db"
+      done
+      ;;
+  esac
 }
 
 get_personaldata_dir() {
-  docker inspect --format \
-    '{{ range .Mounts }}{{ if eq .Destination "/app/personal_data" }}{{ .Source }}{{ end }}{{ end }}' \
-    "$(_docker_compose "$1" ps -q server)"
+  case "$DEPLOYMENT_MODE" in
+    "compose")
+      docker inspect --format \
+        '{{ range .Mounts }}{{ if eq .Destination "/app/personal_data" }}{{ .Source }}{{ end }}{{ end }}' \
+        "$(_docker_compose "$1" ps -q server)"
+      ;;
+    "stack")
+      # Nothing to do because configs and mediafiles are kept in database
+      ;;
+  esac
 }
 
 clone_files() {
-  _docker_compose "$PROJECT_DIR" up --no-start --no-deps server
-  local from_dir=$(get_personaldata_dir "$CLONE_FROM_DIR")
-  local to_dir=$(get_personaldata_dir "$PROJECT_DIR")
-  rsync -axv "${from_dir}/" "${to_dir}/"
+  case "$DEPLOYMENT_MODE" in
+    "compose")
+      _docker_compose "$PROJECT_DIR" up --no-start --no-deps server
+      local from_dir=$(get_personaldata_dir "$CLONE_FROM_DIR")
+      local to_dir=$(get_personaldata_dir "$PROJECT_DIR")
+      rsync -axv "${from_dir}/" "${to_dir}/"
+      ;;
+    "stack")
+      # Nothing to do because configs and mediafiles are kept in database
+      ;;
+  esac
 }
 
 append_metadata() {
@@ -675,16 +805,53 @@ ask_start() {
 }
 
 instance_start() {
-  _docker_compose "$PROJECT_DIR" build
-  _docker_compose "$PROJECT_DIR" up -d
+  case "$DEPLOYMENT_MODE" in
+    "compose")
+      _docker_compose "$PROJECT_DIR" build
+      _docker_compose "$PROJECT_DIR" up -d
+      ;;
+    "stack")
+      source "${PROJECT_DIR}/.env"
+      docker stack deploy -c "${PROJECT_DIR}/docker-stack.yml" \
+        "$PROJECT_STACK_NAME"
+      ;;
+  esac
 }
 
 instance_stop() {
-  _docker_compose "$PROJECT_DIR" down
+  case "$DEPLOYMENT_MODE" in
+    "compose")
+      _docker_compose "$PROJECT_DIR" down
+      ;;
+    "stack")
+      source "${PROJECT_DIR}/.env"
+      docker stack rm "$PROJECT_STACK_NAME"
+    ;;
+esac
 }
 
 instance_erase() {
-  _docker_compose "$PROJECT_DIR" down --volumes
+  case "$DEPLOYMENT_MODE" in
+    "compose")
+      _docker_compose "$PROJECT_DIR" down --volumes
+      ;;
+    "stack")
+      local vol=()
+      instance_stop || true
+      readarray -t vol < <(
+        docker volume ls --format '{{ .Name }}' |
+        grep "^${PROJECT_STACK_NAME}_"
+      )
+      if [[ "${#vol[@]}" -gt 0 ]]; then
+        echo "Please manually verify and remove the instance's volumes:"
+        for i in "${vol[@]}"; do
+          echo "  docker volume rm $i"
+        done
+      fi
+      echo "WARN: Please note that $ME does not take volumes" \
+        "on other nodes into account."
+      ;;
+  esac
 }
 
 instance_update() {
@@ -702,37 +869,42 @@ instance_update() {
     1
     ' "${DCCONFIG}" > "${DCCONFIG}.tmp" &&
   mv -f "${DCCONFIG}.tmp" "${DCCONFIG}"
-  local build_opt=
-  [[ -z "$OPT_FORCE" ]] || local build_opt="--no-cache"
-  _docker_compose "$PROJECT_DIR" build "$build_opt" server prioserver
-  echo "Creating services"
-  _docker_compose "$PROJECT_DIR" up --no-start
-  local prioserver="$(_docker_compose "$PROJECT_DIR" ps -q prioserver)"
-  # Delete staticfiles volume
-  local vol=$(docker inspect --format \
-      '{{ range .Mounts }}{{ if eq .Destination "/app/openslides/static" }}{{ .Name }}{{ end }}{{ end }}' \
-      "$prioserver"
-  )
-  echo "Scaling down"
-  _docker_compose "$PROJECT_DIR" up -d \
-    --scale server=0 --scale prioserver=0 --scale client=0
-  echo "Deleting staticfiles volume"
-  docker volume rm "$vol"
-  echo "Flushing redis cache"
-  instance_flush
-  echo "OK.  Bringing up all services"
-  _docker_compose "$PROJECT_DIR" up -d
+  case "$DEPLOYMENT_MODE" in
+    "compose")
+      echo "Creating services"
+      _docker_compose "$PROJECT_DIR" up --no-start
+      local prioserver="$(_docker_compose "$PROJECT_DIR" ps -q prioserver)"
+      # Delete staticfiles volume
+      local vol=$(docker inspect --format \
+          '{{ range .Mounts }}{{ if eq .Destination "/app/openslides/static" }}{{ .Name }}{{ end }}{{ end }}' \
+          "$prioserver"
+      )
+      echo "Scaling down"
+      _docker_compose "$PROJECT_DIR" up -d \
+        --scale server=0 --scale prioserver=0 --scale client=0
+      echo "Deleting staticfiles volume"
+      docker volume rm "$vol"
+      echo "OK.  Bringing up all services"
+      _docker_compose "$PROJECT_DIR" up -d
+      ;;
+    "stack")
+      local force_opt=
+      [[ -z "$OPT_FORCE" ]] || local force_opt="--force"
+      source "${PROJECT_DIR}/.env"
+      # docker stack deploy -c "${PROJECT_DIR}/docker-stack.yml" "$STACK_NAME"
+      for i in prioserver server; do
+        if docker service ls --format '{{.Name}}' | grep -q "${PROJECT_STACK_NAME}_${i}"
+        then
+          docker service update $force_opt "${PROJECT_STACK_NAME}_${i}"
+        else
+          echo "WARN: ${PROJECT_STACK_NAME}_${i} is not running."
+        fi
+      done
+      ;;
+  esac
   append_metadata "$PROJECT_DIR" "$(date +"%F %H:%M"): Updated to" \
     "${DOCKER_IMAGE_NAME_OPENSLIDES}:${DOCKER_IMAGE_TAG_OPENSLIDES}"
 }
-
-instance_flush() {
-  _docker_compose "$PROJECT_DIR" up -d --scale server=0 --scale prioserver=0
-  local redis="$(_docker_compose "$PROJECT_DIR" ps -q rediscache)"
-  docker exec "$redis" redis-cli flushall
-  _docker_compose "$PROJECT_DIR" up -d --scale server=1 --scale prioserver=1
-}
-
 
 # Use GNU parallel if found
 if [[ -f /usr/bin/env_parallel.bash ]]; then
@@ -740,7 +912,22 @@ if [[ -f /usr/bin/env_parallel.bash ]]; then
   OPT_USE_PARALLEL=1
 fi
 
-shortopt="halmiMnfd:I:t:"
+# Decide mode from invocation
+case "$(basename "${BASH_SOURCE[0]}")" in
+  "osinstancectl" | "osinstancectl.sh")
+    DEPLOYMENT_MODE=compose
+    ;;
+  "osstackctl" | "osstackctl.sh")
+    DEPLOYMENT_MODE=stack
+    ;;
+  *)
+    echo "WARNING: could not determine desired deployment mode;" \
+      " assuming 'compose'"
+    DEPLOYMENT_MODE=compose
+    ;;
+esac
+
+shortopt="halmiMnfd:r:I:t:"
 longopt=(
   help
   color:
@@ -758,6 +945,7 @@ longopt=(
   search-metadata
 
   # adding instances
+  default-repo:
   clone-from:
   local-only
   no-add-account
@@ -794,6 +982,10 @@ while true; do
   case "$1" in
     -d|--project-dir)
       PROJECT_DIR="$2"
+      shift 2
+      ;;
+    -r|--default-repo)
+      MAIN_REPOSITORY_URL="$2"
       shift 2
       ;;
     -I|--image)
@@ -906,11 +1098,6 @@ for arg; do
       MODE=erase
       shift 1
       ;;
-    flush)
-      [[ -z "$MODE" ]] || { usage; exit 2; }
-      MODE=flush
-      shift 1
-      ;;
     update)
       [[ -z "$MODE" ]] || { usage; exit 2; }
       MODE=update
@@ -969,13 +1156,34 @@ else
   PROJECT_DIR="${INSTANCES}/${PROJECT_NAME}"
 fi
 
-DCCONFIG="${PROJECT_DIR}/docker-compose.yml"
-NGINX_TEMPLATE="${PROJECT_DIR}/contrib/nginx.conf.in"
+case "$DEPLOYMENT_MODE" in
+  "compose")
+    CONFIG_FILE="docker-compose.yml"
+    ;;
+  "stack")
+    CONFIG_FILE="docker-stack.yml"
+    # The project name is a valid domain which is not suitable as a Docker
+    # stack name.  Here, we remove all dots from the domain which turns the
+    # domain into a compatible name.  This also appears to be the method
+    # docker-compose uses to name its containers.
+    PROJECT_STACK_NAME="$(echo "$PROJECT_NAME" | tr -d '.')"
+    ;;
+esac
+DCCONFIG="${PROJECT_DIR}/${CONFIG_FILE}"
 
 case "$MODE" in
   remove)
     arg_check || { usage; exit 2; }
     [[ -n "$OPT_FORCE" ]] || marker_check
+    # Ask for confirmation
+    ANS=
+    echo "Delete the following instance including all of its data and configuration?"
+    # Show instance listing
+    OPT_LONGLIST=1 OPT_METADATA=1 OPT_METADATA_SEARCH= \
+      ls_instance "$PROJECT_DIR" | colorize_ls
+    echo
+    read -p "Really delete? (uppercase YES to confirm) " ANS
+    [[ "$ANS" = "YES" ]] || exit 0
     remove "$PROJECT_NAME"
     ;;
   create)
@@ -991,17 +1199,18 @@ case "$MODE" in
     echo "Creating new instance: $PROJECT_NAME"
     PORT=$(next_free_port)
     create_instance_dir
-    create_config_from_template "${PROJECT_DIR}/docker-compose.yml.example" \
-      "${PROJECT_DIR}/docker-compose.yml"
+    create_config_from_template "${PROJECT_DIR}/${CONFIG_FILE}.example" \
+      "${PROJECT_DIR}/${CONFIG_FILE}"
     create_django_secrets_file
     create_admin_secrets_file
     create_user_secrets_file "${OPENSLIDES_USER_FIRSTNAME}" "${OPENSLIDES_USER_LASTNAME}"
-    update_nginx_config
-    append_metadata "$PROJECT_DIR" "$(date +"%F %H:%M"): Instance created"
+    gen_tls_cert
+    add_to_haproxy_cfg
+    append_metadata "$PROJECT_DIR" \
+      "$(date +"%F %H:%M"): Instance created (${DEPLOYMENT_MODE})"
     [[ -z "$OPT_LOCALONLY" ]] ||
-      append_metadata "$PROJECT_DIR" "No Nginx config added (--local-only)"
+      append_metadata "$PROJECT_DIR" "No HAProxy config added (--local-only)"
     ask_start
-    link_settingspy
     ;;
   clone)
     CLONE_FROM_DIR="${INSTANCES}/${CLONE_FROM}"
@@ -1018,15 +1227,16 @@ case "$MODE" in
     [[ -n "$DOCKER_IMAGE_TAG_OPENSLIDES" ]] ||
       DOCKER_IMAGE_TAG_OPENSLIDES="${ia[1]}"
     create_instance_dir
-    create_config_from_template "${CLONE_FROM_DIR}/docker-compose.yml" \
-      "${PROJECT_DIR}/docker-compose.yml"
+    create_config_from_template "${CLONE_FROM_DIR}/${CONFIG_FILE}.example" \
+      "${PROJECT_DIR}/${CONFIG_FILE}"
     clone_secrets
     clone_files
     clone_db
-    update_nginx_config
+    gen_tls_cert
+    add_to_haproxy_cfg
     append_metadata "$PROJECT_DIR" "Cloned from $CLONE_FROM on $(date)"
     [[ -z "$OPT_LOCALONLY" ]] ||
-      append_metadata "$PROJECT_DIR" "No Nginx config added (--local-only)"
+      append_metadata "$PROJECT_DIR" "No HAProxy config added (--local-only)"
     ask_start
     link_settingspy
     ;;
@@ -1041,21 +1251,21 @@ case "$MODE" in
     instance_stop ;;
   erase)
     arg_check || { usage; exit 2; }
-    echo "WARNING: This will stop the instance, and remove its containers and volumes!"
-    ERASE=
-    read -p "Continue? [y/N] " ERASE
-    case "$ERASE" in
-      Y|y|Yes|yes|YES)
-        instance_erase ;;
-    esac
+    # Ask for confirmation
+    ANS=
+    echo "Stop the following instance, and remove its containers and volumes?"
+    # Show instance listing
+    OPT_LONGLIST=1 OPT_METADATA=1 OPT_METADATA_SEARCH= \
+      ls_instance "$PROJECT_DIR" | colorize_ls
+    echo
+    read -p "Really delete? (uppercase YES to confirm) " ANS
+    [[ "$ANS" = "YES" ]] || exit 0
+    instance_erase
     ;;
   update)
     [[ -f "$CONFIG" ]] && echo "Found ${CONFIG} file." || true
     arg_check || { usage; exit 2; }
     instance_update
-    ;;
-  flush)
-    instance_flush
     ;;
   *)
     fatal "Missing command.  Please consult $ME --help."
