@@ -376,25 +376,6 @@ rm_from_haproxy_cfg() {
     systemctl reload haproxy
 }
 
-link_settingspy() {
-  case "$DEPLOYMENT_MODE" in
-    "compose")
-      # Create a symlink in the project directory to the settings file in Docker
-      # volume (usually in /var/lib/docker/volumes/...)
-      echo "Symlinking settings.py"
-      local settings="$(get_personaldata_dir "$PROJECT_DIR")/var/settings.py"
-      if [[ -f "$settings" ]]; then
-        ln -s "$settings" "${PROJECT_DIR}/settings.py"
-      else
-        echo "INFO: Not symlinking because the volume does not exist yet."
-      fi
-      ;;
-    "stack")
-      # Nothing to do because configs and mediafiles are kept in database
-      ;;
-  esac
-}
-
 remove() {
   local PROJECT_NAME="$1"
   [[ -d "$PROJECT_DIR" ]] || {
@@ -755,19 +736,6 @@ clone_db() {
       pg_dump -h db -U openslides -c --if-exists "$db" |
     docker exec -u postgres -i "$clone_to_id" psql -h pgnode1 -U openslides "$db"
   done
-}
-
-get_personaldata_dir() {
-  case "$DEPLOYMENT_MODE" in
-    "compose")
-      docker inspect --format \
-        '{{ range .Mounts }}{{ if eq .Destination "/app/personal_data" }}{{ .Source }}{{ end }}{{ end }}' \
-        "$(_docker_compose "$1" ps -q server)"
-      ;;
-    "stack")
-      # Nothing to do because configs and mediafiles are kept in database
-      ;;
-  esac
 }
 
 append_metadata() {
@@ -1221,7 +1189,6 @@ case "$MODE" in
     [[ -z "$OPT_LOCALONLY" ]] ||
       append_metadata "$PROJECT_DIR" "No HAProxy config added (--local-only)"
     ask_start
-    link_settingspy
     ;;
   list)
     list_instances
