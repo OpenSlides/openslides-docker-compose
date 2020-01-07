@@ -4,6 +4,7 @@ set -e
 
 export PGDATA=/var/lib/postgresql/11/main
 MARKER=/var/lib/postgresql/do-not-remove-this-file
+BACKUP_DIR="/var/lib/postgresql/backup/"
 
 # Configure WAL archiving through ENV
 REPMGR_ENABLE_ARCHIVE="${REPMGR_WAL_ARCHIVE:-on}"
@@ -92,6 +93,15 @@ standby_node_setup() {
   repmgr -f /etc/repmgr.conf cluster show || true
 }
 
+backup() {
+  mkdir -p "$BACKUP_DIR"
+  pg_basebackup -D - -Ft \
+    --wal-method=fetch --checkpoint=fast \
+    --write-recovery-conf \
+    --label="Initial base backup (entrypoint)" |
+  gzip > "${BACKUP_DIR}/backup-$(date '+%F-%H:%M:%S').tar.bz2"
+}
+
 sudo /etc/init.d/ssh start
 
 echo "Configuring repmgr"
@@ -121,6 +131,10 @@ until pg_isready; do
   echo "Waiting for Postgres cluster to become available..."
   sleep 3
 done
+
+# Create an initial basebackup
+echo "Creating base backup in ${BACKUP_DIR}..."
+backup
 
 # By default, start repmgrd in foreground
 printf "INFO: Executing command: '%s'\n" "$*"
