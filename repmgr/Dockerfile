@@ -26,6 +26,7 @@ RUN touch /etc/repmgr.conf && chown postgres /etc/repmgr.conf
 COPY pg_hba.conf /var/lib/postgresql/
 COPY current-primary.sh /usr/local/bin/current-primary
 COPY entrypoint.sh /usr/local/bin/entrypoint
+COPY pg_backuptrigger.sh /usr/local/bin/pg_backuptrigger
 
 # SSH config
 COPY ssh_host_ed25519_key* /etc/ssh/
