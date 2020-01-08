@@ -22,7 +22,6 @@ RUN apt-get update && \
 COPY repmgr.conf.in /etc/
 RUN touch /etc/repmgr.conf && chown postgres /etc/repmgr.conf
 COPY pg_hba.conf /var/lib/postgresql/
-COPY entrypoint.sh /usr/local/bin/entrypoint
 COPY current-primary.sh /usr/local/bin/current-primary
 
 # SSH config
@@ -37,4 +36,9 @@ RUN chmod 600 /etc/ssh/ssh_host_ed25519_key && \
     chown -R postgres:postgres /var/lib/postgresql/.ssh/
 RUN echo "HostKey /etc/ssh/ssh_host_ed25519_key" >> /etc/ssh/sshd_config
 
-ENTRYPOINT /etc/init.d/ssh start && su postgres -c entrypoint
+COPY root-entrypoint.sh /usr/local/sbin/root-entrypoint
+COPY entrypoint.sh      /usr/local/bin/entrypoint
+
+ENTRYPOINT ["/usr/local/sbin/root-entrypoint"]
+CMD ["repmgrd", "-f", "/etc/repmgr.conf", "--pid-file", \
+    "/dev/shm/repmgrd.pid", "--daemonize=false"]

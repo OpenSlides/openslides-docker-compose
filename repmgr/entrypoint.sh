@@ -95,5 +95,7 @@ until pg_isready; do
   echo "Waiting for Postgres cluster to become available..."
   sleep 3
 done
-# Start repmgrd in foreground
-exec repmgrd -f /etc/repmgr.conf --pid-file /dev/shm/repmgrd.pid --daemonize=false
+
+# By default, start repmgrd in foreground
+printf "INFO: Executing command: '%s'\n" "$*"
+exec "$@"
