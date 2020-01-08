@@ -68,6 +68,8 @@ standby_node_setup() {
   repmgr -f /etc/repmgr.conf cluster show || true
 }
 
+sudo /etc/init.d/ssh start
+
 echo "Configuring repmgr"
 sed -e "s/<NODEID>/${REPMGR_NODE_ID}/" /etc/repmgr.conf.in |
 tee /etc/repmgr.conf
