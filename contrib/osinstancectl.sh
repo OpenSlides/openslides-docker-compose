@@ -4,6 +4,7 @@
 
 set -eu
 set -o noclobber
+set -o pipefail
 
 # Defaults (override in /etc/osinstancectl)
 TEMPLATE_REPO="/srv/openslides/openslides-docker-compose"
@@ -460,6 +461,9 @@ ls_instance() {
   local instance="$1"
   local shortname=$(basename "$instance")
   local normalized_shortname=
+
+  [[ -f "${instance}/${CONFIG_FILE}" ]] ||
+    fatal "$shortname is not a $DEPLOYMENT_MODE instance."
 
   #  For stacks, get the normalized shortname
   if [[ -f "${instance}/.env" ]]; then
