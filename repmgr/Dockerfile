@@ -44,6 +44,7 @@ RUN umask 0222 && \
   > /etc/sudoers.d/postgres
 
 USER postgres
+WORKDIR "/var/lib/postgresql/"
 ENTRYPOINT ["/usr/local/bin/entrypoint"]
 CMD ["repmgrd", "-f", "/etc/repmgr.conf", "--pid-file", \
     "/dev/shm/repmgrd.pid", "--daemonize=false"]
