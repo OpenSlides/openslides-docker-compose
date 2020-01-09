@@ -17,4 +17,4 @@ backup() {
 
 # Promote node from standby to primary
 /usr/bin/repmgr standby promote -f /etc/repmgr.conf &&
-  backup
+  { backup || true; }
