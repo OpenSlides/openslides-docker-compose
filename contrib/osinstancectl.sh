@@ -194,7 +194,8 @@ query_user_account_name() {
 
 verify_domain() {
   # Verify provided domain
-  local ip=$(dig +short "$PROJECT_NAME")
+  local ip
+  ip=$(dig +short "$PROJECT_NAME")
   [[ -n "$ip" ]] || fatal "Hostname not found"
   hostname -I | grep -q -F "$ip" || {
     fatal "$PROJECT_NAME does not point to this host.  Override with --force."
@@ -207,13 +208,15 @@ next_free_port() {
   #
   # `docker-compose port client 80` would be a nicer way to get the port
   # mapping; however, it is only available for running services.
-  local HIGHEST_PORT_IN_USE=$(
+  local HIGHEST_PORT_IN_USE
+  local PORT
+  HIGHEST_PORT_IN_USE=$(
     find "${INSTANCES}" -type f -name "${CONFIG_FILE}" -print0 |
     xargs -0 grep -h -o "127.0.0.1:61[0-9]\{3\}:80"|
     cut -d: -f2 | sort -rn | head -1
   )
   [[ -n "$HIGHEST_PORT_IN_USE" ]] || HIGHEST_PORT_IN_USE=61000
-  local PORT=$((HIGHEST_PORT_IN_USE + 1))
+  PORT=$((HIGHEST_PORT_IN_USE + 1))
 
   # Check if port is actually free
   #  try to find the next free port (this situation can occur if there are test
@@ -313,7 +316,8 @@ create_user_secrets_file() {
       mkdir -m 700 "${PROJECT_DIR}/secrets"
     local first_name="$1"
     local last_name="$2"
-    local PW="$(gen_pw)"
+    local PW
+    PW="$(gen_pw)"
     cat << EOF > "${PROJECT_DIR}/secrets/${USER_SECRETS_FILE}"
 OPENSLIDES_USER_FIRSTNAME=$first_name
 OPENSLIDES_USER_LASTNAME=$last_name
@@ -459,8 +463,10 @@ highlight_match() {
 
 ls_instance() {
   local instance="$1"
-  local shortname=$(basename "$instance")
+  local shortname
   local normalized_shortname=
+
+  shortname=$(basename "$instance")
 
   [[ -f "${instance}/${CONFIG_FILE}" ]] ||
     fatal "$shortname is not a $DEPLOYMENT_MODE instance."
@@ -474,9 +480,10 @@ ls_instance() {
   fi
 
   # Determine instance state
-  local port=$(local_port "$instance")
+  local port
   local sym="$SYM_UNKNOWN"
   local version=
+  port=$(local_port "$instance")
   if [[ -n "$OPT_FAST" ]]; then
     version="[skipped]"
     ping_instance_simple "$port" || {
@@ -532,11 +539,14 @@ ls_instance() {
   if [[ -n "$OPT_LONGLIST" ]]; then
 
     # Parse docker-compose.yml
-    local git_repo=$(value_from_yaml "$instance" "REPOSITORY_URL")
-    local git_commit=$(value_from_yaml "$instance" "GIT_CHECKOUT")
+    local git_repo
+    local git_commit
+    git_repo=$(value_from_yaml "$instance" "REPOSITORY_URL")
+    git_commit=$(value_from_yaml "$instance" "GIT_CHECKOUT")
 
     if [[ -z "$git_commit" ]]; then
-      local image=$(value_from_yaml "$instance" "image")
+      local image
+      image=$(value_from_yaml "$instance" "image")
     fi
 
     # Parse admin credentials file
@@ -590,7 +600,8 @@ ls_instance() {
 
   # --image-info
   if [[ -n "$OPT_IMAGE_INFO" ]] && [[ "$version" != DOWN ]]; then
-    local image_info="$(curl -s "http://localhost:${port}/image-version.txt")"
+    local image_info
+    image_info="$(curl -s "http://localhost:${port}/image-version.txt")"
     if [[ "$image_info" =~ ^Built ]]; then
       printf "   └ %s\n" "Image info:"
       echo "${image_info}" | sed 's/^/     ┆ /'
@@ -673,6 +684,7 @@ clone_secrets() {
 
 containerid_from_service_name() {
   local id
+  local cid
   id="$(docker service ps -q "$1")"
   cid="$(docker inspect -f '{{.Status.ContainerStatus.ContainerID}}' "${id}")"
   echo "$cid"
@@ -689,9 +701,11 @@ clone_db() {
   local available_dbs
   case "$DEPLOYMENT_MODE" in
     "compose")
+      local clone_from_id
+      local clone_to_id
       _docker_compose "$PROJECT_DIR" up -d --no-deps pgnode1
-      local clone_from_id="$(_docker_compose "$CLONE_FROM_DIR" ps -q pgnode1)"
-      local clone_to_id=$(_docker_compose "$PROJECT_DIR" ps -q pgnode1)
+      clone_from_id="$(_docker_compose "$CLONE_FROM_DIR" ps -q pgnode1)"
+      clone_to_id=$(_docker_compose "$PROJECT_DIR" ps -q pgnode1)
       sleep 20 # XXX
       ;;
     "stack")
@@ -826,11 +840,13 @@ instance_update() {
   mv -f "${DCCONFIG}.tmp" "${DCCONFIG}"
   case "$DEPLOYMENT_MODE" in
     "compose")
+      local vol
+      local prioserver
       echo "Creating services"
       _docker_compose "$PROJECT_DIR" up --no-start
-      local prioserver="$(_docker_compose "$PROJECT_DIR" ps -q prioserver)"
+      prioserver="$(_docker_compose "$PROJECT_DIR" ps -q prioserver)"
       # Delete staticfiles volume
-      local vol=$(docker inspect --format \
+      vol=$(docker inspect --format \
           '{{ range .Mounts }}{{ if eq .Destination "/app/openslides/static" }}{{ .Name }}{{ end }}{{ end }}' \
           "$prioserver"
       )
