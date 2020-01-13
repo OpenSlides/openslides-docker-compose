@@ -1177,6 +1177,7 @@ case "$MODE" in
     create_user_secrets_file "${OPENSLIDES_USER_FIRSTNAME}" "${OPENSLIDES_USER_LASTNAME}"
     gen_tls_cert
     add_to_haproxy_cfg
+    append_metadata "$PROJECT_DIR" ""
     append_metadata "$PROJECT_DIR" \
       "$(date +"%F %H:%M"): Instance created (${DEPLOYMENT_MODE})"
     [[ -z "$OPT_LOCALONLY" ]] ||
@@ -1204,6 +1205,7 @@ case "$MODE" in
     clone_db
     gen_tls_cert
     add_to_haproxy_cfg
+    append_metadata "$PROJECT_DIR" ""
     append_metadata "$PROJECT_DIR" "Cloned from $CLONE_FROM on $(date)"
     [[ -z "$OPT_LOCALONLY" ]] ||
       append_metadata "$PROJECT_DIR" "No HAProxy config added (--local-only)"
