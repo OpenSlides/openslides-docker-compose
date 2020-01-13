@@ -177,7 +177,7 @@ _docker_compose () {
   local project_dir="$1"
   shift
   docker-compose --project-directory "$project_dir" \
-    --file "${project_dir}/${CONFIG_FILE}" $*
+    --file "${project_dir}/${CONFIG_FILE}" "$@"
 }
 
 query_user_account_name() {
@@ -186,7 +186,7 @@ query_user_account_name() {
     while [[ -z "$OPENSLIDES_USER_FIRSTNAME" ]] || \
           [[ -z "$OPENSLIDES_USER_LASTNAME" ]]
     do
-      read -p "First & last name: " \
+      read -rp "First & last name: " \
         OPENSLIDES_USER_FIRSTNAME OPENSLIDES_USER_LASTNAME
     done
   fi
@@ -208,7 +208,7 @@ next_free_port() {
   # `docker-compose port client 80` would be a nicer way to get the port
   # mapping; however, it is only available for running services.
   local HIGHEST_PORT_IN_USE=$(
-    find "${INSTANCES}" -type f -name ${CONFIG_FILE} -print0 |
+    find "${INSTANCES}" -type f -name "${CONFIG_FILE}" -print0 |
     xargs -0 grep -h -o "127.0.0.1:61[0-9]\{3\}:80"|
     cut -d: -f2 | sort -rn | head -1
   )
@@ -590,7 +590,7 @@ ls_instance() {
 
   # --image-info
   if [[ -n "$OPT_IMAGE_INFO" ]] && [[ "$version" != DOWN ]]; then
-    local image_info="$(curl -s http://localhost:${port}/image-version.txt)"
+    local image_info="$(curl -s "http://localhost:${port}/image-version.txt")"
     if [[ "$image_info" =~ ^Built ]]; then
       printf "   └ %s\n" "Image info:"
       echo "${image_info}" | sed 's/^/     ┆ /'
@@ -641,7 +641,7 @@ list_instances() {
 
     # Filter instances
     # 1. instance name/project dir matches
-    if grep -E -q "$PROJECT_NAME" <<< "$(basename $instance)"; then :
+    if grep -E -q "$PROJECT_NAME" <<< "$(basename "$instance")"; then :
     # 2. metadata matches
     elif [[ -n "$OPT_METADATA_SEARCH" ]] && [[ -f "${instance}/metadata.txt" ]] &&
       grep -E -q "$PROJECT_NAME" "${instance}/metadata.txt"; then :
@@ -657,7 +657,7 @@ list_instances() {
 
   # list instances, either one by one or in parallel
   if [[ $OPT_USE_PARALLEL ]]; then
-    env_parallel --no-notice --keep-order ls_instance ::: ${j[@]}
+    env_parallel --no-notice --keep-order ls_instance ::: "${j[@]}"
   else
     for instance in "${j[@]}"; do
       ls_instance "$instance" || continue
@@ -673,9 +673,8 @@ clone_secrets() {
 
 containerid_from_service_name() {
   local id
-  local containerid
   id="$(docker service ps -q "$1")"
-  cid="$(docker inspect -f '{{.Status.ContainerStatus.ContainerID}}' ${id})"
+  cid="$(docker inspect -f '{{.Status.ContainerStatus.ContainerID}}' "${id}")"
   echo "$cid"
 }
 
@@ -751,7 +750,7 @@ append_metadata() {
 
 ask_start() {
   local start=
-  read -p "Start containers? [Y/n] " start
+  read -rp "Start containers? [Y/n] " start
   case "$start" in
     Y|y|Yes|yes|YES|"")
       instance_start ;;
@@ -1101,11 +1100,11 @@ if [[ -n "$PROJECT_DIR" ]] && [[ -n "$PROJECT_NAME" ]]; then
 fi
 # Deduce project name from path
 if [[ -n "$PROJECT_DIR" ]]; then
-  PROJECT_NAME=$(basename $(readlink -f "$PROJECT_DIR"))
+  PROJECT_NAME="$(basename "$(readlink -f "$PROJECT_DIR")")"
   OPT_METADATA_SEARCH=
 # Treat the project name "." as --project-dir=.
 elif [[ "$PROJECT_NAME" = "." ]]; then
-  PROJECT_NAME=$(basename $(readlink -f "$PROJECT_NAME"))
+  PROJECT_NAME="$(basename "$(readlink -f "$PROJECT_NAME")")"
   PROJECT_DIR="${INSTANCES}/${PROJECT_NAME}"
   OPT_METADATA_SEARCH=
 else
@@ -1138,7 +1137,7 @@ case "$MODE" in
     OPT_LONGLIST=1 OPT_METADATA=1 OPT_METADATA_SEARCH= \
       ls_instance "$PROJECT_DIR" | colorize_ls
     echo
-    read -p "Really delete? (uppercase YES to confirm) " ANS
+    read -rp "Really delete? (uppercase YES to confirm) " ANS
     [[ "$ANS" = "YES" ]] || exit 0
     remove "$PROJECT_NAME"
     ;;
@@ -1177,7 +1176,7 @@ case "$MODE" in
     # Parse image and/or tag from original config if necessary
     ia=()
     readarray -n 2 -t ia < <(image_from_yaml "$CLONE_FROM_DIR")
-    for i in ${ia[@]}; do echo $i ; done
+    for i in "${ia[@]}"; do echo "$i"; done
     [[ -n "$DOCKER_IMAGE_NAME_OPENSLIDES" ]] ||
       DOCKER_IMAGE_NAME_OPENSLIDES="${ia[0]}"
     [[ -n "$DOCKER_IMAGE_TAG_OPENSLIDES" ]] ||
@@ -1212,7 +1211,7 @@ case "$MODE" in
     OPT_LONGLIST=1 OPT_METADATA=1 OPT_METADATA_SEARCH= \
       ls_instance "$PROJECT_DIR" | colorize_ls
     echo
-    read -p "Really delete? (uppercase YES to confirm) " ANS
+    read -rp "Really delete? (uppercase YES to confirm) " ANS
     [[ "$ANS" = "YES" ]] || exit 0
     instance_erase
     ;;
