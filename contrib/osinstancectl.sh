@@ -433,7 +433,7 @@ ping_instance_websocket() {
   # OpenSlides lead to this function failing.
   LC_ALL=C curl --silent --max-time 0.1 \
     "http://127.0.0.1:${1}/apps/core/version/" |
-  gawk 'BEGIN { FPAT = "\"[^\"]*\"" } { gsub(/"/, "", $2); print $2}'
+  gawk 'BEGIN { FPAT = "\"[^\"]*\"" } { gsub(/"/, "", $2); print $2}' || true
 }
 
 value_from_yaml() {
