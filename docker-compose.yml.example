@@ -161,6 +161,7 @@ services:
       - DB_NAME=mediafiledata
       - DB_USER=openslides
       - DB_PASSWORD=openslides
+    restart: always
     networks:
       front:
       back:

@@ -202,6 +202,8 @@ services:
       - DB_PASSWORD=openslides
     deploy:
       replicas: 25
+      restart_policy:
+        condition: on-failure
     networks:
       front:
       back:
