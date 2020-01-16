@@ -73,6 +73,20 @@ fi
   sed -i \
     -e "/^DEBUG/s/True/False/" \
     /app/personal_data/var/settings.py
+
+  # Mediafile database settings
+  cat >> /app/personal_data/var/settings.py << EOF
+
+DATABASES['mediafiles'] = {
+    'ENGINE': 'django.db.backends.postgresql',
+    'NAME': 'mediafiledata',
+    'USER': 'openslides',
+    'PASSWORD': 'openslides',
+    'HOST': 'db',
+    'PORT': '5432',
+}
+EOF
+
 }
 
 configure_read_only() {

@@ -150,6 +150,22 @@ services:
     command: ["redis-server", "--save", "", "--slaveof", "rediscache", "6379"]
     networks:
       - back
+  mediaserver:
+    image: openslides/openslides-mediafileserver:latest
+    build: https://github.com/FinnStutzenstein/mediafile-server.git
+    environment:
+      - URL_PREFIX=/media/
+      - CHECK_REQUEST_URL=server:8000/check-media/
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_NAME=mediafiledata
+      - DB_USER=openslides
+      - DB_PASSWORD=openslides
+      - BLOCK_SIZE=4096
+    restart: always
+    networks:
+      front:
+      back:
 volumes:
   dbdata1:
   dbdata2:
