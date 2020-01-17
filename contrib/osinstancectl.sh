@@ -75,7 +75,7 @@ usage() {
 cat <<EOF
 Usage: $ME [options] <action> <instance>
 
-Manage docker-compose-based OpenSlides instances.
+Manage OpenSlides Docker instances.
 
 Actions:
   ls                   List instances and their status.  <instance> is
@@ -95,15 +95,16 @@ Options:
                        auto.
 
   for ls:
-    -a, --all              Equivalent to -l -m -i
-    -l, --long             Include more information in extended listing format
-    -m, --metadata         Include metadata in instance list
-    -i, --image-info       Show image version info (requires instance to be
-                           started)
-    -n, --online           Show only online instances
-    -f, --offline          Show only offline instances
-    -M, --search-metadata  Include metadata in instance list
-    --fast                 Include less information to increase listing speed
+    -a, --all          Equivalent to -l -m -i
+    -l, --long         Include more information in extended listing format
+    -m, --metadata     Include metadata in instance list
+    -i, --image-info   Show image version info (requires instance to be
+                       started)
+    -n, --online       Show only online instances
+    -f, --offline      Show only offline instances
+    -M,
+    --search-metadata  Include metadata in instance list
+    --fast             Include less information to increase listing speed
 
   for add & update:
     -r, --default-repo Specifcy the default Docker repository for OpenSlides
