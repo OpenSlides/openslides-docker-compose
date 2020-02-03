@@ -10,27 +10,6 @@ configure() {
 
   python manage.py createsettings
 
-  # Set our own the Django secret key to make sure it is consistent across
-  # nodes
-  if [[ -f /run/secrets/django ]]; then
-    awk -v sec="'$(< /run/secrets/django)'" '$1 == "SECRET_KEY" { $3 = sec }1' \
-      /app/personal_data/var/settings.py > /app/personal_data/var/settings.py.tmp &&
-      mv /app/personal_data/var/settings.py.tmp /app/personal_data/var/settings.py
-  else
-    cat <<-EOF
-                 ==============================================
-                                    WARNING
-                 ==============================================
-
-                   WARNING: no Django SECRET_KEY configured!
-
-               We will be using the Django-generated secret key.
-
-Please be aware that this is an unsuitable setup for for multi-node setups (but
-                           fine for Docker Compose).
-EOF
-fi
-
   # settings.py customizations for docker-compose setup
   # Email server: use postfix service
   sed -i \

@@ -300,14 +300,6 @@ gen_pw() {
   echo "$PW"
 }
 
-create_django_secrets_file() {
-  echo "Generating Django secret key (for settings.py)..."
-  [[ -d "${PROJECT_DIR}/secrets" ]] ||
-    mkdir -m 700 "${PROJECT_DIR}/secrets"
-  printf "%s\n" "$(gen_pw)" \
-    >> "${PROJECT_DIR}/secrets/django"
-}
-
 create_admin_secrets_file() {
   echo "Generating admin password..."
   [[ -d "${PROJECT_DIR}/secrets" ]] ||
@@ -1195,7 +1187,6 @@ case "$MODE" in
     create_instance_dir
     create_config_from_template "${PROJECT_DIR}/${CONFIG_FILE}.example" \
       "${PROJECT_DIR}/${CONFIG_FILE}"
-    create_django_secrets_file
     create_admin_secrets_file
     create_user_secrets_file "${OPENSLIDES_USER_FIRSTNAME}" "${OPENSLIDES_USER_LASTNAME}"
     gen_tls_cert
