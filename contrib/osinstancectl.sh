@@ -207,13 +207,19 @@ verify_domain() {
 next_free_port() {
   # Select new port
   #
-  # `docker-compose port client 80` would be a nicer way to get the port
-  # mapping; however, it is only available for running services.
+  # This parses existing instances' YAML files to discover used ports and to
+  # select the next one.  Other methods may be more suitable and robust but
+  # have other downsides.  For example, `docker-compose port client 80` is
+  # only available for running services.
   local HIGHEST_PORT_IN_USE
   local PORT
   HIGHEST_PORT_IN_USE=$(
+    # CONFIG_FILE is dependend on the deployment mode.  Maybe this should be
+    # a wildcard such as docker-*.yml to cover both docker-compose and swarm
+    # deployments at the same time.  However, in any case the check below
+    # (ss) will avoid duplication.
     find "${INSTANCES}" -type f -name "${CONFIG_FILE}" -print0 |
-    xargs -0 grep -h -o "127.0.0.1:61[0-9]\{3\}:80"|
+    xargs -0 grep -h -o "\.0\.0\.[01]:61[0-9]\{3\}:80"|
     cut -d: -f2 | sort -rn | head -1
   )
   [[ -n "$HIGHEST_PORT_IN_USE" ]] || HIGHEST_PORT_IN_USE=61000
