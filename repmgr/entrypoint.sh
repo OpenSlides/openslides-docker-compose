@@ -102,16 +102,17 @@ backup() {
   gzip > "${BACKUP_DIR}/backup-$(date '+%F-%H:%M:%S').tar.bz2"
 }
 
+# SSH: required for repmgr node communication
 sudo /etc/init.d/ssh start
 
 echo "Configuring repmgr"
 sed -e "s/<NODEID>/${REPMGR_NODE_ID}/" /etc/repmgr.conf.in |
 tee /etc/repmgr.conf
 
-if [[ ! -f "$MARKER" ]]; then
-  # Update pg_hba.conf from image template (new cluster)
-  cp -fv /var/lib/postgresql/pg_hba.conf /etc/postgresql/11/main/pg_hba.conf
+# Update pg_hba.conf from image template
+cp -fv /var/lib/postgresql/pg_hba.conf /etc/postgresql/11/main/pg_hba.conf
 
+if [[ ! -f "$MARKER" ]]; then
   if [[ -z "$REPMGR_PRIMARY" ]]; then
     primary_node_setup
   else
@@ -119,10 +120,6 @@ if [[ ! -f "$MARKER" ]]; then
   fi
   echo "Successful repmgr setup as node id $REPMGR_NODE_ID" | tee "$MARKER"
 fi
-
-# Update pg_hba.conf from image template
-# (repeated here b/c of non-persistent volume)
-cp -fv /var/lib/postgresql/pg_hba.conf /etc/postgresql/11/main/pg_hba.conf
 
 # Start cluster in background
 pg_ctlcluster 11 main restart
