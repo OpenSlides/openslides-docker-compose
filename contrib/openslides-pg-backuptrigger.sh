@@ -33,7 +33,7 @@ while read -r id name; do
   echo
 done < <(docker ps \
   --filter label=org.openslides.role=postgres \
-  --format '{{.ID}}\t{{.Names}}')
+  --format '{{.ID}}\t{{.Names}}' | sort -k2)
 
 if [[ $ERRORS ]]; then
   echo "WARNING: Finished but WITH ERRORS!"
