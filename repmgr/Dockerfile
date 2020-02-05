@@ -17,7 +17,7 @@ RUN apt-get update && \
     rsync \
     openssh-server \
     openssh-client \
-    sudo \
+    supervisor \
   && rm -rf /var/lib/apt/lists/*
 
 COPY repmgr-promote.sh /usr/local/bin/repmgr-promote
@@ -26,6 +26,7 @@ RUN touch /etc/repmgr.conf && chown postgres /etc/repmgr.conf
 COPY pg_hba.conf /var/lib/postgresql/
 COPY current-primary.sh /usr/local/bin/current-primary
 COPY entrypoint.sh /usr/local/bin/entrypoint
+COPY cluster-setup.sh /usr/local/sbin/cluster-setup
 COPY pg_backuptrigger.sh /usr/local/bin/pg_backuptrigger
 
 # SSH config
@@ -40,13 +41,9 @@ RUN chmod 600 /etc/ssh/ssh_host_ed25519_key && \
     chown -R postgres:postgres /var/lib/postgresql/.ssh/
 RUN echo "HostKey /etc/ssh/ssh_host_ed25519_key" >> /etc/ssh/sshd_config
 
-# Permit postgres user to control SSH server
-RUN umask 0222 && \
-  echo 'postgres ALL=(root) NOPASSWD: /etc/init.d/ssh' \
-  > /etc/sudoers.d/postgres
+RUN mkdir -p /var/log/supervisor
+COPY supervisord.conf /etc/supervisord.conf
 
-USER postgres
 WORKDIR "/var/lib/postgresql/"
 ENTRYPOINT ["/usr/local/bin/entrypoint"]
-CMD ["repmgrd", "-f", "/etc/repmgr.conf", "--pid-file", \
-    "/dev/shm/repmgrd.pid", "--daemonize=false"]
+CMD ["/usr/bin/supervisord", "-c", "/etc/supervisord.conf"]
