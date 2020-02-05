@@ -15,6 +15,7 @@ update_pgconf() {
     -c "ALTER SYSTEM SET archive_mode = on;" \
     -c "ALTER SYSTEM SET archive_command = '/bin/true';" \
     -c "ALTER SYSTEM SET wal_log_hints = on;" \
+    -c "ALTER SYSTEM SET wal_keep_segments = 10;" \
     -c "ALTER SYSTEM SET shared_preload_libraries = 'repmgr';"
 }
 
