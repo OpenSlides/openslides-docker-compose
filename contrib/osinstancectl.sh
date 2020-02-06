@@ -539,7 +539,12 @@ ls_instance() {
   fi
 
   # Basic output
-  printf "%s %-30s\t%-10s\t%s\n" "$sym" "$shortname" "$version" "$first_metadatum"
+  if [[ -z "$OPT_LONGLIST" ]]; then
+    printf "%s %-30s\t%-10s\t%s\n" "$sym" "$shortname" "$version" "$first_metadatum"
+  else
+    # Hide details if they are going to be included in the long output format
+    printf "%s %-30s\n" "$sym" "$shortname"
+  fi
 
   # --long
   if [[ -n "$OPT_LONGLIST" ]]; then
