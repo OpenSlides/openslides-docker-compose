@@ -206,14 +206,25 @@ if [[ -f /run/secrets/os_user ]] && [[ "$user_marker" = "f" ]]; then
       [[ -n "${OPENSLIDES_USER_PASSWORD}" ]]; then
     user_name="${OPENSLIDES_USER_FIRSTNAME} ${OPENSLIDES_USER_LASTNAME}"
     echo "Adding user: ${user_name}"
-    # createopenslidesuser: error: the following arguments are required:
-    # first_name, last_name, username, password, groups_id
-    python manage.py createopenslidesuser \
-      "${OPENSLIDES_USER_FIRSTNAME}" \
-      "${OPENSLIDES_USER_LASTNAME}" \
-      "${user_name}" \
-      "${OPENSLIDES_USER_PASSWORD}" \
-      2
+    # email is optional
+    if [[ -z "${OPENSLIDES_USER_EMAIL}" ]]; then
+      # createopenslidesuser: error: the following arguments are required:
+      # first_name, last_name, username, password, groups_id
+      python manage.py createopenslidesuser \
+        "${openslides_user_firstname}" \
+        "${openslides_user_lastname}" \
+        "${user_name}" \
+        "${openslides_user_password}" \
+        2
+    else
+      python manage.py createopenslidesuser \
+        --email "$OPENSLIDES_USER_EMAIL" \
+        "${openslides_user_firstname}" \
+        "${openslides_user_lastname}" \
+        "${user_name}" \
+        "${openslides_user_password}" \
+        2
+    fi
     # Make note of changed admin password
     psql -h db -d instancecfg -a \
         -c "UPDATE markers SET configured = true WHERE name = 'user'"
