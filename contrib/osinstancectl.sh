@@ -42,6 +42,7 @@ ADMIN_SECRETS_FILE="adminsecret.env"
 USER_SECRETS_FILE="usersecret.env"
 OPENSLIDES_USER_FIRSTNAME=
 OPENSLIDES_USER_LASTNAME=
+OPENSLIDES_USER_EMAIL=
 
 # Color and formatting settings
 OPT_COLOR=auto
@@ -179,6 +180,7 @@ query_user_account_name() {
     do
       read -p "First & last name: " \
         OPENSLIDES_USER_FIRSTNAME OPENSLIDES_USER_LASTNAME
+      read -rp "Email (optional): " OPENSLIDES_USER_EMAIL
     done
   fi
 }
@@ -286,16 +288,22 @@ create_admin_secrets_file() {
 
 create_user_secrets_file() {
   if [[ -n "$OPT_ADD_ACCOUNT" ]]; then
+    local first_name
+    local last_name
+    local email # optional
+    local PW
     echo "Generating user credentials..."
     [[ -d "${PROJECT_DIR}/secrets" ]] ||
       mkdir -m 700 "${PROJECT_DIR}/secrets"
-    local first_name="$1"
-    local last_name="$2"
-    local PW="$(gen_pw)"
+    first_name="$1"
+    last_name="$2"
+    email="$3"
+    PW="$(gen_pw)"
     cat << EOF > "${PROJECT_DIR}/secrets/${USER_SECRETS_FILE}"
-OPENSLIDES_USER_FIRSTNAME=$first_name
-OPENSLIDES_USER_LASTNAME=$last_name
-OPENSLIDES_USER_PASSWORD=$PW
+OPENSLIDES_USER_FIRSTNAME="$first_name"
+OPENSLIDES_USER_LASTNAME="$last_name"
+OPENSLIDES_USER_PASSWORD="$PW"
+OPENSLIDES_USER_EMAIL="$email"
 EOF
   fi
 }
@@ -995,7 +1003,8 @@ case "$MODE" in
       "${PROJECT_DIR}/docker-compose.yml"
     create_django_secrets_file
     create_admin_secrets_file
-    create_user_secrets_file "${OPENSLIDES_USER_FIRSTNAME}" "${OPENSLIDES_USER_LASTNAME}"
+    create_user_secrets_file "${OPENSLIDES_USER_FIRSTNAME}" \
+      "${OPENSLIDES_USER_LASTNAME}" "${OPENSLIDES_USER_EMAIL}"
     update_nginx_config
     append_metadata "$PROJECT_DIR" "$(date +"%F %H:%M"): Instance created"
     [[ -z "$OPT_LOCALONLY" ]] ||
