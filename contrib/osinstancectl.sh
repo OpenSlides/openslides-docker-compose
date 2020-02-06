@@ -493,7 +493,7 @@ ls_instance() {
   if [[ -n "$OPT_FAST" ]]; then
     version="[skipped]"
     ping_instance_simple "$port" || {
-      version="DOWN"
+      version=
       sym="$SYM_ERROR"
     }
   else
@@ -504,7 +504,7 @@ ls_instance() {
     sym="$SYM_NORMAL"
     if [[ -z "$version" ]]; then
       sym="$SYM_UNKNOWN"
-      version="DOWN"
+      version=
       # The following function simply checks if the reverse proxy port is open.
       # If it is the instance is *supposed* to be running but is not fully
       # functional; otherwise, it is assumed to be turned off on purpose.
@@ -515,9 +515,9 @@ ls_instance() {
   # Filter online/offline instances
   case "$FILTER" in
     online)
-      [[ "$version" != "DOWN" ]] || return 1 ;;
+      [[ -n "$version" ]] || return 1 ;;
     offline)
-      [[ "$version" = "DOWN" ]] || return 1 ;;
+      [[ -z "$version" ]] || return 1 ;;
     *) ;;
   esac
 
@@ -530,7 +530,7 @@ ls_instance() {
     # information will additionally be displayed in the extended output,
     # we can just cut if off here.
     # Ideally, we'd dynamically adjust to how much space is available.
-    [[ "${#first_metadatum}" -le 40 ]] || {
+    [[ "${#first_metadatum}" -lt 31 ]] || {
       first_metadatum="${first_metadatum:0:30}"
       # append ellipsis and reset formatting.  The latter may be necessary
       # because we might be cutting this off above.
@@ -539,7 +539,7 @@ ls_instance() {
   fi
 
   # Basic output
-  printf "%s %-40s\t%s\n" "$sym" "$shortname" "$first_metadatum"
+  printf "%s %-30s\t%-10s\t%s\n" "$sym" "$shortname" "$version" "$first_metadatum"
 
   # --long
   if [[ -n "$OPT_LONGLIST" ]]; then
@@ -605,7 +605,7 @@ ls_instance() {
   fi
 
   # --image-info
-  if [[ -n "$OPT_IMAGE_INFO" ]] && [[ "$version" != DOWN ]]; then
+  if [[ -n "$OPT_IMAGE_INFO" ]] && [[ -n "$version" ]]; then
     local image_info
     image_info="$(curl -s "http://localhost:${port}/image-version.txt")"
     if [[ "$image_info" =~ ^Built ]]; then
