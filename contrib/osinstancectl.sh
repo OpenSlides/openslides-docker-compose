@@ -550,15 +550,8 @@ ls_instance() {
   if [[ -n "$OPT_LONGLIST" ]]; then
 
     # Parse docker-compose.yml
-    local git_repo
-    local git_commit
-    git_repo=$(value_from_yaml "$instance" "REPOSITORY_URL")
-    git_commit=$(value_from_yaml "$instance" "GIT_CHECKOUT")
-
-    if [[ -z "$git_commit" ]]; then
-      local image
-      image=$(value_from_yaml "$instance" "image")
-    fi
+    local image
+    image=$(value_from_yaml "$instance" "image")
 
     # Parse admin credentials file
     local OPENSLIDES_ADMIN_PASSWORD="—"
@@ -571,12 +564,7 @@ ls_instance() {
       printf "   ├ %-12s %s\n" "Stack name:" "$normalized_shortname"
     fi
     printf "   ├ %-12s %s\n" "Version:" "$version"
-    if [[ -n "$git_commit" ]]; then
-      printf "   ├ %-12s %s\n" "Git rev:" "$git_commit"
-      printf "   ├ %-12s %s\n" "Git repo:" "$git_repo"
-    elif [[ -n "$image" ]]; then
-      printf "   ├ %-12s %s\n" "Image:" "$image"
-    fi
+    printf "   ├ %-12s %s\n" "Image:" "$image"
     printf "   ├ %-12s %s\n" "Local port:" "$port"
     printf "   ├ %-12s %s : %s\n" "Login:" "admin" "$OPENSLIDES_ADMIN_PASSWORD"
 
