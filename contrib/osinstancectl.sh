@@ -543,47 +543,26 @@ ls_instance() {
     }
   fi
 
-  # Basic output
-  if [[ -z "$OPT_LONGLIST" ]]; then
-    printf "%s %-30s\t%-10s\t%s\n" "$sym" "$shortname" "$version" "$first_metadatum"
-  else
-    # Hide details if they are going to be included in the long output format
-    printf "%s %-30s\n" "$sym" "$shortname"
-  fi
-
+  # Extended parsing
+  # ----------------
   # --long
   if [[ -n "$OPT_LONGLIST" ]]; then
-
     # Parse docker-compose.yml
     local image
     image=$(value_from_yaml "$instance" "image")
-
     # Parse admin credentials file
     local OPENSLIDES_ADMIN_PASSWORD="—"
     if [[ -f "${instance}/secrets/${ADMIN_SECRETS_FILE}" ]]; then
       source "${instance}/secrets/${ADMIN_SECRETS_FILE}"
     fi
-
-    printf "   ├ %-12s %s\n" "Directory:" "$instance"
-    if [[ -n "$normalized_shortname" ]]; then
-      printf "   ├ %-12s %s\n" "Stack name:" "$normalized_shortname"
-    fi
-    printf "   ├ %-12s %s\n" "Version:" "$version"
-    printf "   ├ %-12s %s\n" "Image:" "$image"
-    printf "   ├ %-12s %s\n" "Local port:" "$port"
-    printf "   ├ %-12s %s : %s\n" "Login:" "admin" "$OPENSLIDES_ADMIN_PASSWORD"
-
-    # Include secondary account credentials if available
-    local OPENSLIDES_USER_FIRSTNAME=
-    local OPENSLIDES_USER_LASTNAME=
-    local OPENSLIDES_USER_PASSWORD=
-    local user_name=
+    # Parse user credentials file
     if [[ -f "${instance}/secrets/${USER_SECRETS_FILE}" ]]; then
+      local OPENSLIDES_USER_FIRSTNAME=
+      local OPENSLIDES_USER_LASTNAME=
+      local OPENSLIDES_USER_PASSWORD=
+      local user_name=
       source "${instance}/secrets/${USER_SECRETS_FILE}"
-      local user_name="${OPENSLIDES_USER_FIRSTNAME} ${OPENSLIDES_USER_LASTNAME}"
-      [[ -n "$user_name" ]] &&
-        printf "   ├ %-12s \"%s\" : %s\n" \
-          "Login:" "$user_name" "$OPENSLIDES_USER_PASSWORD"
+      user_name="${OPENSLIDES_USER_FIRSTNAME} ${OPENSLIDES_USER_LASTNAME}"
     fi
   fi
 
@@ -592,24 +571,53 @@ ls_instance() {
     local metadata=()
     # Parse metadata file for use in long output
     readarray -t metadata < <(grep -v '^\s*#' "${instance}/metadata.txt")
-
-    if [[ ${#metadata[@]} -ge 1 ]]; then
-      printf "   └ %s\n" "Metadata:"
-      for m in "${metadata[@]}"; do
-        m=$(highlight_match "$m") # Colorize match in metadata
-        printf "     ┆ %s\n" "$m"
-      done
-    fi
   fi
 
   # --image-info
   if [[ -n "$OPT_IMAGE_INFO" ]] && [[ -n "$version" ]]; then
     local image_info
     image_info="$(curl -s "http://localhost:${port}/image-version.txt")"
-    if [[ "$image_info" =~ ^Built ]]; then
-      printf "   └ %s\n" "Image info:"
-      echo "${image_info}" | sed 's/^/     ┆ /'
+  fi
+
+  # Output
+  # ------
+  # Basic output
+  if [[ -z "$OPT_LONGLIST" ]]; then
+    printf "%s %-30s\t%-10s\t%s\n" "$sym" "$shortname" "$version" "$first_metadatum"
+  else
+    # Hide details if they are going to be included in the long output format
+    printf "%s %-30s\n" "$sym" "$shortname"
+  fi
+
+  # Additional output
+  if [[ -n "$OPT_LONGLIST" ]]; then
+    printf "   ├ %-12s %s\n" "Directory:" "$instance"
+    if [[ -n "$normalized_shortname" ]]; then
+      printf "   ├ %-12s %s\n" "Stack name:" "$normalized_shortname"
     fi
+    printf "   ├ %-12s %s\n" "Version:" "$version"
+    printf "   ├ %-12s %s\n" "Image:" "$image"
+    printf "   ├ %-12s %s\n" "Local port:" "$port"
+    printf "   ├ %-12s %s : %s\n" "Login:" "admin" "$OPENSLIDES_ADMIN_PASSWORD"
+    # Include secondary account credentials if available
+    [[ -n "$user_name" ]] &&
+      printf "   ├ %-12s \"%s\" : %s\n" \
+        "Login:" "$user_name" "$OPENSLIDES_USER_PASSWORD"
+  fi
+
+  # --metadata
+  if [[ ${#metadata[@]} -ge 1 ]]; then
+    printf "   └ %s\n" "Metadata:"
+    for m in "${metadata[@]}"; do
+      m=$(highlight_match "$m") # Colorize match in metadata
+      printf "     ┆ %s\n" "$m"
+    done
+  fi
+
+  # --image-info
+  if [[ "$image_info" =~ ^Built ]]; then
+    printf "   └ %s\n" "Image info:"
+    echo "${image_info}" | sed 's/^/     ┆ /'
   fi
 }
 
