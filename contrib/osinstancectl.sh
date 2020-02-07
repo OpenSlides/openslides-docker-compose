@@ -34,6 +34,7 @@ OPT_LONGLIST=
 OPT_METADATA=
 OPT_METADATA_SEARCH=
 OPT_IMAGE_INFO=
+OPT_JSON=
 OPT_ADD_ACCOUNT=1
 OPT_LOCALONLY=
 OPT_FORCE=
@@ -58,6 +59,7 @@ BULLET='●'
 SYM_NORMAL="OK"
 SYM_ERROR="XX"
 SYM_UNKNOWN="??"
+JQ="jq --monochrome-output"
 
 # Internal options
 OPT_USE_PARALLEL=
@@ -69,6 +71,7 @@ enable_color() {
     COL_RED="$(tput setaf 1)"
     COL_YELLOW="$(tput setaf 3)"
     COL_GREEN="$(tput setaf 2)"
+    JQ="jq --color-output"
   fi
 }
 
@@ -106,6 +109,7 @@ Options:
     -M,
     --search-metadata  Include metadata in instance list
     --fast             Include less information to increase listing speed
+    -j, --json         Enable JSON output format
 
   for add & update:
     -r, --default-repo Specifcy the default Docker repository for OpenSlides
@@ -546,7 +550,7 @@ ls_instance() {
   # Extended parsing
   # ----------------
   # --long
-  if [[ -n "$OPT_LONGLIST" ]]; then
+  if [[ -n "$OPT_LONGLIST" ]] || [[ -n "$OPT_JSON" ]]; then
     # Parse docker-compose.yml
     local image
     image=$(value_from_yaml "$instance" "image")
@@ -581,6 +585,44 @@ ls_instance() {
 
   # Output
   # ------
+  # JSON
+  if [[ -n "$OPT_JSON" ]]; then
+    # Purposefully not using $JQ here because the output may get piped into
+    # another jq process
+    jq -n \
+      --arg "shortname"     "$shortname" \
+      --arg "stackname"     "$normalized_shortname" \
+      --arg "directory"     "$instance" \
+      --arg "version"       "$version" \
+      --arg "instance"      "$instance" \
+      --arg "version"       "$version" \
+      --arg "status"        "$sym" \
+      --arg "image"         "$image" \
+      --arg "port"          "$port" \
+      --arg "admin"         "$OPENSLIDES_ADMIN_PASSWORD" \
+      --arg "user_name"     "$user_name" \
+      --arg "user_password" "$OPENSLIDES_USER_PASSWORD" \
+      '{
+        instances: [
+          {
+            name:      $shortname,
+            stackname: $stackname,
+            directory: $instance,
+            version:   $version,
+            status:    $status,
+            image:     $image,
+            port:      $port,
+            admin:     $admin,
+            user: {
+              user_name:    $user_name,
+              user_password: $user_password
+            }
+          }
+        ]
+      }'
+    return
+  fi
+
   # Basic output
   if [[ -z "$OPT_LONGLIST" ]]; then
     printf "%s %-30s\t%-10s\t%s\n" "$sym" "$shortname" "$version" "$first_metadatum"
@@ -623,7 +665,7 @@ ls_instance() {
 
 colorize_ls() {
   # Colorize the status indicators
-  if [[ -n "$NCOLORS" ]]; then
+  if [[ -n "$NCOLORS" ]] && [[ -z "$OPT_JSON" ]]; then
     gawk \
       -v m="$PROJECT_NAME" \
       -v hlstart="$(tput smso)" \
@@ -678,6 +720,14 @@ list_instances() {
   # return here if no matches
   [[ "${#j[@]}" -ge 1 ]] || return
 
+  merge_if_json() {
+    if [[ -n "$OPT_JSON" ]]; then
+      $JQ -s '{ instances: map(.instances[0]) }'
+    else
+      cat -
+    fi
+  }
+
   # list instances, either one by one or in parallel
   if [[ $OPT_USE_PARALLEL ]]; then
     env_parallel --no-notice --keep-order ls_instance ::: "${j[@]}"
@@ -685,7 +735,7 @@ list_instances() {
     for instance in "${j[@]}"; do
       ls_instance "$instance" || continue
     done
-  fi | colorize_ls
+  fi | colorize_ls | merge_if_json
 }
 
 clone_secrets() {
@@ -926,11 +976,12 @@ case "$(basename "${BASH_SOURCE[0]}")" in
     ;;
 esac
 
-shortopt="halmiMnfd:r:I:t:"
+shortopt="haljmiMnfd:r:I:t:"
 longopt=(
   help
   color:
   long
+  json
   project-dir:
   force
 
@@ -1023,6 +1074,10 @@ while true; do
       ;;
     -i|--image-info)
       OPT_IMAGE_INFO=1
+      shift 1
+      ;;
+    -j|--json)
+      OPT_JSON=1
       shift 1
       ;;
     -n|--online)
@@ -1132,6 +1187,7 @@ DEPS=(
   acmetool
   nc
   dig
+  jq
 )
 # Check dependencies
 for i in "${DEPS[@]}"; do
