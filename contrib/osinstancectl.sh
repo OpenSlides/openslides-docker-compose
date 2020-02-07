@@ -571,16 +571,21 @@ ls_instance() {
   fi
 
   # --metadata
-  if [[ -n "$OPT_METADATA" ]] && [[ -r "${instance}/metadata.txt" ]]; then
-    local metadata=()
-    # Parse metadata file for use in long output
-    readarray -t metadata < <(grep -v '^\s*#' "${instance}/metadata.txt")
+  local metadata=()
+  if [[ -n "$OPT_METADATA" ]] || [[ -n "$OPT_JSON" ]]; then
+    if [[ -r "${instance}/metadata.txt" ]]; then
+      # Parse metadata file for use in long output
+      readarray -t metadata < <(grep -v '^\s*#' "${instance}/metadata.txt")
+    fi
   fi
 
   # --image-info
-  if [[ -n "$OPT_IMAGE_INFO" ]] && [[ -n "$version" ]]; then
-    local image_info
-    image_info="$(curl -s "http://localhost:${port}/image-version.txt")"
+  local image_info=
+  if [[ -n "$OPT_IMAGE_INFO" ]] || [[ -n "$OPT_JSON" ]]; then
+    if [[ -n "$version" ]]; then
+      image_info="$(curl -s "http://localhost:${port}/image-version.txt")"
+      [[ "$image_info" =~ ^Built ]] || image_info=
+    fi
   fi
 
   # Output
@@ -602,6 +607,8 @@ ls_instance() {
       --arg "admin"         "$OPENSLIDES_ADMIN_PASSWORD" \
       --arg "user_name"     "$user_name" \
       --arg "user_password" "$OPENSLIDES_USER_PASSWORD" \
+      --arg "metadata"      "$(printf "%s\n" "${metadata[@]}")" \
+      --arg "image_info"    "$image_info" \
       '{
         instances: [
           {
@@ -616,7 +623,9 @@ ls_instance() {
             user: {
               user_name:    $user_name,
               user_password: $user_password
-            }
+            },
+            metadata: $metadata,
+            image_info: $image_info
           }
         ]
       }'
@@ -657,7 +666,7 @@ ls_instance() {
   fi
 
   # --image-info
-  if [[ "$image_info" =~ ^Built ]]; then
+  if [[ -n "$image_info" ]]; then
     printf "   └ %s\n" "Image info:"
     echo "${image_info}" | sed 's/^/     ┆ /'
   fi
