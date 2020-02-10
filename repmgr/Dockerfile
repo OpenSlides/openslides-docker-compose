@@ -23,17 +23,19 @@ RUN apt-get update && \
 COPY repmgr-promote.sh /usr/local/bin/repmgr-promote
 COPY repmgr.conf.in /etc/
 RUN touch /etc/repmgr.conf && chown postgres /etc/repmgr.conf
+
 COPY pg_hba.conf /var/lib/postgresql/
+
 COPY current-primary.sh /usr/local/bin/current-primary
 COPY entrypoint.sh /usr/local/bin/entrypoint
 COPY cluster-setup.sh /usr/local/sbin/cluster-setup
 COPY pg_backuptrigger.sh /usr/local/bin/pg_backuptrigger
 
 # SSH config
-COPY ssh_host_ed25519_key* /etc/ssh/
-COPY id_ed25519* /var/lib/postgresql/.ssh/
-COPY postgres_known_hosts /var/lib/postgresql/.ssh/known_hosts
-COPY postgres_authorized_keys /var/lib/postgresql/.ssh/authorized_keys
+COPY ssh/ssh_host_ed25519_key* /etc/ssh/
+COPY ssh/id_ed25519* /var/lib/postgresql/.ssh/
+COPY ssh/postgres_known_hosts /var/lib/postgresql/.ssh/known_hosts
+COPY ssh/postgres_authorized_keys /var/lib/postgresql/.ssh/authorized_keys
 
 RUN chmod 600 /etc/ssh/ssh_host_ed25519_key && \
     chmod 600 /var/lib/postgresql/.ssh/id_ed25519 && \
