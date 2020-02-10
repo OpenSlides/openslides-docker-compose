@@ -29,7 +29,7 @@ esac
 
 while read -r id name; do
   printf "INFO: Backup mode %s on node %s (%s)...\n" "$ACTION" "$name" "$id"
-  docker exec "$id" pg_backuptrigger "$ACTION" || ERRORS=1
+  docker exec -u postgres "$id" pg_backuptrigger "$ACTION" || ERRORS=1
   echo
 done < <(docker ps \
   --filter label=org.openslides.role=postgres \

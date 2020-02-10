@@ -21,6 +21,11 @@ check_recovery() {
   fi
 }
 
+[[ "$(whoami)" = "postgres" ]] || {
+  echo "ERROR: This script must be run as user postgres"
+  exit 2
+}
+
 case $1 in
   "start")
     shift
