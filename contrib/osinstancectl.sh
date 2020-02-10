@@ -162,6 +162,11 @@ arg_check() {
         fatal "$CLONE_FROM_DIR does not exist."
       }
       ;;
+    "create")
+      [[ ! -d "$PROJECT_DIR" ]] || {
+        fatal "Instance '${PROJECT_NAME}' already exists."
+      }
+      ;;
   esac
   echo "$DOCKER_IMAGE_NAME_OPENSLIDES" | grep -q -v ':' ||
     fatal "Image names must not contain colons.  Tags can be specified with --tag."
