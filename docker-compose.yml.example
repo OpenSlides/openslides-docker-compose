@@ -77,6 +77,9 @@ services:
   pgnode1:
     environment:
       - REPMGR_NODE_ID=1
+      - REPMGR_PRIMARY= # This *is* the primary
+      - REPMGR_RECONNECT_ATTEMPTS=30
+      - REPMGR_RECONNECT_INTERVAL=10
     image: openslides/openslides-repmgr:latest
     build: ./repmgr
     restart: always
@@ -90,6 +93,9 @@ services:
   #   environment:
   #     - REPMGR_NODE_ID=2
   #     - REPMGR_PRIMARY=pgnode1
+  #     - REPMGR_RECONNECT_ATTEMPTS=30
+  #     - REPMGR_RECONNECT_INTERVAL=10
+  #
   #   image: openslides/openslides-repmgr:latest
   #   restart: always
   #   networks:
@@ -102,6 +108,8 @@ services:
   #   environment:
   #     - REPMGR_NODE_ID=3
   #     - REPMGR_PRIMARY=pgnode1
+  #     - REPMGR_RECONNECT_ATTEMPTS=30
+  #     - REPMGR_RECONNECT_INTERVAL=10
   #   image: openslides/openslides-repmgr:latest
   #   restart: always
   #   networks:
