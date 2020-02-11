@@ -133,10 +133,10 @@ Meaning of colored status indicators in ls mode:
   yellow               The instance is started but a websocket connection
                        cannot be established.  This usually means that the
                        instance is starting or, if the status persists, that
-                       something is wrong.  Check the docker-compose logs in
-                       this case.  (If --fast is given, however, this is the
-                       best possible status due to uncertainty and does not
-                       necessarily indicate a problem.)
+                       something is wrong.  Check the logs in this case.  (If
+                       --fast is given, however, this is the best possible
+                       status due to uncertainty and does not necessarily
+                       indicate a problem.)
 EOF
 }
 
