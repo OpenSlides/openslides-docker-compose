@@ -6,8 +6,10 @@ export PGDATA=/var/lib/postgresql/11/main
 MARKER=/var/lib/postgresql/do-not-remove-this-file
 BACKUP_DIR="/var/lib/postgresql/backup/"
 
-# Configure WAL archiving through ENV
+# repmgr configuration through ENV
 REPMGR_ENABLE_ARCHIVE="${REPMGR_WAL_ARCHIVE:-on}"
+REPMGR_RECONNECT_ATTEMPTS="${REPMGR_RECONNECT_ATTEMPTS:-30}" # upstream default: 6
+REPMGR_RECONNECT_INTERVAL="${REPMGR_RECONNECT_INTERVAL:-10}"
 
 update_pgconf() {
   psql \
@@ -104,8 +106,10 @@ backup() {
 }
 
 echo "Configuring repmgr"
-sed -e "s/<NODEID>/${REPMGR_NODE_ID}/" /etc/repmgr.conf.in |
-tee /etc/repmgr.conf
+sed -e "s/<NODEID>/${REPMGR_NODE_ID}/" \
+  -e "s/<RECONNECT_ATTEMPTS>/${REPMGR_RECONNECT_ATTEMPTS}/" \
+  -e "s/<RECONNECT_INTERVAL>/${REPMGR_RECONNECT_INTERVAL}/" \
+  /etc/repmgr.conf.in | tee /etc/repmgr.conf
 
 # Update pg_hba.conf from image template
 cp -fv /var/lib/postgresql/pg_hba.conf /etc/postgresql/11/main/pg_hba.conf

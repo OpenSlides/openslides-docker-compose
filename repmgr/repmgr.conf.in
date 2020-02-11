@@ -7,6 +7,8 @@ pg_bindir='/usr/lib/postgresql/11/bin/'
 failover=automatic
 promote_command='/usr/local/bin/repmgr-promote'
 follow_command='/usr/bin/repmgr standby follow -f /etc/repmgr.conf --upstream-node-id=%n'
+reconnect_attempts=<RECONNECT_ATTEMPTS>
+reconnect_interval=<RECONNECT_INTERVAL>
 
 service_start_command   = '/usr/bin/pg_ctlcluster 11 main start'
 service_stop_command    = '/usr/bin/pg_ctlcluster 11 main stop'
