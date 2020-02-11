@@ -65,7 +65,7 @@ RUN apt-key add /root/nodesource.gpg.key
 RUN apt-get update && apt-get -y install nodejs
 RUN rm -rf /var/lib/apt/lists/*
 
-RUN npm install -g @angular/cli@latest
+RUN npm install -g @angular/cli@^8
 
 USER openslides
 ARG REPOSITORY_URL=https://github.com/OpenSlides/OpenSlides.git
