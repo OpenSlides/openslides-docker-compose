@@ -39,8 +39,8 @@ configure() {
 
   # Redis for collection cache
   sed -i \
-    -e "/REDIS_ADDRESS/s/127\.0\.0\.1/rediscache:6379\/0/" \
-    -e '/REDIS_ADDRESS/a\ \ \ \ REDIS_READ_ONLY_ADDRESS = "redis://rediscache-slave:6379/0"' \
+    -e "/REDIS_ADDRESS/s/127\.0\.0\.1/redis:6379\/0/" \
+    -e '/REDIS_ADDRESS/a\ \ \ \ REDIS_READ_ONLY_ADDRESS = "redis://redis-slave:6379/0"' \
     /app/personal_data/var/settings.py
 
   # Redis for session backend
@@ -77,7 +77,7 @@ configure_read_only() {
     echo 'PUSH_INTERVAL = 5'
     echo 'CACHE_RETRY_TIME = 10'
     # XXX this should be here only temporarily until it becomes the default
-    echo 'REDIS_ADDRESS = "redis://rediscache-slave:6379/0"'
+    echo 'REDIS_ADDRESS = "redis://redis-slave:6379/0"'
   } >> /app/personal_data/var/settings.py
 }
 

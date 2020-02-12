@@ -25,7 +25,7 @@ services:
       - postfix
       - pgbouncer
       - redis
-      - rediscache
+      - redis-slave
     networks:
       - front
       - back
@@ -49,7 +49,7 @@ services:
       - prioserver
       - pgbouncer
       - redis
-      - rediscache
+      - redis-slave
     networks:
       - front
       - back
@@ -172,27 +172,21 @@ services:
   redis:
     image: redis:alpine
     networks:
-      - back
+      back:
+        aliases:
+          - rediscache
     deploy:
       replicas: 1
       restart_policy:
         condition: on-failure
         delay: 5s
-  rediscache:
+  redis-slave:
     image: redis:alpine
-    command: ["redis-server", "--save", ""]
+    command: ["redis-server", "--save", "", "--slaveof", "redis", "6379"]
     networks:
-      - back
-    deploy:
-      replicas: 1
-      restart_policy:
-        condition: on-failure
-        delay: 5s
-  rediscache-slave:
-    image: redis:alpine
-    command: ["redis-server", "--save", "", "--slaveof", "rediscache", "6379"]
-    networks:
-      - back
+      back:
+        aliases:
+          - rediscache-slave
   mediaserver:
     image: openslides/openslides-mediafileserver:latest
     build: https://github.com/FinnStutzenstein/mediafile-server.git
