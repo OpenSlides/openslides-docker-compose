@@ -757,6 +757,8 @@ containerid_from_service_name() {
   local id
   local cid
   id="$(docker service ps -q "$1")"
+  [[ -n "$id" ]] ||
+    fatal "Service $1 not found.  Make sure it is running."
   cid="$(docker inspect -f '{{.Status.ContainerStatus.ContainerID}}' "${id}")"
   echo "$cid"
 }
