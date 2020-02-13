@@ -160,6 +160,9 @@ arg_check() {
       [[ -d "$PROJECT_DIR" ]] || {
         fatal "Instance '${PROJECT_NAME}' not found."
       }
+      [[ -f "${PROJECT_DIR}/${CONFIG_FILE}" ]] || {
+        fatal "Not a ${DEPLOYMENT_MODE} instance."
+      }
       ;;
     "clone")
       [[ -d "$CLONE_FROM_DIR" ]] || {
