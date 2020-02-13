@@ -10,6 +10,21 @@ fatal() {
     exit 23
 }
 
+# Decide mode from invocation
+case "$(basename "${BASH_SOURCE[0]}")" in
+  "rosinstancectl.sh")
+    REMOTE_COMMAND=osinstancectl
+    ;;
+  "rosstackctl.sh")
+    REMOTE_COMMAND=osstackctl
+    ;;
+  *)
+    echo "WARNING: could not determine desired deployment mode;" \
+      " assuming 'compose'"
+    REMOTE_COMMAND=osinstancectl
+    ;;
+esac
+
 CONF="${HOME}/.config/openslides/servers.conf"
 
 [[ -f "$CONF" ]] || fatal "No configuration file found"
@@ -24,7 +39,7 @@ printf -v nodes ",%s" ${a[@]}
 # this, getopt should be used here as well.
 if grep -qwE -- "(--json|-j)" <<< "$*"; then
     out="$(clush -o "-ttq -o BatchMode=yes" -qS -b -w "${nodes:1}" \
-            osinstancectl "$@" --color=never |
+            "$REMOTE_COMMAND" "$@" --color=never |
         # Filter out clush headers (we do not use the -L/-N options to prevent
         # clush from aggregating the output)
         awk '/^-{15}$/ {h++; next;} h == 1 {next;} h == 2 {h=0;} 1')"
@@ -38,5 +53,5 @@ if grep -qwE -- "(--json|-j)" <<< "$*"; then
       jq -s '{ instances: map(.instances[0]) }' <<< "$out"
     fi
 else
-    exec clush -o "-ttq -o BatchMode=yes" -qS -b -w "${nodes:1}" osinstancectl "$@"
+    exec clush -o "-ttq -o BatchMode=yes" -qS -b -w "${nodes:1}" "$REMOTE_COMMAND" "$@"
 fi
