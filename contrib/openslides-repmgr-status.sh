@@ -10,4 +10,6 @@ while read -r id name; do
   }
 done < <(docker ps \
   --filter label=org.openslides.role=postgres \
-  --format '{{.ID}}\t{{.Names}}' | sort -k2)
+  --format '{{.ID}}\t{{.Names}}' |
+  grep -v '_postgres_' | # exclude legacy containers
+  sort -k2)
