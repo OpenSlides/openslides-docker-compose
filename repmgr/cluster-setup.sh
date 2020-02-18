@@ -39,7 +39,7 @@ primary_node_setup() {
     sleep 3
   done
   update_pgconf
-  [[ "$REPMGR_WAL_ARCHIVE" = "off" ]] || enable_wal_archiving
+  [[ "$REPMGR_ENABLE_ARCHIVE" = "off" ]] || enable_wal_archiving
   pg_ctlcluster 11 main restart
   createuser -s repmgr && createdb repmgr -O repmgr
   repmgr -f /etc/repmgr.conf -p 5433 primary register
@@ -89,8 +89,6 @@ standby_node_setup() {
     echo "Waiting for Postgres cluster to become available..."
     sleep 3
   done
-  update_pgconf
-  [[ "$REPMGR_WAL_ARCHIVE" = "off" ]] || enable_wal_archiving
   pg_ctlcluster 11 main restart
   repmgr -f /etc/repmgr.conf standby register --force
   repmgr -f /etc/repmgr.conf cluster show || true
