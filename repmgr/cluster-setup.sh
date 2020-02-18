@@ -115,23 +115,14 @@ cp -fv /var/lib/postgresql/pg_hba.conf /etc/postgresql/11/main/pg_hba.conf
 if [[ ! -f "$MARKER" ]]; then
   if [[ -z "$REPMGR_PRIMARY" ]]; then
     primary_node_setup
+    # Create an initial basebackup
+    echo "Creating base backup in ${BACKUP_DIR}..."
+    backup
   else
     standby_node_setup
   fi
   echo "Successful repmgr setup as node id $REPMGR_NODE_ID" | tee "$MARKER"
 fi
-
-# Start cluster in background
-pg_ctlcluster 11 main restart
-# sudo /etc/init.d/ssh start
-until pg_isready; do
-  echo "Waiting for Postgres cluster to become available..."
-  sleep 3
-done
-
-# Create an initial basebackup
-echo "Creating base backup in ${BACKUP_DIR}..."
-backup
 
 # Stop cluster, so it can be started by supervisord
 pg_ctlcluster 11 main stop
