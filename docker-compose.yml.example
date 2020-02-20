@@ -154,7 +154,7 @@ services:
         aliases:
           - rediscache-slave
   mediaserver:
-    image: openslides/openslides-mediafileserver:latest
+    image: openslides/openslides-media-service:latest
     build: https://github.com/OpenSlides/openslides-media-service.git
     environment:
       - CHECK_REQUEST_URL=server:8000/check-media/
