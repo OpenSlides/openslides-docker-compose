@@ -153,7 +153,7 @@ services:
       back:
         aliases:
           - rediscache-slave
-  mediaserver:
+  media:
     image: openslides/openslides-media-service:latest
     build: https://github.com/OpenSlides/openslides-media-service.git
     environment:
