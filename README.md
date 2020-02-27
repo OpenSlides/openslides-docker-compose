@@ -1,4 +1,25 @@
-# Docker-Compose-based OpenSlides Suite
+# Docker Compose-based OpenSlides Suite
+
+## NOTICE
+
+*Please note that this is the legacy branch of the OpenSlides Docker deployment
+repository.  It contains the original Docker Compose-only setup.  If you would
+like to update to the new setup, please refer to the migration section below.*
+
+### Migrating Legacy Instances
+
+This branch contains the legacy setup of OpenSlides.  The new deployment setup
+differs significantly from the setup created by the present configuration.
+
+For this reason, there is, unfortunately, no straight upgrade path.  Instead,
+it is recommended that you create a fresh instance using the new setup method
+and migrate your data over to it.
+
+A script, `./contrib/openslides-legacy-export.sh`, is provided to export data
+from legacy instances.
+
+
+## Introduction
 
 The ```docker-compose.yml``` describes a full system setup with every component
 detached from the other.
