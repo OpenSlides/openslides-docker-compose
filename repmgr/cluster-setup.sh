@@ -22,7 +22,6 @@ update_pgconf() {
 }
 
 enable_wal_archiving() {
-  mkdir -p "/var/lib/postgresql/wal-archive/"
   psql \
     -c "ALTER SYSTEM SET archive_mode = 'on';" \
     -c "ALTER SYSTEM SET archive_command =
@@ -96,6 +95,8 @@ backup() {
     --label="Initial base backup (entrypoint)" |
   gzip > "${BACKUP_DIR}/backup-$(date '+%F-%H:%M:%S').tar.bz2"
 }
+
+mkdir -p "/var/lib/postgresql/wal-archive/"
 
 echo "Configuring repmgr"
 sed -e "s/<NODEID>/${REPMGR_NODE_ID}/" \
