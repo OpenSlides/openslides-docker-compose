@@ -79,6 +79,11 @@ CONTAINERS=("$(docker ps \
     grep -v '_postgres_' | # exclude legacy containers
     sort -k2)")
 
+[[ -n "${CONTAINERS[@]}" ]] || {
+  echo "No running OpenSlides database containers found."
+  exit 0
+}
+
 cat << EOF
 This will affect the following instances on this host:
 
