@@ -335,7 +335,9 @@ create_user_secrets_file() {
     last_name="$2"
     email="$3"
     PW="$(gen_pw)"
-    cat << EOF > "${PROJECT_DIR}/secrets/${USER_SECRETS_FILE}"
+    cat << EOF >> "${PROJECT_DIR}/secrets/${USER_SECRETS_FILE}"
+
+# Configured by $ME:
 OPENSLIDES_USER_FIRSTNAME="$first_name"
 OPENSLIDES_USER_LASTNAME="$last_name"
 OPENSLIDES_USER_PASSWORD="$PW"
@@ -569,7 +571,10 @@ ls_instance() {
       local OPENSLIDES_USER_PASSWORD=
       local user_name=
       source "${instance}/secrets/${USER_SECRETS_FILE}"
-      user_name="${OPENSLIDES_USER_FIRSTNAME} ${OPENSLIDES_USER_LASTNAME}"
+      if [[ -n "${OPENSLIDES_USER_FIRSTNAME}" ]] &&
+          [[ -n "${OPENSLIDES_USER_LASTNAME}" ]]; then
+        user_name="${OPENSLIDES_USER_FIRSTNAME} ${OPENSLIDES_USER_LASTNAME}"
+      fi
     fi
   fi
 
