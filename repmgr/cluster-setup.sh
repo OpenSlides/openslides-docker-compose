@@ -131,6 +131,16 @@ standby_node_setup() {
   pg_ctlcluster 11 main restart
   repmgr -f /etc/repmgr.conf standby register --force
   repmgr -f /etc/repmgr.conf cluster show || true
+
+  ( # Fetch SSH files from database
+    umask 077
+    for i in "${SSH_CONFIG_FILES[@]}"; do
+      echo "Fetching ${i} from database..."
+      psql -d dbcfg -qtA \
+        -c "SELECT data from files WHERE filename = '${i}' ORDER BY id DESC LIMIT 1" \
+        | base64 -d - > "${i}"
+    done
+  )
 }
 
 backup() {

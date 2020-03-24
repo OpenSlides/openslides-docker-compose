@@ -34,6 +34,8 @@ COPY pg_backuptrigger.sh /usr/local/bin/pg_backuptrigger
 # SSH config
 RUN rm /etc/ssh/ssh_host_*_key*
 RUN echo "HostKey /var/lib/postgresql/.ssh/ssh_host_ed25519_key" >> /etc/ssh/sshd_config
+RUN mkdir -p -m 700 /var/lib/postgresql/.ssh && \
+      chown postgres:postgres /var/lib/postgresql/.ssh
 
 RUN mkdir -p /var/log/supervisor
 COPY supervisord.conf /etc/supervisord.conf
