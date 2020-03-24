@@ -4,6 +4,19 @@
 
 set -e
 
+warn_insecure_admin() {
+  cat <<-EOF
+
+                 ==============================================
+                                    WARNING
+                 ==============================================
+
+                 WARNING: INSECURE ADMIN ACCOUNT CONFIGURATION!
+
+EOF
+  sleep 10
+}
+
 configure() {
   echo "postgres:5432:instancecfg:openslides:openslides" > "${HOME}/.pgpass"
   chmod 600 "${HOME}/.pgpass"
@@ -169,33 +182,23 @@ read -ra user_marker < <(psql -h db -d instancecfg -qtAF, \
 echo 'running migrations'
 python manage.py migrate
 
-if [[ -f /run/secrets/os_admin ]]; then
-  if [[ "$admin_marker" = "f" ]]; then
-    echo "Retrieving secure admin password"
-    source /run/secrets/os_admin
-    [[ -n "${OPENSLIDES_ADMIN_PASSWORD}" ]] || {
-      echo "ERROR: OpenSlides admin password not set.  Aborting."
-      exit 2
-    }
-    echo 'change admin password'
+if [[ "$admin_marker" = "t" ]]; then
+  echo "Admin password already set; nothing to do."
+elif [[ -f /run/secrets/os_admin ]]; then
+  echo "Retrieving secure admin password"
+  source /run/secrets/os_admin
+  if [[ -n "${OPENSLIDES_ADMIN_PASSWORD}" ]] && [[ "$admin_marker" = "f" ]]
+  then
+    echo 'Changing admin password'
     python manage.py insecurechangepassword admin "${OPENSLIDES_ADMIN_PASSWORD}"
     # Make note of changed admin password
     psql -h db -d instancecfg -a \
         -c "UPDATE markers SET configured = true WHERE name = 'admin'"
+  else
+    warn_insecure_admin
   fi
-elif [[ "$admin_marker" = "t" ]]; then
-  echo "Admin password already set; nothing to do."
 else
-  cat <<-EOF
-
-                 ==============================================
-                                    WARNING
-                 ==============================================
-
-                 WARNING: INSECURE ADMIN ACCOUNT CONFIGURATION!
-
-EOF
-  sleep 10
+  warn_insecure_admin
 fi
 
 if [[ -f /run/secrets/os_user ]] && [[ "$user_marker" = "f" ]]; then
