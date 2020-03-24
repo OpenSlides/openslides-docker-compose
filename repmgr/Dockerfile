@@ -32,16 +32,8 @@ COPY cluster-setup.sh /usr/local/sbin/cluster-setup
 COPY pg_backuptrigger.sh /usr/local/bin/pg_backuptrigger
 
 # SSH config
-COPY ssh/ssh_host_ed25519_key* /etc/ssh/
-COPY ssh/id_ed25519* /var/lib/postgresql/.ssh/
-COPY ssh/postgres_known_hosts /var/lib/postgresql/.ssh/known_hosts
-COPY ssh/postgres_authorized_keys /var/lib/postgresql/.ssh/authorized_keys
-
-RUN chmod 600 /etc/ssh/ssh_host_ed25519_key && \
-    chmod 600 /var/lib/postgresql/.ssh/id_ed25519 && \
-    chmod 700 /var/lib/postgresql/.ssh/ && \
-    chown -R postgres:postgres /var/lib/postgresql/.ssh/
-RUN echo "HostKey /etc/ssh/ssh_host_ed25519_key" >> /etc/ssh/sshd_config
+RUN rm /etc/ssh/ssh_host_*_key*
+RUN echo "HostKey /var/lib/postgresql/.ssh/ssh_host_ed25519_key" >> /etc/ssh/sshd_config
 
 RUN mkdir -p /var/log/supervisor
 COPY supervisord.conf /etc/supervisord.conf
