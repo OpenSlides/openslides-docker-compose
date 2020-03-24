@@ -5,7 +5,7 @@ set -e
 IMG_NAME="openslides"
 REPOSITORY_URL="https://github.com/OpenSlides/OpenSlides.git"
 GIT_CHECKOUT="master"
-DOCKER_REPOSITORY=
+DOCKER_REPOSITORY="openslides"
 DOCKER_TAG="latest"
 CONFIG="/etc/osinstancectl"
 
