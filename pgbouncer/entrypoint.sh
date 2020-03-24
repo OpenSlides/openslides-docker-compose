@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e
+
 SSH_CONFIG_FILES=(
   /var/lib/postgresql/.ssh/id_ed25519
   /var/lib/postgresql/.ssh/id_ed25519.pub
@@ -26,6 +28,13 @@ for node in "${node_list[@]}"; do
         | base64 -d - > "${i}"
     done
   ) && break
+done
+
+for i in "${SSH_CONFIG_FILES[@]}"; do
+  [[ -f "$i" ]] || {
+    echo "ERROR: $i does not exist.  Cannot continue."
+    exit 3
+  }
 done
 
 # Set PRIMARY or exit
