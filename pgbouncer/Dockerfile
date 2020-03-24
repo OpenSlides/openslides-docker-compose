@@ -26,11 +26,8 @@ RUN touch /etc/pgbouncer/pgbouncer.database.ini && \
     /etc/pgbouncer/pgbouncer.database.ini
 
 # SSH config
-COPY id_ed25519* /var/lib/postgresql/.ssh/
-COPY postgres_known_hosts /var/lib/postgresql/.ssh/known_hosts
-RUN chmod 600 /var/lib/postgresql/.ssh/id_ed25519 && \
-    chmod 700 /var/lib/postgresql/.ssh/ && \
-    chown -R postgres:postgres /var/lib/postgresql/.ssh/
+RUN mkdir -p -m 700 /var/lib/postgresql/.ssh && \
+      chown postgres:postgres /var/lib/postgresql/.ssh
 
 USER postgres
 
