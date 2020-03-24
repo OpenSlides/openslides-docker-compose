@@ -488,6 +488,9 @@ ls_instance() {
 
   shortname=$(basename "$instance")
 
+  local user_name=
+  local OPENSLIDES_ADMIN_PASSWORD="—"
+
   [[ -f "${instance}/${CONFIG_FILE}" ]] ||
     fatal "$shortname is not a $DEPLOYMENT_MODE instance."
 
@@ -560,7 +563,6 @@ ls_instance() {
     local image
     image=$(value_from_yaml "$instance" "image")
     # Parse admin credentials file
-    local OPENSLIDES_ADMIN_PASSWORD="—"
     if [[ -f "${instance}/secrets/${ADMIN_SECRETS_FILE}" ]]; then
       source "${instance}/secrets/${ADMIN_SECRETS_FILE}"
     fi
@@ -569,7 +571,6 @@ ls_instance() {
       local OPENSLIDES_USER_FIRSTNAME=
       local OPENSLIDES_USER_LASTNAME=
       local OPENSLIDES_USER_PASSWORD=
-      local user_name=
       source "${instance}/secrets/${USER_SECRETS_FILE}"
       if [[ -n "${OPENSLIDES_USER_FIRSTNAME}" ]] &&
           [[ -n "${OPENSLIDES_USER_LASTNAME}" ]]; then
