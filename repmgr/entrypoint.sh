@@ -1,5 +1,11 @@
 #!/bin/bash
 
+[[ -n "${REPMGR_NODE_ID}" ]] || {
+  echo "ERROR: REPMGR_NODE_ID not set.  Cannot continue."
+  sleep 10
+  exit 2
+}
+
 # Set up the postgres cluster
 su postgres -c /usr/local/sbin/cluster-setup
 
