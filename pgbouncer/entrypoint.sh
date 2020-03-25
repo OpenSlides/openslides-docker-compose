@@ -25,7 +25,8 @@ for node in "${node_list[@]}"; do
     for i in "${SSH_CONFIG_FILES[@]}"; do
       echo "Fetching ${i} from database..."
       psql -h pgnode1 -U pgbouncer -d instancecfg -qtA \
-        -c "SELECT data from dbcfg WHERE filename = '${i}' ORDER BY id DESC LIMIT 1" \
+        -c "SELECT DISTINCT ON (filename) data from dbcfg
+          WHERE filename = '${i}' ORDER BY filename, id DESC" \
         | xxd -r -p > "${i}"
     done
   ) && break

@@ -162,7 +162,8 @@ standby_node_setup() {
       IFS=: read -r item access <<< "$i"
       echo "Fetching ${item} from database..."
       psql -d instancecfg -qtA \
-        -c "SELECT data from dbcfg WHERE filename = '${item}' ORDER BY id DESC LIMIT 1" \
+        -c "SELECT DISTINCT ON (filename) data from dbcfg
+          WHERE filename = '${item}' ORDER BY filename, id DESC" \
         | xxd -r -p > "${item}"
     done
   )
