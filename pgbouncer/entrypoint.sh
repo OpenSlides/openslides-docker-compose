@@ -18,7 +18,7 @@ PG_NODE_LIST="${PG_NODE_LIST:-pgnode1,pgnode2,pgnode3}"
 IFS="," read -ra node_list <<< "$PG_NODE_LIST"
 for node in "${node_list[@]}"; do
   echo "SSH config: trying ${node}..."
-  pg_isready -h pgnode1 || continue
+  pg_isready -h pgnode1 || { sleep 5; continue; }
   (
     umask 077
     for i in "${SSH_CONFIG_FILES[@]}"; do
