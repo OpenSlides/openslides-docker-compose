@@ -84,7 +84,7 @@ services:
     build: ./repmgr
     restart: always
     networks:
-      - back
+      - dbnet
     volumes:
       - "dbdata1:/var/lib/postgresql"
     labels:
@@ -99,7 +99,7 @@ services:
   #   image: openslides/openslides-repmgr:latest
   #   restart: always
   #   networks:
-  #     - back
+  #     - dbnet
   #   volumes:
   #     - "dbdata2:/var/lib/postgresql"
   #   labels:
@@ -113,7 +113,7 @@ services:
   #   image: openslides/openslides-repmgr:latest
   #   restart: always
   #   networks:
-  #     - back
+  #     - dbnet
   #   volumes:
   #     - "dbdata3:/var/lib/postgresql"
   #   labels:
@@ -129,6 +129,7 @@ services:
         aliases:
           - db
           - postgres
+      dbnet:
   postfix:
     image: openslides/openslides-postfix:latest
     build: ./postfix
@@ -170,6 +171,7 @@ volumes:
 networks:
   front:
   back:
+  dbnet:
 secrets:
   os_admin:
     file: ./secrets/adminsecret.env

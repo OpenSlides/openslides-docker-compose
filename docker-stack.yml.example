@@ -92,7 +92,7 @@ services:
     image: openslides/openslides-repmgr:latest
     build: ./repmgr
     networks:
-      - back
+      - dbnet
     volumes:
       - "dbdata1:/var/lib/postgresql"
     deploy:
@@ -109,7 +109,7 @@ services:
   #     - REPMGR_RECONNECT_INTERVAL=10
   #   image: openslides/openslides-repmgr:latest
   #   networks:
-  #     - back
+  #     - dbnet
   #   volumes:
   #     - "dbdata2:/var/lib/postgresql"
   #   deploy:
@@ -126,7 +126,7 @@ services:
   #     - REPMGR_RECONNECT_INTERVAL=10
   #   image: openslides/openslides-repmgr:latest
   #   networks:
-  #     - back
+  #     - dbnet
   #   volumes:
   #     - "dbdata3:/var/lib/postgresql"
   #   deploy:
@@ -148,6 +148,7 @@ services:
         aliases:
           - db
           - postgres
+      dbnet:
     deploy:
       restart_policy:
         condition: on-failure
@@ -207,6 +208,9 @@ volumes:
 networks:
   front:
   back:
+    driver_opts:
+      encrypted: ""
+  dbnet:
     driver_opts:
       encrypted: ""
 secrets:
