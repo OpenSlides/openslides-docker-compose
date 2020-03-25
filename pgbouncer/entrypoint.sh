@@ -2,9 +2,10 @@
 
 set -e
 
+SSH_PGBOUNCER_USER_KEY="/var/lib/postgresql/.ssh/id_ed25519_pgbouncer"
 SSH_CONFIG_FILES=(
-  /var/lib/postgresql/.ssh/id_ed25519
-  /var/lib/postgresql/.ssh/id_ed25519.pub
+  "${SSH_PGBOUNCER_USER_KEY}"
+  "${SSH_PGBOUNCER_USER_KEY}.pub"
   /var/lib/postgresql/.ssh/known_hosts
 )
 
@@ -29,6 +30,10 @@ for node in "${node_list[@]}"; do
     done
   ) && break
 done
+
+# Link SSH keys to default location for simplicity
+ln -sf "id_ed25519_pgbouncer" "/var/lib/postgresql/.ssh/id_ed25519"
+ln -sf "id_ed25519_pgbouncer.pub" "/var/lib/postgresql/.ssh/id_ed25519.pub"
 
 for i in "${SSH_CONFIG_FILES[@]}"; do
   [[ -f "$i" ]] || {
