@@ -25,7 +25,7 @@ for node in "${node_list[@]}"; do
       echo "Fetching ${i} from database..."
       psql -h pgnode1 -d dbcfg -qtA \
         -c "SELECT data from files WHERE filename = '${i}' ORDER BY id DESC LIMIT 1" \
-        | base64 -d - > "${i}"
+        | xxd -r -p > "${i}"
     done
   ) && break
 done
