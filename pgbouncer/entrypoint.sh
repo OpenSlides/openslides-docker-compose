@@ -2,7 +2,7 @@
 
 set -e
 
-SSH_PGBOUNCER_USER_KEY="/var/lib/postgresql/.ssh/id_ed25519_pgbouncer"
+SSH_PGBOUNCER_USER_KEY="/var/lib/postgresql/.ssh/id_ed25519_pgproxy"
 SSH_CONFIG_FILES=(
   "${SSH_PGBOUNCER_USER_KEY}"
   "${SSH_PGBOUNCER_USER_KEY}.pub"
@@ -24,7 +24,7 @@ for node in "${node_list[@]}"; do
     umask 077
     for i in "${SSH_CONFIG_FILES[@]}"; do
       echo "Fetching ${i} from database..."
-      psql -h pgnode1 -U pgbouncer -d instancecfg -qtA \
+      psql -h pgnode1 -U pgproxy -d instancecfg -qtA \
         -c "SELECT DISTINCT ON (filename) data from dbcfg
           WHERE filename = '${i}' ORDER BY filename, id DESC" \
         | xxd -r -p > "${i}"
@@ -33,8 +33,8 @@ for node in "${node_list[@]}"; do
 done
 
 # Link SSH keys to default location for simplicity
-ln -sf "id_ed25519_pgbouncer" "/var/lib/postgresql/.ssh/id_ed25519"
-ln -sf "id_ed25519_pgbouncer.pub" "/var/lib/postgresql/.ssh/id_ed25519.pub"
+ln -sf "id_ed25519_pgproxy" "/var/lib/postgresql/.ssh/id_ed25519"
+ln -sf "id_ed25519_pgproxy.pub" "/var/lib/postgresql/.ssh/id_ed25519.pub"
 
 for i in "${SSH_CONFIG_FILES[@]}"; do
   [[ -f "$i" ]] || {
