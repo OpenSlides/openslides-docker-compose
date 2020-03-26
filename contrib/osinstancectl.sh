@@ -22,6 +22,7 @@ MAIN_REPOSITORY_URL= # default repo used for all openslides/* images
 ME=$(basename -s .sh "${BASH_SOURCE[0]}")
 CONFIG="/etc/osinstancectl"
 MARKER=".osinstancectl-marker"
+PRIMARY_DATABASE_NODE="pgnode1"
 DOCKER_IMAGE_NAME_OPENSLIDES=
 DOCKER_IMAGE_TAG_OPENSLIDES=
 PROJECT_NAME=
@@ -774,7 +775,7 @@ containerid_from_service_name() {
 
 get_clone_from_id() (
   source "${1}/.env"
-  containerid_from_service_name "${PROJECT_STACK_NAME}_pgnode1"
+  containerid_from_service_name "${PROJECT_STACK_NAME}_${PRIMARY_DATABASE_NODE}"
 )
 
 clone_db() {
@@ -786,8 +787,8 @@ clone_db() {
       local clone_from_id
       local clone_to_id
       _docker_compose "$PROJECT_DIR" up -d --no-deps pgnode1
-      clone_from_id="$(_docker_compose "$CLONE_FROM_DIR" ps -q pgnode1)"
-      clone_to_id=$(_docker_compose "$PROJECT_DIR" ps -q pgnode1)
+      clone_from_id="$(_docker_compose "$CLONE_FROM_DIR" ps -q "${PRIMARY_DATABASE_NODE}")"
+      clone_to_id="$(_docker_compose "$PROJECT_DIR" ps -q pgnode1)"
       sleep 20 # XXX
       ;;
     "stack")
@@ -807,17 +808,16 @@ clone_db() {
   # pg_dumpall) and does not require the cluster to be reinitialized (unlike
   # pg_basebackup).
   #
-  # In the future, the origin cluster will hopefully be accessed through the
-  # pgbouncer service, so it will be possible to clone even from secondary
-  # Postgres nodes if a failover occured.  It is assumed, however, that both
-  # the origin's pgbouncer instance as well as the cloned instance's pgnode1
-  # are running on localhost because both get accessed using `docker exec`.
+  # It is assumed that the originating database service is pgnode1.  If you
+  # need to clone from a different node, change the PRIMARY_DATABASE_NODE
+  # variable.  The PgBouncer service is not an option because it does not have
+  # the required superuser access to the cluster.
   #
   # The pg_dump/psql method may very well run into issues with large mediafile
   # databases, however.  pg_dump/pg_restore using the custom format could be
   # worth a try.
-  available_dbs=("$(docker exec "$clone_from_id" \
-    psql -U openslides -h db -d openslides -c '\l' -AtF '	' | cut -f1)")
+  available_dbs=("$(docker exec -u postgres "$clone_from_id" \
+    psql -d openslides -c '\l' -AtF '	' | cut -f1)")
   for db in openslides instancecfg mediafiledata; do
     echo "${available_dbs[@]}" | grep -wq "$db" || {
       echo "DB $db not found; skipping..."
@@ -832,8 +832,8 @@ clone_db() {
 
     echo "Cloning ${db}..."
     docker exec -u postgres "$clone_from_id" \
-      pg_dump -h db -U openslides -c --if-exists "$db" |
-    docker exec -u postgres -i "$clone_to_id" psql -h pgnode1 -U openslides "$db"
+      pg_dump -c --if-exists "$db" |
+    docker exec -u postgres -i "$clone_to_id" psql "$db"
   done
 }
 
@@ -1308,6 +1308,7 @@ case "$MODE" in
     clone_secrets
     clone_db
     gen_tls_cert
+    instance_stop # to force pgnode1 to be restarted
     add_to_haproxy_cfg
     append_metadata "$PROJECT_DIR" ""
     append_metadata "$PROJECT_DIR" "Cloned from $CLONE_FROM on $(date)"
