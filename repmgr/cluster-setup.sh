@@ -1,6 +1,7 @@
 #!/bin/bash
 
 set -e
+set -o pipefail
 
 export PGDATA=/var/lib/postgresql/11/main
 MARKER=/var/lib/postgresql/do-not-remove-this-file
@@ -47,13 +48,13 @@ insert_config_into_db() {
   cfg="$1"
   access="$2"
   b64="$(base64 < "$cfg")"
-  psql -1 -d instancecfg \
+  psql -v ON_ERROR_STOP=1 -1 -d instancecfg \
     -c "INSERT INTO dbcfg (filename, data, from_host, access)
       VALUES('${cfg}', decode('$b64', 'base64'), '$(hostname)', '${access}')"
 }
 
 update_pgconf() {
-  psql \
+  psql -v ON_ERROR_STOP=1 \
     -c "ALTER SYSTEM SET listen_addresses = '*';" \
     -c "ALTER SYSTEM SET archive_mode = on;" \
     -c "ALTER SYSTEM SET archive_command = '/bin/true';" \
@@ -63,7 +64,7 @@ update_pgconf() {
 }
 
 enable_wal_archiving() {
-  psql \
+  psql -v ON_ERROR_STOP=1 \
     -c "ALTER SYSTEM SET archive_mode = 'on';" \
     -c "ALTER SYSTEM SET archive_command =
         'gzip < %p > /var/lib/postgresql/wal-archive/%f'"
@@ -93,7 +94,7 @@ primary_node_setup() {
 
   # create OpenSlides settings table
   createdb instancecfg
-  psql -d instancecfg <<< "
+  psql -v ON_ERROR_STOP=1 -d instancecfg <<< "
     BEGIN;
     CREATE TABLE markers (name text, configured bool DEFAULT false);
     INSERT INTO markers VALUES('admin', false), ('user', false);
