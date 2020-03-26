@@ -13,17 +13,17 @@ REPMGR_RECONNECT_INTERVAL="${REPMGR_RECONNECT_INTERVAL:-10}"
 
 SSH_HOST_KEY="/var/lib/postgresql/.ssh/ssh_host_ed25519_key"
 SSH_REPMGR_USER_KEY="/var/lib/postgresql/.ssh/id_ed25519"
-SSH_PGBOUNCER_USER_KEY="/var/lib/postgresql/.ssh/id_ed25519_pgbouncer"
+SSH_PGPROXY_USER_KEY="/var/lib/postgresql/.ssh/id_ed25519_pgproxy"
 
 SSH_CONFIG_FILES=(
   "${SSH_HOST_KEY}"
   "${SSH_HOST_KEY}.pub"
-  "${SSH_PGBOUNCER_USER_KEY}:pgbouncer"
-  "${SSH_PGBOUNCER_USER_KEY}.pub:pgbouncer"
+  "${SSH_PGPROXY_USER_KEY}:pgproxy"
+  "${SSH_PGPROXY_USER_KEY}.pub:pgproxy"
   "${SSH_REPMGR_USER_KEY}"
   "${SSH_REPMGR_USER_KEY}.pub"
   /var/lib/postgresql/.ssh/authorized_keys
-  /var/lib/postgresql/.ssh/known_hosts:pgbouncer
+  /var/lib/postgresql/.ssh/known_hosts:pgproxy
 )
 
 primary_ssh_setup() {
@@ -31,12 +31,12 @@ primary_ssh_setup() {
   local PGNODES="pgnode1,pgnode2,pgnode3"
   ssh-keygen -t ed25519 -N '' -f "$SSH_HOST_KEY"
   ssh-keygen -t ed25519 -N '' -f "$SSH_REPMGR_USER_KEY" -C "repmgr node key"
-  ssh-keygen -t ed25519 -N '' -f "$SSH_PGBOUNCER_USER_KEY" \
+  ssh-keygen -t ed25519 -N '' -f "$SSH_PGPROXY_USER_KEY" \
     -C "Pgbouncer access key"
   # Setup access
   cp "${SSH_REPMGR_USER_KEY}.pub" /var/lib/postgresql/.ssh/authorized_keys
   printf 'command="/usr/local/bin/current-primary" %s\n' \
-    "$(cat "${SSH_PGBOUNCER_USER_KEY}.pub")" \
+    "$(cat "${SSH_PGPROXY_USER_KEY}.pub")" \
     >> /var/lib/postgresql/.ssh/authorized_keys
   printf '%s %s\n' "${PGNODES}" "$(cat "${SSH_HOST_KEY}.pub")" \
     > /var/lib/postgresql/.ssh/known_hosts
@@ -117,8 +117,8 @@ primary_node_setup() {
       access VARCHAR);
     ALTER TABLE dbcfg ENABLE ROW LEVEL SECURITY;
     COMMENT ON TABLE dbcfg IS 'This table uses row security policies';
-    CREATE ROLE pgbouncer WITH LOGIN;
-    GRANT SELECT ON dbcfg TO pgbouncer;
+    CREATE ROLE pgproxy WITH LOGIN;
+    GRANT SELECT ON dbcfg TO pgproxy;
     CREATE POLICY dbcfg_read_policy
       ON dbcfg USING (access = CURRENT_USER);
     --
