@@ -166,10 +166,12 @@ standby_node_setup() {
 
   ( # Fetch SSH files from database
     umask 077
-    for i in "${SSH_CONFIG_FILES[@]}"; do
-      IFS=: read -r item target_filename access <<< "$i"
-      [[ -n "$target_filename" ]] || target_filename="$item"
-      echo "Considering ${target_filename} from database..."
+    psql -qAt instancecfg <<< "
+      SELECT DISTINCT ON (filename, access) filename FROM dbcfg
+      WHERE 'repmgr' = ANY (access)
+      ORDER BY filename, access, id DESC;" |
+    while read target_filename; do
+      echo "Fetching ${target_filename} from database..."
       psql -d instancecfg -qtA <<< "
         SELECT DISTINCT ON (filename, access) data from dbcfg
           WHERE filename = '${target_filename}'
