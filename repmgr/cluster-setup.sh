@@ -43,6 +43,23 @@ primary_ssh_setup() {
     > /var/lib/postgresql/.ssh/known_hosts
 }
 
+ssh_keys_from_db() (
+  umask 077
+  psql -qAt instancecfg <<< "
+    SELECT DISTINCT ON (filename, access) filename FROM dbcfg
+    WHERE 'repmgr' = ANY (access)
+    ORDER BY filename, access, id DESC;" |
+  while read target_filename; do
+    echo "Fetching ${target_filename} from database..."
+    psql -d instancecfg -qtA <<< "
+      SELECT DISTINCT ON (filename, access) data FROM dbcfg
+        WHERE filename = '${target_filename}'
+        AND   'repmgr' = ANY (access)
+        ORDER BY filename, access, id DESC;
+      " | xxd -r -p > "${target_filename}"
+  done
+  )
+
 insert_config_into_db() {
   local real_filename target_filename access b64
   real_filename="$1"
@@ -54,6 +71,18 @@ insert_config_into_db() {
       VALUES('${target_filename}',
         decode('$b64', 'base64'),
         '$(hostname)', '${access}')"
+}
+
+hidden_pg_start() {
+  # Temporarily change port of node to stay hidden from sevices that wait for
+  # it
+  sed -i -e '/^port/s/5432/5433/' \
+    /etc/postgresql/11/main/postgresql.conf
+  pg_ctlcluster 11 main start
+  until pg_isready -p 5433; do
+    echo "Waiting for Postgres cluster to become available..."
+    sleep 3
+  done
 }
 
 update_pgconf() {
@@ -74,14 +103,6 @@ enable_wal_archiving() {
 }
 
 primary_node_setup() {
-  # Temporarily change port of master node during setup
-  sed -i -e '/^port/s/5432/5433/' \
-    /etc/postgresql/11/main/postgresql.conf
-  pg_ctlcluster 11 main start
-  until pg_isready -p 5433; do
-    echo "Waiting for Postgres cluster to become available..."
-    sleep 3
-  done
   update_pgconf
   [[ "$REPMGR_ENABLE_ARCHIVE" = "off" ]] || enable_wal_archiving
   pg_ctlcluster 11 main restart
@@ -139,9 +160,6 @@ primary_node_setup() {
 
   # delete pgproxy key
   rm -f "${SSH_PGPROXY_USER_KEY}" "${SSH_PGPROXY_USER_KEY}.pub"
-
-  sed -i -e '/^port/s/5433/5432/' \
-    /etc/postgresql/11/main/postgresql.conf
 }
 
 standby_node_setup() {
@@ -162,23 +180,6 @@ standby_node_setup() {
   pg_ctlcluster 11 main restart
   repmgr -f /etc/repmgr.conf standby register --force
   repmgr -f /etc/repmgr.conf cluster show || true
-
-  ( # Fetch SSH files from database
-    umask 077
-    psql -qAt instancecfg <<< "
-      SELECT DISTINCT ON (filename, access) filename FROM dbcfg
-      WHERE 'repmgr' = ANY (access)
-      ORDER BY filename, access, id DESC;" |
-    while read target_filename; do
-      echo "Fetching ${target_filename} from database..."
-      psql -d instancecfg -qtA <<< "
-        SELECT DISTINCT ON (filename, access) data from dbcfg
-          WHERE filename = '${target_filename}'
-          AND   'repmgr' = ANY (access)
-          ORDER BY filename, access, id DESC;
-        " | xxd -r -p > "${target_filename}"
-    done
-  )
 }
 
 backup() {
@@ -201,18 +202,26 @@ sed -e "s/<NODEID>/${REPMGR_NODE_ID}/" \
 # Update pg_hba.conf from image template
 cp -fv /var/lib/postgresql/pg_hba.conf /etc/postgresql/11/main/pg_hba.conf
 
-if [[ ! -f "$MARKER" ]]; then
+if [[ -f "$MARKER" ]]; then
+    hidden_pg_start
+    ssh_keys_from_db
+else
   if [[ -z "$REPMGR_PRIMARY" ]]; then
     primary_ssh_setup
+    hidden_pg_start
     primary_node_setup
     # Create an initial basebackup
     echo "Creating base backup in ${BACKUP_DIR}..."
     backup
   else
     standby_node_setup
+    ssh_keys_from_db
   fi
   echo "Successful repmgr setup as node id $REPMGR_NODE_ID" | tee "$MARKER"
 fi
 
+# Revert Postgres port in case it was temporarily changed above
+sed -i -e '/^port/s/5433/5432/' \
+  /etc/postgresql/11/main/postgresql.conf
 # Stop cluster, so it can be started by supervisord
 pg_ctlcluster 11 main stop
