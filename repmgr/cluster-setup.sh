@@ -140,7 +140,6 @@ primary_node_setup() {
   # delete pgproxy key
   rm -f "${SSH_PGPROXY_USER_KEY}" "${SSH_PGPROXY_USER_KEY}.pub"
 
-  pg_ctlcluster 11 main stop
   sed -i -e '/^port/s/5433/5432/' \
     /etc/postgresql/11/main/postgresql.conf
 }
