@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e
+
 [[ -n "${REPMGR_NODE_ID}" ]] || {
   echo "ERROR: REPMGR_NODE_ID not set.  Cannot continue."
   sleep 10
