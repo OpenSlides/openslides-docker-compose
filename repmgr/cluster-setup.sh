@@ -17,14 +17,14 @@ SSH_REPMGR_USER_KEY="/var/lib/postgresql/.ssh/id_ed25519"
 SSH_PGPROXY_USER_KEY="/var/lib/postgresql/.ssh/id_ed25519_pgproxy"
 
 SSH_CONFIG_FILES=(
-  "${SSH_HOST_KEY}"
-  "${SSH_HOST_KEY}.pub"
-  "${SSH_PGPROXY_USER_KEY}:pgproxy"
-  "${SSH_PGPROXY_USER_KEY}.pub:pgproxy"
-  "${SSH_REPMGR_USER_KEY}"
-  "${SSH_REPMGR_USER_KEY}.pub"
-  /var/lib/postgresql/.ssh/authorized_keys
-  /var/lib/postgresql/.ssh/known_hosts:pgproxy
+  "${SSH_HOST_KEY}::{\"repmgr\"}"
+  "${SSH_HOST_KEY}.pub::{\"repmgr\"}"
+  "${SSH_PGPROXY_USER_KEY}:/var/lib/postgresql/.ssh/id_ed25519:{\"pgproxy\"}"
+  "${SSH_PGPROXY_USER_KEY}.pub:/var/lib/postgresql/.ssh/id_ed25519.pub:{\"pgproxy\"}"
+  "${SSH_REPMGR_USER_KEY}::{\"repmgr\"}"
+  "${SSH_REPMGR_USER_KEY}.pub::{\"repmgr\"}"
+  "/var/lib/postgresql/.ssh/authorized_keys::{\"repmgr\"}"
+  "/var/lib/postgresql/.ssh/known_hosts::{\"repmgr\", \"pgproxy\"}"
 )
 
 primary_ssh_setup() {
@@ -44,13 +44,16 @@ primary_ssh_setup() {
 }
 
 insert_config_into_db() {
-  local cfg access b64
-  cfg="$1"
-  access="$2"
-  b64="$(base64 < "$cfg")"
+  local real_filename target_filename access b64
+  real_filename="$1"
+  target_filename="$2"
+  access="$3"
+  b64="$(base64 < "$real_filename")"
   psql -v ON_ERROR_STOP=1 -1 -d instancecfg \
     -c "INSERT INTO dbcfg (filename, data, from_host, access)
-      VALUES('${cfg}', decode('$b64', 'base64'), '$(hostname)', '${access}')"
+      VALUES('${target_filename}',
+        decode('$b64', 'base64'),
+        '$(hostname)', '${access}')"
 }
 
 update_pgconf() {
@@ -115,23 +118,27 @@ primary_node_setup() {
       data BYTEA NOT NULL,
       created TIMESTAMP DEFAULT now(),
       from_host VARCHAR,
-      access VARCHAR);
+      access VARCHAR []);
     ALTER TABLE dbcfg ENABLE ROW LEVEL SECURITY;
     COMMENT ON TABLE dbcfg IS 'This table uses row security policies';
     CREATE ROLE pgproxy WITH LOGIN;
     GRANT SELECT ON dbcfg TO pgproxy;
     CREATE POLICY dbcfg_read_policy
-      ON dbcfg USING (access = CURRENT_USER);
+      ON dbcfg USING (CURRENT_USER = ANY (access) OR access = '{\"public\"}');
     --
     COMMIT;
     "
 
   # Insert SSH files
   for i in "${SSH_CONFIG_FILES[@]}"; do
-    IFS=: read -r item access <<< "$i"
-    echo "Inserting ${item} into database..."
-    insert_config_into_db "$item" "$access"
+    IFS=: read -r item target_filename access <<< "$i"
+    [[ -n "$target_filename" ]] || target_filename="$item"
+    echo "Inserting ${item}→${target_filename} into database..."
+    insert_config_into_db "$item" "$target_filename" "$access"
   done
+
+  # delete pgproxy key
+  rm -f "${SSH_PGPROXY_USER_KEY}" "${SSH_PGPROXY_USER_KEY}.pub"
 
   pg_ctlcluster 11 main stop
   sed -i -e '/^port/s/5433/5432/' \
@@ -160,12 +167,15 @@ standby_node_setup() {
   ( # Fetch SSH files from database
     umask 077
     for i in "${SSH_CONFIG_FILES[@]}"; do
-      IFS=: read -r item access <<< "$i"
-      echo "Fetching ${item} from database..."
-      psql -d instancecfg -qtA \
-        -c "SELECT DISTINCT ON (filename) data from dbcfg
-          WHERE filename = '${item}' ORDER BY filename, id DESC" \
-        | xxd -r -p > "${item}"
+      IFS=: read -r item target_filename access <<< "$i"
+      [[ -n "$target_filename" ]] || target_filename="$item"
+      echo "Considering ${target_filename} from database..."
+      psql -d instancecfg -qtA <<< "
+        SELECT DISTINCT ON (filename, access) data from dbcfg
+          WHERE filename = '${target_filename}'
+          AND   'repmgr' = ANY (access)
+          ORDER BY filename, access, id DESC;
+        " | xxd -r -p > "${target_filename}"
     done
   )
 }
