@@ -2,10 +2,9 @@
 
 set -e
 
-SSH_PGBOUNCER_USER_KEY="/var/lib/postgresql/.ssh/id_ed25519_pgproxy"
 SSH_CONFIG_FILES=(
-  "${SSH_PGBOUNCER_USER_KEY}"
-  "${SSH_PGBOUNCER_USER_KEY}.pub"
+  /var/lib/postgresql/.ssh/id_ed25519
+  /var/lib/postgresql/.ssh/id_ed25519.pub
   /var/lib/postgresql/.ssh/known_hosts
 )
 
@@ -19,22 +18,25 @@ PG_NODE_LIST="${PG_NODE_LIST:-pgnode1,pgnode2,pgnode3}"
 IFS="," read -ra node_list <<< "$PG_NODE_LIST"
 for node in "${node_list[@]}"; do
   echo "SSH config: trying ${node}..."
-  pg_isready -h pgnode1 || { sleep 5; continue; }
+  pg_isready -h "$node" -U pgproxy -d instancecfg || { sleep 5; continue; }
+
   (
     umask 077
-    for i in "${SSH_CONFIG_FILES[@]}"; do
-      echo "Fetching ${i} from database..."
-      psql -h pgnode1 -U pgproxy -d instancecfg -qtA \
-        -c "SELECT DISTINCT ON (filename) data from dbcfg
-          WHERE filename = '${i}' ORDER BY filename, id DESC" \
-        | xxd -r -p > "${i}"
+    psql -h "$node" -U pgproxy -d instancecfg -qtA -v ON_ERROR_STOP=1 <<< "
+      SELECT DISTINCT ON (filename, access) filename FROM dbcfg
+      -- WHERE 'pgproxy' = ANY (access)
+      ORDER BY filename, access, id DESC;" |
+    while read target_filename; do
+      echo "Fetching ${target_filename} from database..."
+      psql -h "$node" -U pgproxy -d instancecfg -qtA <<< "
+        SELECT DISTINCT ON (filename, access) data from dbcfg
+          WHERE filename = '${target_filename}'
+          -- AND   'pgproxy' = ANY (access)
+          ORDER BY filename, access, id DESC;
+        " | xxd -r -p > "${target_filename}"
     done
   ) && break
 done
-
-# Link SSH keys to default location for simplicity
-ln -sf "id_ed25519_pgproxy" "/var/lib/postgresql/.ssh/id_ed25519"
-ln -sf "id_ed25519_pgproxy.pub" "/var/lib/postgresql/.ssh/id_ed25519.pub"
 
 for i in "${SSH_CONFIG_FILES[@]}"; do
   [[ -f "$i" ]] || {
