@@ -114,13 +114,14 @@ primary_node_setup() {
   createuser openslides && createdb openslides -O openslides
 
   # create mediafiles database; the schema is created by the media service
-  createdb mediafiledata -O openslides
+  createdb -O openslides mediafiledata "OpenSlides user-provided binary files"
 
   # create OpenSlides settings table
-  createdb instancecfg
+  createdb instancecfg "OpenSlides instance metadata and configuration"
   psql -v ON_ERROR_STOP=1 -d instancecfg <<< "
     BEGIN;
     CREATE TABLE markers (name text, configured bool DEFAULT false);
+    COMMENT ON TABLE markers IS 'Instance metadata';
     INSERT INTO markers VALUES('admin', false), ('user', false);
     --
     CREATE TABLE files (
@@ -129,6 +130,7 @@ primary_node_setup() {
       data BYTEA NOT NULL,
       created TIMESTAMP DEFAULT now(),
       from_host VARCHAR);
+    COMMENT ON TABLE files IS 'OpenSlides configuration files';
     --
     GRANT ALL ON markers TO openslides;
     GRANT ALL ON files TO openslides;
@@ -141,7 +143,7 @@ primary_node_setup() {
       from_host VARCHAR,
       access VARCHAR []);
     ALTER TABLE dbcfg ENABLE ROW LEVEL SECURITY;
-    COMMENT ON TABLE dbcfg IS 'This table uses row security policies';
+    COMMENT ON TABLE dbcfg IS 'repmgr node configuration files';
     CREATE ROLE pgproxy WITH LOGIN;
     GRANT SELECT ON dbcfg TO pgproxy;
     CREATE POLICY dbcfg_read_policy
