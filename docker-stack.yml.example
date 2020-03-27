@@ -154,7 +154,7 @@ services:
         condition: on-failure
         delay: 5s
       placement:
-        constraints: [node.role == manager]
+        constraints: [node.labels.openslides-db == master]
   postfix:
     image: openslides/openslides-postfix:latest
     build: ./postfix
