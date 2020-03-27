@@ -45,11 +45,11 @@ primary_ssh_setup() {
 
 ssh_keys_from_db() (
   umask 077
-  psql -qAt instancecfg <<< "
+  psql -qAt0 instancecfg <<< "
     SELECT DISTINCT ON (filename, access) filename FROM dbcfg
     WHERE 'repmgr' = ANY (access)
     ORDER BY filename, access, id DESC;" |
-  while read target_filename; do
+  while IFS= read -r -d $'\0' target_filename; do
     echo "Fetching ${target_filename} from database..."
     psql -d instancecfg -qtA <<< "
       SELECT DISTINCT ON (filename, access) data FROM dbcfg

@@ -22,11 +22,11 @@ for node in "${node_list[@]}"; do
 
   (
     umask 077
-    psql -h "$node" -U pgproxy -d instancecfg -qtA -v ON_ERROR_STOP=1 <<< "
+    psql -h "$node" -U pgproxy -d instancecfg -qtA0 -v ON_ERROR_STOP=1 <<< "
       SELECT DISTINCT ON (filename, access) filename FROM dbcfg
       -- WHERE 'pgproxy' = ANY (access)
       ORDER BY filename, access, id DESC;" |
-    while read target_filename; do
+    while IFS= read -r -d $'\0' target_filename; do
       echo "Fetching ${target_filename} from database..."
       psql -h "$node" -U pgproxy -d instancecfg -qtA <<< "
         SELECT DISTINCT ON (filename, access) data from dbcfg
