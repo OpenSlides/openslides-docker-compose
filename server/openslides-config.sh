@@ -59,10 +59,16 @@ case "$1" in
       insert_config_into_db "$i"
     done
 
-    echo
-    echo "Hint: to force an update on all server containers:"
-    echo "  docker service update --force \$stack_server && "
-    echo "  docker service update --force \$stack_prioserver"
+    cat << EOF
+Hint: to force an update on all server containers:
+
+- for docker-compose:
+  docker-compose up -d --force-recreate --no-deps server prioserver
+
+- for Docker Swarm services:
+  docker service update --force \$stack_server &&
+  docker service update --force \$stack_prioserver
+EOF
     ;;
   "connect")
     exec psql -h db -d instancecfg
