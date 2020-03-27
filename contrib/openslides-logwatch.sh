@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Extract logs from OpenSlides journald logs
+# Extract logs from journald for OpenSlides docker-compose instances
 
 set -uo pipefail
 
@@ -23,6 +23,7 @@ Example crontab entry:
   */10 *  * * *   root    $ME --since=-10m
 
 Prerequisites:
+  - OpenSlides instance is run with docker-compose.
   - Docker must be configured to use the journald logging backend.
   - osinstancectl must be installed in PATH.
 
