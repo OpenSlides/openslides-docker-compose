@@ -96,26 +96,29 @@ configure_read_only() {
 
 retrieve_configs_from_db() {
   mkdir -p /app/personal_data/var
-  readarray -d '' config_files < \
-    <(psql -At0 -h db -d instancecfg -c 'SELECT DISTINCT filename FROM files')
-  for i in "${config_files[@]}"; do
-    echo "Retrieving config file from database: ${i}..."
-    d="$(dirname "$i")"
-    [[ -d "$d" ]] || mkdir -p "$d"
-    psql -h db -d instancecfg -qtA \
-      -c "SELECT data from files WHERE filename = '${i}' ORDER BY id DESC LIMIT 1" \
-      > "${i}"
+  psql -qAt0 -h db -d instancecfg <<< "
+    SELECT DISTINCT ON (filename) filename FROM files
+    ORDER BY filename, id DESC;" |
+  while IFS= read -r -d $'\0' target_filename; do
+    echo "Fetching ${target_filename} from database..."
+    psql -h db -d instancecfg -qtA <<< "
+      SELECT DISTINCT ON (filename) data FROM files
+        WHERE filename = '${target_filename}'
+        ORDER BY filename, id DESC;
+      " | xxd -r -p > "${target_filename}"
   done
 }
 
 insert_config_into_db() {
-  local cfg="$1"
-  local b64="$(base64 < "$cfg")"
-  psql -h db -d instancecfg \
+  [[ -f "$1" ]] || fatal "File not found: $1"
+  local cfg b64
+  local cfg="$(realpath "$1")"
+  b64="$(base64 < "$cfg")"
+  psql -v ON_ERROR_STOP=1 -1 -h db -d instancecfg \
     -c "INSERT INTO files(filename, data, from_host)
       VALUES(
         '${cfg}',
-        convert_from(decode('$b64','base64'), 'utf-8'),
+        decode('$b64', 'base64'),
         '$(hostname)'
       )"
 }

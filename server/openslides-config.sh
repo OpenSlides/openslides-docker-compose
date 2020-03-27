@@ -25,13 +25,14 @@ list_configs_in_db() {
 # same as function from entrypoint, so this could be improved
 insert_config_into_db() {
   [[ -f "$1" ]] || fatal "File not found: $1"
+  local cfg b64
   local cfg="$(realpath "$1")"
-  local b64="$(base64 < "$cfg")"
-  psql -h db -d instancecfg \
+  b64="$(base64 < "$cfg")"
+  psql -v ON_ERROR_STOP=1 -1 -h db -d instancecfg \
     -c "INSERT INTO files(filename, data, from_host)
       VALUES(
         '${cfg}',
-        convert_from(decode('$b64','base64'), 'utf-8'),
+        decode('$b64', 'base64'),
         '$(hostname)'
       )"
 }
