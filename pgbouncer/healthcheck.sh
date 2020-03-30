@@ -4,11 +4,6 @@ PRIMARY=
 NEW_PRIMARY=
 OLD_PRIMARY="$(awk '$1 == "PRIMARY:" { print $2 }' /etc/primary)"
 
-update_config() {
-  printf "* = host=%s\n" "$1" |
-    tee /etc/pgbouncer/pgbouncer.database.ini
-}
-
 # Try currently configured primary
 if [[ -n "$OLD_PRIMARY" ]]; then
   echo "Trying current primary (${OLD_PRIMARY})..."
@@ -30,13 +25,12 @@ fi
 
 if [[ "$OLD_PRIMARY" != "$PRIMARY" ]]; then
   echo "Primary changed from '$OLD_PRIMARY' to '$PRIMARY'!"
-  update_config "$PRIMARY" &&
+  /usr/local/bin/update-config.sh "$PRIMARY"
   pkill -HUP pgbouncer &&
   pkill -SIGUSR2 pgbouncer # RESUME
   exit 3
 else
   echo "Primary unchanged (${PRIMARY})."
-  pkill -SIGUSR2 pgbouncer # RESUME
 fi
 
 exit 0

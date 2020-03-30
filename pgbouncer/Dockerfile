@@ -32,6 +32,7 @@ RUN mkdir -p -m 700 /var/lib/postgresql/.ssh && \
 USER postgres
 
 COPY find-primary.sh /usr/local/lib/find-primary.sh
+COPY update-config.sh /usr/local/bin/update-config.sh
 COPY healthcheck.sh /usr/local/bin/healthcheck
 HEALTHCHECK --interval=30s --timeout=10s --start-period=300s \
   CMD healthcheck || exit 1

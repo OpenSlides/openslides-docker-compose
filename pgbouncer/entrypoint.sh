@@ -8,11 +8,6 @@ SSH_CONFIG_FILES=(
   /var/lib/postgresql/.ssh/known_hosts
 )
 
-update_config() {
-  printf "* = host=%s\n" "$1" |
-    tee /etc/pgbouncer/pgbouncer.database.ini
-}
-
 # Fetch SSH files from database
 PG_NODE_LIST="${PG_NODE_LIST:-pgnode1,pgnode2,pgnode3}"
 IFS="," read -ra node_list <<< "$PG_NODE_LIST"
@@ -48,7 +43,9 @@ done
 # Set PRIMARY or exit
 . /usr/local/lib/find-primary.sh
 
-update_config "$PRIMARY"
+/usr/local/bin/update-config.sh "$PRIMARY"
+pkill -HUP pgbouncer &&
+pkill -SIGUSR2 pgbouncer # RESUME
 
 exec pgbouncer /etc/pgbouncer/pgbouncer.ini
 
