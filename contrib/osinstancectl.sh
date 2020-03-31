@@ -978,7 +978,7 @@ else
 fi
 
 DCCONFIG="${PROJECT_DIR}/docker-compose.yml"
-NGINX_TEMPLATE="${PROJECT_DIR}/contrib/nginx.conf.in"
+NGINX_TEMPLATE="${NGINX_TEMPLATE:-${PROJECT_DIR}/contrib/nginx.conf.in}"
 
 case "$MODE" in
   remove)
