@@ -79,7 +79,7 @@ services:
     ports:
       - "0.0.0.0:61000:80"
     deploy:
-      mode: global
+      replicas: 1
       restart_policy:
         condition: on-failure
         delay: 5s
