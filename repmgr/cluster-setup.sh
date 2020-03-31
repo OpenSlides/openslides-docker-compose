@@ -92,7 +92,11 @@ update_pgconf() {
     -c "ALTER SYSTEM SET archive_command = '/bin/true';" \
     -c "ALTER SYSTEM SET wal_log_hints = on;" \
     -c "ALTER SYSTEM SET wal_keep_segments = 10;" \
-    -c "ALTER SYSTEM SET shared_preload_libraries = 'repmgr';"
+    -c "ALTER SYSTEM SET shared_preload_libraries = 'repmgr';" \
+    -c "ALTER SYSTEM SET max_connections = 200;" \
+    -c "ALTER SYSTEM SET shared_buffers = '1GB';" \
+    -c "ALTER SYSTEM SET work_mem = '100MB';" \
+    -c "ALTER SYSTEM SET maintenance_work_mem = '256MB';"
 }
 
 enable_wal_archiving() {
