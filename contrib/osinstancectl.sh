@@ -1037,14 +1037,6 @@ unset ARGS
 # Config file
 if [[ -f "$CONFIG" ]]; then
   source "$CONFIG"
-  # For legacy settings, make sure defaults are stored in DEFAULT_* vars and
-  # that the CLI variables remain unset at this point
-  [[ -z "$DOCKER_IMAGE_NAME_OPENSLIDES" ]] ||
-    DEFAULT_DOCKER_IMAGE_NAME_OPENSLIDES="$DOCKER_IMAGE_NAME_OPENSLIDES"
-  [[ -z "$DOCKER_IMAGE_TAG_OPENSLIDES" ]] ||
-    DEFAULT_DOCKER_IMAGE_TAG_OPENSLIDES="$DOCKER_IMAGE_TAG_OPENSLIDES"
-  DOCKER_IMAGE_NAME_OPENSLIDES=
-  DOCKER_IMAGE_TAG_OPENSLIDES=
 fi
 
 # Parse options
