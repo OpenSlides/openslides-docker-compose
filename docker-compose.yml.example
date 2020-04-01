@@ -31,6 +31,7 @@ services:
       - front
       - back
     # environment:
+    #  - REDIS_REPLICAS=1
     #  - INSTANCE_IS_READONLY=1
   server:
     image: openslides/openslides:latest

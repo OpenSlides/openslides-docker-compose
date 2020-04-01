@@ -29,7 +29,8 @@ services:
     networks:
       - front
       - back
-    # environment:
+    environment:
+       - REDIS_REPLICAS=3 # must match redis-slave replicas below!
     #  - INSTANCE_IS_READONLY=1
     deploy:
       mode: global
@@ -188,6 +189,11 @@ services:
       back:
         aliases:
           - rediscache-slave
+    deploy:
+      replicas: 3 # must match REDIS_REPLICAS above!
+      restart_policy:
+        condition: on-failure
+        delay: 5s
   media:
     image: openslides/openslides-media-service:latest
     build: https://github.com/OpenSlides/openslides-media-service.git
