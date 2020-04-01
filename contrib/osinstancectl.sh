@@ -13,6 +13,7 @@ OSDIR="/srv/openslides"
 INSTANCES="${OSDIR}/docker-instances"
 DEFAULT_DOCKER_IMAGE_NAME_OPENSLIDES=openslides/openslides
 DEFAULT_DOCKER_IMAGE_TAG_OPENSLIDES=latest
+YAML_TEMPLATE= # leave empty for automatic (default)
 # If set, these variables override the defaults in the
 # docker-compose.yml.example template file.  They can be configured on the
 # command line as well as in /etc/osinstancectl.
@@ -1224,7 +1225,11 @@ case "$DEPLOYMENT_MODE" in
     PROJECT_STACK_NAME="$(echo "$PROJECT_NAME" | tr -d '.')"
     ;;
 esac
+
 DCCONFIG="${PROJECT_DIR}/${CONFIG_FILE}"
+
+DEFAULT_DCCONFIG_TEMPLATE="${PROJECT_DIR}/${CONFIG_FILE}.example"
+DCCONFIG_TEMPLATE="${YAML_TEMPLATE:-${DEFAULT_DCCONFIG_TEMPLATE}}"
 
 case "$MODE" in
   remove)
@@ -1254,7 +1259,7 @@ case "$MODE" in
     PORT=$(next_free_port)
     gen_tls_cert
     create_instance_dir
-    create_config_from_template "${PROJECT_DIR}/${CONFIG_FILE}.example" \
+    create_config_from_template "${DCCONFIG_TEMPLATE}" \
       "${PROJECT_DIR}/${CONFIG_FILE}"
     create_admin_secrets_file
     create_user_secrets_file "${OPENSLIDES_USER_FIRSTNAME}" \
@@ -1282,7 +1287,7 @@ case "$MODE" in
       DOCKER_IMAGE_TAG_OPENSLIDES="${ia[1]}"
     gen_tls_cert
     create_instance_dir
-    create_config_from_template "${CLONE_FROM_DIR}/${CONFIG_FILE}.example" \
+    create_config_from_template "${DCCONFIG_TEMPLATE}" \
       "${PROJECT_DIR}/${CONFIG_FILE}"
     clone_secrets
     clone_db
