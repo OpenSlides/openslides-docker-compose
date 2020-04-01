@@ -208,17 +208,6 @@ query_user_account_name() {
   fi
 }
 
-verify_domain() {
-  # Verify provided domain
-  local ip
-  ip=$(dig +short "$PROJECT_NAME")
-  [[ -n "$ip" ]] || fatal "Hostname not found"
-  hostname -I | grep -q -F "$ip" || {
-    fatal "$PROJECT_NAME does not point to this host.  Override with --force."
-    return 3
-  }
-}
-
 next_free_port() {
   # Select new port
   #
@@ -1198,7 +1187,6 @@ DEPS=(
   gawk
   acmetool
   nc
-  dig
   jq
 )
 # Check dependencies
@@ -1256,7 +1244,6 @@ case "$MODE" in
   create)
     [[ -f "$CONFIG" ]] && echo "Found ${CONFIG} file." || true
     arg_check || { usage; exit 2; }
-    [[ -n "$OPT_FORCE" ]] || verify_domain
     # Use defaults in the absence of options
     [[ -n "$DOCKER_IMAGE_NAME_OPENSLIDES" ]] ||
       DOCKER_IMAGE_NAME_OPENSLIDES="$DEFAULT_DOCKER_IMAGE_NAME_OPENSLIDES"
@@ -1283,7 +1270,6 @@ case "$MODE" in
   clone)
     CLONE_FROM_DIR="${INSTANCES}/${CLONE_FROM}"
     arg_check || { usage; exit 2; }
-    [[ -n "$OPT_FORCE" ]] || verify_domain
     echo "Creating new instance: $PROJECT_NAME (based on $CLONE_FROM)"
     PORT=$(next_free_port)
     # Parse image and/or tag from original config if necessary
