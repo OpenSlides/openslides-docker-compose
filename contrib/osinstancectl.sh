@@ -1273,19 +1273,19 @@ case "$MODE" in
     query_user_account_name
     echo "Creating new instance: $PROJECT_NAME"
     PORT=$(next_free_port)
+    gen_tls_cert
     create_instance_dir
     create_config_from_template "${PROJECT_DIR}/${CONFIG_FILE}.example" \
       "${PROJECT_DIR}/${CONFIG_FILE}"
     create_admin_secrets_file
     create_user_secrets_file "${OPENSLIDES_USER_FIRSTNAME}" \
       "${OPENSLIDES_USER_LASTNAME}" "${OPENSLIDES_USER_EMAIL}"
-    gen_tls_cert
-    add_to_haproxy_cfg
     append_metadata "$PROJECT_DIR" ""
     append_metadata "$PROJECT_DIR" \
       "$(date +"%F %H:%M"): Instance created (${DEPLOYMENT_MODE})"
     [[ -z "$OPT_LOCALONLY" ]] ||
       append_metadata "$PROJECT_DIR" "No HAProxy config added (--local-only)"
+    add_to_haproxy_cfg
     ask_start
     ;;
   clone)
@@ -1302,18 +1302,18 @@ case "$MODE" in
       DOCKER_IMAGE_NAME_OPENSLIDES="${ia[0]}"
     [[ -n "$DOCKER_IMAGE_TAG_OPENSLIDES" ]] ||
       DOCKER_IMAGE_TAG_OPENSLIDES="${ia[1]}"
+    gen_tls_cert
     create_instance_dir
     create_config_from_template "${CLONE_FROM_DIR}/${CONFIG_FILE}.example" \
       "${PROJECT_DIR}/${CONFIG_FILE}"
     clone_secrets
     clone_db
-    gen_tls_cert
     instance_stop # to force pgnode1 to be restarted
-    add_to_haproxy_cfg
     append_metadata "$PROJECT_DIR" ""
     append_metadata "$PROJECT_DIR" "Cloned from $CLONE_FROM on $(date)"
     [[ -z "$OPT_LOCALONLY" ]] ||
       append_metadata "$PROJECT_DIR" "No HAProxy config added (--local-only)"
+    add_to_haproxy_cfg
     ask_start
     ;;
   list)
