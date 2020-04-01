@@ -98,7 +98,7 @@ services:
     deploy:
       replicas: 1
       placement:
-        constraints: [node.labels.openslides-db == master]
+        constraints: [node.labels.openslides-db == dbnode1]
     labels:
       org.openslides.role: "postgres"
   # pgnode2:
@@ -115,7 +115,7 @@ services:
   #   deploy:
   #     replicas: 1
   #     placement:
-  #       constraints: [node.labels.openslides-db == standby1]
+  #       constraints: [node.labels.openslides-db == dbnode2]
   #   labels:
   #     org.openslides.role: "postgres"
   # pgnode3:
@@ -135,7 +135,7 @@ services:
   #       delay: 5s
   #     replicas: 1
   #     placement:
-  #       constraints: [node.labels.openslides-db == standby2]
+  #       constraints: [node.labels.openslides-db == dbnode3]
   #   labels:
   #     org.openslides.role: "postgres"
   pgbouncer:
@@ -154,7 +154,7 @@ services:
         condition: on-failure
         delay: 5s
       placement:
-        constraints: [node.labels.openslides-db == master]
+        constraints: [node.labels.openslides-db == dbnode1]
   postfix:
     image: openslides/openslides-postfix:latest
     build: ./postfix
