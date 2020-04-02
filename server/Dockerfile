@@ -61,11 +61,11 @@ RUN umask 0222 && \
 COPY node-apt/nodesource.list /etc/apt/sources.list.d/
 COPY node-apt/nodesource.gpg.key /root/
 RUN apt-key add /root/nodesource.gpg.key
-# RUN curl -sL https://deb.nodesource.com/setup_11.x | bash -
+# RUN curl -sL https://deb.nodesource.com/setup_13.x | bash -
 RUN apt-get update && apt-get -y install nodejs
 RUN rm -rf /var/lib/apt/lists/*
 
-RUN npm install -g @angular/cli@^8
+RUN npm install -g @angular/cli@^9
 
 USER openslides
 ARG REPOSITORY_URL=https://github.com/OpenSlides/OpenSlides.git
