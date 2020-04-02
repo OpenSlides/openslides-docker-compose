@@ -165,18 +165,6 @@ if [[ ! -f "/app/personal_data/var/settings.py" ]]; then
   create_settings
 fi
 
-# Transfer file-based markers from legacy DBs to database
-if [[ -f /app/personal_data/admin-password-set ]]; then
-    psql -h db -d instancecfg -a \
-        -c "UPDATE markers SET configured = true WHERE name = 'admin'"
-    rm /app/personal_data/admin-password-set
-fi
-if [[ -f /app/personal_data/user-added ]]; then
-    psql -h db -d instancecfg -a \
-        -c "UPDATE markers SET configured = true WHERE name = 'user'"
-    rm /app/personal_data/user-added
-fi
-
 # Read config from database
 read -ra admin_marker < <(psql -h db -d instancecfg -qtAF, \
     -c "SELECT configured FROM markers WHERE name = 'admin'")
