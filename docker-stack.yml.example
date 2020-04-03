@@ -131,9 +131,6 @@ services:
   #   volumes:
   #     - "dbdata3:/var/lib/postgresql"
   #   deploy:
-  #     restart_policy:
-  #       condition: on-failure
-  #       delay: 5s
   #     replicas: 1
   #     placement:
   #       constraints: [node.labels.openslides-db == dbnode3]
@@ -153,7 +150,7 @@ services:
     deploy:
       restart_policy:
         condition: on-failure
-        delay: 5s
+        delay: 10s
       placement:
         constraints: [node.labels.openslides-db == dbnode1]
   postfix:
@@ -203,6 +200,7 @@ services:
       replicas: 25
       restart_policy:
         condition: on-failure
+        delay: 10s
     networks:
       front:
       back:
