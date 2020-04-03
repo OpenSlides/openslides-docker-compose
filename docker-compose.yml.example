@@ -30,9 +30,9 @@ services:
     networks:
       - front
       - back
-    # environment:
+    environment:
+       - DEFAULT_FROM_EMAIL="noreply@example.com"
     #  - REDIS_REPLICAS=1
-    #  - INSTANCE_IS_READONLY=1
   server:
     image: openslides/openslides:latest
     # Below is the default command.  You can uncomment it to override the

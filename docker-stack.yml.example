@@ -31,7 +31,7 @@ services:
       - back
     environment:
        - REDIS_REPLICAS=3 # must match redis-slave replicas below!
-    #  - INSTANCE_IS_READONLY=1
+       - DEFAULT_FROM_EMAIL="noreply@example.com"
     deploy:
       mode: global
       restart_policy:

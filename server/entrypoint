@@ -28,6 +28,7 @@ configure() {
   sed -i \
     -e "/EMAIL_HOST\ /s/localhost/postfix/" \
     -e "/EMAIL_PORT/s/587/25/" \
+    -e "/DEFAULT_FROM_EMAIL/s/noreply@example\.com/${DEFAULT_FROM_EMAIL:-noreply@example.com}/" \
     /app/personal_data/var/settings.py
 
   # database: use postgres service
