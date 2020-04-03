@@ -12,8 +12,17 @@ SSH_CONFIG_FILES=(
 PG_NODE_LIST="${PG_NODE_LIST:-pgnode1,pgnode2,pgnode3}"
 IFS="," read -ra node_list <<< "$PG_NODE_LIST"
 for node in "${node_list[@]}"; do
-  echo "SSH config: trying ${node}..."
-  pg_isready -h "$node" -U pgproxy -d instancecfg || { sleep 5; continue; }
+  (( n += 1 ))
+  echo "SSH config: trying ${node} (${n}/${#node_list[@]})..."
+  if ! pg_isready -h "$node" -U pgproxy -d instancecfg; then
+    if [[ $n -lt ${#node_list[@]} ]]; then
+      sleep 10
+      continue
+    else
+      echo "ERROR: Could not establish SSH connection to any Postgres node."
+      exit 3
+    fi
+  fi
 
   (
     umask 077
