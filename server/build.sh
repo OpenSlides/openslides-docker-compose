@@ -8,6 +8,7 @@ GIT_CHECKOUT="master"
 DOCKER_REPOSITORY=
 DOCKER_TAG="latest"
 CONFIG="/etc/osinstancectl"
+OPTIONS=()
 
 usage() {
   cat << EOF
@@ -21,6 +22,7 @@ Options:
   -D, --docker-repo  Specify a Docker repository
                      (default: unspecified, i.e., system default)
   -t, --tag          Tag the Docker image (default: $DOCKER_TAG)
+  --no-cache         Pass --no-cache to docker-build
 EOF
 }
 
@@ -31,7 +33,7 @@ if [[ -f "$CONFIG" ]]; then
 fi
 
 shortopt="hr:R:D:t:"
-longopt="help,revision:,repo:,docker-repo:,tag:"
+longopt="help,revision:,repo:,docker-repo:,tag:,no-cache"
 ARGS=$(getopt -o "$shortopt" -l "$longopt" -n "$ME" -- "$@")
 if [ $? -ne 0 ]; then usage; exit 1; fi
 eval set -- "$ARGS";
@@ -55,6 +57,10 @@ while true; do
     -t|--tag)
       DOCKER_TAG="$2"
       shift 2
+      ;;
+    --no-cache)
+      OPTIONS+="--no-cache"
+      shift 1
       ;;
     -h|--help) usage; exit 0 ;;
     --) shift ; break ;;
@@ -88,6 +94,7 @@ docker build \
   --build-arg "GIT_CHECKOUT=${GIT_CHECKOUT}" \
   --tag "$IMG" \
   --pull \
+  "${OPTIONS[@]}" \
   .
 set +x
 
