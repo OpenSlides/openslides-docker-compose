@@ -357,11 +357,14 @@ gen_tls_cert() {
 add_to_haproxy_cfg() {
   [[ -z "$OPT_LOCALONLY" ]] || return 0
   cp -f /etc/haproxy/haproxy.cfg /etc/haproxy/haproxy.cfg.osbak &&
-  gawk -v target="${PROJECT_NAME}" -v port="${PORT}" '
+  gawk -v target="${PROJECT_NAME}" -v port="${PORT}" -v www="${OPT_WWW}" '
     BEGIN {
       begin_block = "-----BEGIN AUTOMATIC OPENSLIDES CONFIG-----"
       end_block   = "-----END AUTOMATIC OPENSLIDES CONFIG-----"
-      use_server_tmpl = "\tuse-server %s if { ssl_fc_sni_end -i %s }"
+      use_server_tmpl = "\tuse-server %s if { ssl_fc_sni -i %s }"
+      if ( www == 1 ) {
+        use_server_tmpl = "\tuse-server %s if { ssl_fc_sni_reg -i (www\\.)?%s }"
+      }
       server_tmpl     = "\tserver     %s 127.1:%d  weight 0 check"
     }
     $0 ~ begin_block { b = 1 }
