@@ -37,6 +37,12 @@ POSTGRES_NAME="$(docker ps -q --filter id="$PRIOSERVER" \
 [[ -n "$PRIOSERVER" ]] || fatal "Service prioserver must be running"
 [[ -n "$POSTGRES" ]]   || fatal "Service postgres must be running"
 
+# Test if mediafiles can be exported
+docker-compose exec prioserver \
+  python manage.py export_mediafiles --help > /dev/null ||
+fatal "This version of OpenSlides does not support the export_mediafiles command." \
+  "Please upgrade first."
+
 ###############
 # Openslides DB
 ###############
