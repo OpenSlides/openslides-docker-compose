@@ -43,8 +43,9 @@ the Docker Compose setup, this configuration will most likely need to be
 customized, especially its placement constraints and database-related
 preferences.
 
-Before deploying an instance on Swarm, please see [Database Configuration] and
-[Backups], and review your `docker-stack.yml`.
+Before deploying an instance on Swarm, please see [Database
+Configuration](#database-configuration) and [Backups](#backups), and review
+your `docker-stack.yml`.
 
 
 ## Configuration
@@ -86,7 +87,7 @@ All important data is stored in the database.  Additionally, the project
 directory should be included in backups to ensure a smooth recovery.
 
 The primary database usually runs in the `pgnode1` service (but see [Database
-Configuration] above).
+Configuration](#database-configuration) above).
 
 In some cases, it may be sufficient to generate SQL dumps with `pg_dump`
 through `docker exec` to create backups.  However, for proper incremental
