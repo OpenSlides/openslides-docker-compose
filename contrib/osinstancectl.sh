@@ -463,7 +463,7 @@ image_from_yaml() {
     BEGIN {FS=":"}
     $0 ~ /^  (prio)?server:$/ {s=1}
     $1 ~ /image/ && s { printf("%s\n%s\n", $2, $3); exit; }
-    ' "${instance}/${CONFIG_FILE}"
+    ' "${instance}/${CONFIG_FILE}" | tr -d ' '
 }
 
 highlight_match() {
@@ -953,11 +953,19 @@ instance_update() {
       local force_opt=
       [[ -z "$OPT_FORCE" ]] || local force_opt="--force"
       source "${PROJECT_DIR}/.env"
-      # docker stack deploy -c "${PROJECT_DIR}/docker-stack.yml" "$STACK_NAME"
+      # Parse image and/or tag from original config if necessary
+      ia=()
+      readarray -n 2 -t ia < <(image_from_yaml "$PROJECT_DIR")
+      [[ -n "$DOCKER_IMAGE_NAME_OPENSLIDES" ]] ||
+        DOCKER_IMAGE_NAME_OPENSLIDES="${ia[0]}"
+      [[ -n "$DOCKER_IMAGE_TAG_OPENSLIDES" ]] ||
+        DOCKER_IMAGE_TAG_OPENSLIDES="${ia[1]}"
       for i in prioserver server; do
         if docker service ls --format '{{.Name}}' | grep -q "${PROJECT_STACK_NAME}_${i}"
         then
-          docker service update $force_opt "${PROJECT_STACK_NAME}_${i}"
+          docker service update --image \
+            "${DOCKER_IMAGE_NAME_OPENSLIDES}:${DOCKER_IMAGE_TAG_OPENSLIDES}" \
+            $force_opt "${PROJECT_STACK_NAME}_${i}"
         else
           echo "WARN: ${PROJECT_STACK_NAME}_${i} is not running."
         fi
@@ -1283,7 +1291,6 @@ case "$MODE" in
     # Parse image and/or tag from original config if necessary
     ia=()
     readarray -n 2 -t ia < <(image_from_yaml "$CLONE_FROM_DIR")
-    for i in "${ia[@]}"; do echo "$i"; done
     [[ -n "$DOCKER_IMAGE_NAME_OPENSLIDES" ]] ||
       DOCKER_IMAGE_NAME_OPENSLIDES="${ia[0]}"
     [[ -n "$DOCKER_IMAGE_TAG_OPENSLIDES" ]] ||
