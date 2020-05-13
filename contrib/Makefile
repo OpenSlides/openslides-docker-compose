@@ -23,3 +23,5 @@ install:
 	  $(dest_bindir)/openslides-pg-mgr
 	$(INSTALL) -pm 0755 openslides-repmgr-status.sh \
 	  $(dest_bindir)/openslides-repmgr-status
+	$(INSTALL) -pm 0755 openslides-bulk-update.sh \
+	  $(dest_bindir)/openslides-bulk-update
