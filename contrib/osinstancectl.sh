@@ -93,6 +93,7 @@ Actions:
   update               Update OpenSlides to a new --image
   erase                Remove an instance's volumes (stops the instance if
                        necessary)
+  vicfg                Open settings.py for editing
 
 Options:
   -d, --project-dir    Directly specify the project directory
@@ -158,7 +159,7 @@ arg_check() {
     fatal "Please specify a project name"; return 2;
   }
   case "$MODE" in
-    "start" | "stop" | "remove" | "erase" | "update")
+    "start" | "stop" | "remove" | "erase" | "update" | "vicfg")
       [[ -d "$PROJECT_DIR" ]] || {
         fatal "Instance '${PROJECT_NAME}' not found."
       }
@@ -976,6 +977,59 @@ instance_update() {
     "${DOCKER_IMAGE_NAME_OPENSLIDES}:${DOCKER_IMAGE_TAG_OPENSLIDES}"
 }
 
+instance_config() {
+  local start
+  local container_cmd
+  container_cmd='vim personal_data/var/settings.py &&
+    read -p "Commit new settings to database? [Y/n] " commit &&
+    case "$commit" in
+      Y|y|Yes|yes|YES|"") NO_HINT=1 openslides-config add personal_data/var/settings.py ;;
+      *) exit 5 ;;
+    esac'
+  case "$DEPLOYMENT_MODE" in
+    "compose")
+        _docker_compose "$PROJECT_DIR" exec prioserver bash -c "$container_cmd"
+        read -p "Update server containers now? [Y/n] " start
+        case "$start" in
+          Y|y|Yes|yes|YES|"")
+            docker-compose up -d --force-recreate --no-deps server prioserver ;;
+          *)
+            echo "Not updating containers." ;;
+        esac
+        ;;
+    "stack")
+      local servicename
+      local this_node_id
+      local this_node_name
+      local taskid
+      local containerid
+      servicename="${PROJECT_STACK_NAME}_prioserver"
+      read -r this_node_id this_node_name <<< "$(docker node ls \
+        --format '{{.Self}}\t{{.ID}}\t{{.Hostname}}' |
+        awk '$1 == "true" { print $2, $3 }')"
+      taskid="$(docker service ps --format '{{.ID}}\t{{.Node}}' "${servicename}" |
+        awk -v this_node="${this_node_name}" '$2 == this_node { print $1; exit }')"
+      [[ -n "${taskid}" ]] || {
+        echo "ERROR: No $servicename is running on this node"
+        exit 4
+      }
+      containerid="$(docker inspect -f '{{.Status.ContainerStatus.ContainerID}}' \
+        ${taskid})"
+      docker exec -it -e "STACK=${PROJECT_STACK_NAME}" "${containerid}" bash -c "$container_cmd"
+      read -p "Update server containers now? [Y/n] " start
+      case "$start" in
+        Y|y|Yes|yes|YES|"")
+          docker service update --force ${PROJECT_STACK_NAME}_prioserver
+          docker service update --force ${PROJECT_STACK_NAME}_server
+          ;;
+        *)
+          echo "Not updating containers." ;;
+      esac
+      ;;
+  esac
+}
+
+
 # Use GNU parallel if found
 if [[ -f /usr/bin/env_parallel.bash ]]; then
   source /usr/bin/env_parallel.bash
@@ -1174,6 +1228,11 @@ for arg; do
       }
       shift 1
       ;;
+    vicfg)
+      [[ -z "$MODE" ]] || { usage; exit 2; }
+      MODE=vicfg
+      shift 1
+      ;;
     *)
       # The final argument should be the project name/search pattern
       PROJECT_NAME="$arg"
@@ -1335,6 +1394,10 @@ case "$MODE" in
     [[ -f "$CONFIG" ]] && echo "Found ${CONFIG} file." || true
     arg_check || { usage; exit 2; }
     instance_update
+    ;;
+  vicfg)
+    arg_check || { usage; exit 2; }
+    instance_config
     ;;
   *)
     fatal "Missing command.  Please consult $ME --help."

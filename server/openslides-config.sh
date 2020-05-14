@@ -59,6 +59,7 @@ case "$1" in
       insert_config_into_db "$i"
     done
 
+    [[ "$NO_HINT" -ne 1 ]] || exit 0
     cat << EOF
 Hint: to force an update on all server containers:
 
