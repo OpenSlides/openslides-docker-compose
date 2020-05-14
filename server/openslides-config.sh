@@ -66,8 +66,8 @@ Hint: to force an update on all server containers:
   docker-compose up -d --force-recreate --no-deps server prioserver
 
 - for Docker Swarm services:
-  docker service update --force \$stack_server &&
-  docker service update --force \$stack_prioserver
+  docker service update --force ${STACK:-<stackname>}_server &&
+  docker service update --force ${STACK:-<stackname>}_prioserver
 EOF
     ;;
   "connect")
