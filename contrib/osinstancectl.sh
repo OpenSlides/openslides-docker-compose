@@ -566,6 +566,7 @@ ls_instance() {
       local OPENSLIDES_USER_FIRSTNAME=
       local OPENSLIDES_USER_LASTNAME=
       local OPENSLIDES_USER_PASSWORD=
+      local OPENSLIDES_USER_EMAIL=
       source "${instance}/secrets/${USER_SECRETS_FILE}"
       if [[ -n "${OPENSLIDES_USER_FIRSTNAME}" ]] &&
           [[ -n "${OPENSLIDES_USER_LASTNAME}" ]]; then
@@ -611,6 +612,7 @@ ls_instance() {
       --arg "admin"         "$OPENSLIDES_ADMIN_PASSWORD" \
       --arg "user_name"     "$user_name" \
       --arg "user_password" "$OPENSLIDES_USER_PASSWORD" \
+      --arg "user_email"    "$OPENSLIDES_USER_EMAIL" \
       --arg "metadata"      "$(printf "%s\n" "${metadata[@]}")" \
       --arg "image_info"    "$image_info" \
       '{
@@ -626,7 +628,8 @@ ls_instance() {
             admin:     $admin,
             user: {
               user_name:    $user_name,
-              user_password: $user_password
+              user_password: $user_password,
+              user_email: $user_email
             },
             metadata: $metadata,
             image_info: $image_info
@@ -658,6 +661,8 @@ ls_instance() {
     [[ -n "$user_name" ]] &&
       printf "   ├ %-12s \"%s\" : %s\n" \
         "Login:" "$user_name" "$OPENSLIDES_USER_PASSWORD"
+    [[ -n "$OPENSLIDES_USER_EMAIL" ]] &&
+      printf "   ├ %-12s %s\n" "Contact:" "$OPENSLIDES_USER_EMAIL"
   fi
 
   # --metadata
