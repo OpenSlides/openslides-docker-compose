@@ -152,7 +152,7 @@ services:
         condition: on-failure
         delay: 10s
       placement:
-        constraints: [node.labels.openslides-db == dbnode1]
+        constraints: [node.role == manager]
   postfix:
     image: openslides/openslides-postfix:latest
     build: ./postfix
