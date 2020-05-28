@@ -65,6 +65,7 @@ JQ="jq --monochrome-output"
 
 # Internal options
 OPT_USE_PARALLEL=
+OPT_PRECISE_PROJECT_NAME=
 
 enable_color() {
   NCOLORS=$(tput colors) # no. of colors
@@ -1283,6 +1284,9 @@ elif [[ "$PROJECT_NAME" = "." ]]; then
   PROJECT_NAME="$(basename "$(readlink -f "$PROJECT_NAME")")"
   PROJECT_DIR="${INSTANCES}/${PROJECT_NAME}"
   OPT_METADATA_SEARCH=
+  # Signal that the project name is based on the directory and could be
+  # transformed into a more precise regexp internally:
+  OPT_PRECISE_PROJECT_NAME=1
 else
   PROJECT_DIR="${INSTANCES}/${PROJECT_NAME}"
 fi
@@ -1374,6 +1378,7 @@ case "$MODE" in
     ask_start
     ;;
   list)
+    [[ -z "$OPT_PRECISE_PROJECT_NAME" ]] || PROJECT_NAME="^${PROJECT_NAME}$"
     list_instances
     ;;
   start)
