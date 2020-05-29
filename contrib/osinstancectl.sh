@@ -14,6 +14,7 @@ INSTANCES="${OSDIR}/docker-instances"
 DEFAULT_DOCKER_IMAGE_NAME_OPENSLIDES=openslides/openslides
 DEFAULT_DOCKER_IMAGE_TAG_OPENSLIDES=latest
 YAML_TEMPLATE= # leave empty for automatic (default)
+HOOKS_DIR=
 # If set, these variables override the defaults in the
 # docker-compose.yml.example template file.  They can be configured on the
 # command line as well as in /etc/osinstancectl.
@@ -1035,6 +1036,21 @@ instance_config() {
   esac
 }
 
+run_hook() (
+  local hook hook_name
+  [[ -d "$HOOKS_DIR" ]] || return 0
+  hook_name="$1"
+  hook="${HOOKS_DIR}/${hook_name}"
+  shift
+  if [[ -x "$hook" ]]; then
+    cd "$PROJECT_DIR"
+    echo "INFO: Running $hook_name hook..."
+    set +eu
+    . "$hook"
+    set -eu
+  fi
+  )
+
 
 # Use GNU parallel if found
 if [[ -f /usr/bin/env_parallel.bash ]]; then
@@ -1324,6 +1340,7 @@ case "$MODE" in
     read -rp "Really delete? (uppercase YES to confirm) " ANS
     [[ "$ANS" = "YES" ]] || exit 0
     remove "$PROJECT_NAME"
+    run_hook "post-${MODE}"
     ;;
   create)
     [[ -f "$CONFIG" ]] && echo "Found ${CONFIG} file." || true
@@ -1349,6 +1366,7 @@ case "$MODE" in
     [[ -z "$OPT_LOCALONLY" ]] ||
       append_metadata "$PROJECT_DIR" "No HAProxy config added (--local-only)"
     add_to_haproxy_cfg
+    run_hook "post-${MODE}"
     ask_start
     ;;
   clone)
@@ -1375,6 +1393,7 @@ case "$MODE" in
     [[ -z "$OPT_LOCALONLY" ]] ||
       append_metadata "$PROJECT_DIR" "No HAProxy config added (--local-only)"
     add_to_haproxy_cfg
+    run_hook "post-${MODE}"
     ask_start
     ;;
   list)
@@ -1383,10 +1402,14 @@ case "$MODE" in
     ;;
   start)
     arg_check || { usage; exit 2; }
-    instance_start ;;
+    instance_start
+    run_hook "post-${MODE}"
+    ;;
   stop)
     arg_check || { usage; exit 2; }
-    instance_stop ;;
+    instance_stop
+    run_hook "post-${MODE}"
+    ;;
   erase)
     arg_check || { usage; exit 2; }
     # Ask for confirmation
@@ -1399,11 +1422,13 @@ case "$MODE" in
     read -rp "Really delete? (uppercase YES to confirm) " ANS
     [[ "$ANS" = "YES" ]] || exit 0
     instance_erase
+    run_hook "post-${MODE}"
     ;;
   update)
     [[ -f "$CONFIG" ]] && echo "Found ${CONFIG} file." || true
     arg_check || { usage; exit 2; }
     instance_update
+    run_hook "post-${MODE}"
     ;;
   vicfg)
     arg_check || { usage; exit 2; }
