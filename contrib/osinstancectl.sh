@@ -924,11 +924,12 @@ instance_erase() {
 }
 
 instance_update() {
-  if grep -q 'context: ./server' "${DCCONFIG}"; then
+  # Try to identify incompatible configuration files
+  if ! grep -q '&default-osserver' "${DCCONFIG}"; then
     fatal 'This appears to be a legacy configuration file.' \
-      'Please update it by specifying an "image" node for the server services,' \
-      'and remove the "build" nodes, c.f. the provided example file.'
+      'Please update it by comparing it to the provided example file.'
   fi
+  #
   gawk -v image="$DOCKER_IMAGE_NAME_OPENSLIDES" \
       -v tag="$DOCKER_IMAGE_TAG_OPENSLIDES" '
     BEGIN {FS=":"; OFS=FS}
