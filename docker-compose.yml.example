@@ -31,7 +31,7 @@ services:
       - front
       - back
     environment:
-       - DEFAULT_FROM_EMAIL="noreply@example.com"
+       - DEFAULT_FROM_EMAIL=noreply@example.com
     #  - REDIS_REPLICAS=1
   server:
     image: openslides/openslides:latest
