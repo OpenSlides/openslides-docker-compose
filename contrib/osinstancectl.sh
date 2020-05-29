@@ -252,7 +252,7 @@ create_config_from_template() {
   gawk -v port="${PORT}" -v image="$DOCKER_IMAGE_NAME_OPENSLIDES" \
       -v tag="$DOCKER_IMAGE_TAG_OPENSLIDES" '
     BEGIN {FS=":"; OFS=FS}
-    $0 ~ /^  (prio)?server:$/ {s=1}
+    $0 ~ /^x-osserver:$/ {s=1}
     image != "" && $1 ~ /image/ && s { $2 = " " image; $3 = tag; s=0 }
 
     $0 ~ / +ports:$/ { # enter ports section
@@ -454,6 +454,7 @@ ping_instance_websocket() {
 }
 
 value_from_yaml() {
+  # XXX: Not a generic function yet; first match wins!
   instance="$1"
   awk -v m="^ *${2}:$" \
     '$1 ~ m { print $2; exit; }' \
@@ -464,7 +465,7 @@ image_from_yaml() {
   instance="$1"
   gawk '
     BEGIN {FS=":"}
-    $0 ~ /^  (prio)?server:$/ {s=1}
+    $0 ~ /^x-osserver:$/ {s=1}
     $1 ~ /image/ && s { printf("%s\n%s\n", $2, $3); exit; }
     ' "${instance}/${CONFIG_FILE}" | tr -d ' '
 }
@@ -931,7 +932,7 @@ instance_update() {
   gawk -v image="$DOCKER_IMAGE_NAME_OPENSLIDES" \
       -v tag="$DOCKER_IMAGE_TAG_OPENSLIDES" '
     BEGIN {FS=":"; OFS=FS}
-    $0 ~ /^  (prio)?server:$/ {i=1; t=1}
+    $0 ~ /^x-osserver:$/ {i=1; t=1}
     image != "" && $1 ~ /image/ && i { $2 = " " image; i=0 }
     tag != "" && $1 ~ /image/ && t { $3 = tag; t=0 }
     1
