@@ -42,11 +42,6 @@ services:
       - os_user
     command: "gunicorn -w 1 --preload -b 0.0.0.0:8000
       -k uvicorn.workers.UvicornWorker openslides.asgi:application"
-    depends_on:
-      - postfix
-      - pgbouncer
-      - redis
-      - redis-slave
     deploy:
       mode: global
       restart_policy:
@@ -61,11 +56,6 @@ services:
     #
     # Uncomment the following line to use daphne instead of gunicorn:
     # command: "daphne -b 0.0.0.0 -p 8000 openslides.asgi:application"
-    depends_on:
-      - prioserver
-      - pgbouncer
-      - redis
-      - redis-slave
     environment:
       # With this variable set this service will not attempt to prepare the
       # instance by, e.g., running migations.  This is exclusively left up to
@@ -84,8 +74,6 @@ services:
         target: "/usr/share/nginx/html"
         volume:
           nocopy: true
-    depends_on:
-      - prioserver
     networks:
       - front
     ports:

@@ -59,9 +59,6 @@ services:
     # command: "daphne -b 0.0.0.0 -p 8000 openslides.asgi:application"
     depends_on:
       - prioserver
-      - pgbouncer
-      - redis
-      - redis-slave
     environment:
       # With this variable set this service will not attempt to prepare the
       # instance by, e.g., running migations.  This is exclusively left up to
@@ -79,6 +76,7 @@ services:
           nocopy: true
     depends_on:
       - prioserver
+      - server
     networks:
       - front
     ports:
@@ -141,6 +139,8 @@ services:
     image: redis:alpine
     restart: always
     command: ["redis-server", "--save", "", "--slaveof", "redis", "6379"]
+    depends_on:
+      - redis
     networks:
       back:
         aliases:
