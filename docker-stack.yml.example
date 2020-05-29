@@ -179,13 +179,16 @@ services:
     environment:
       - CHECK_REQUEST_URL=server:8000/check-media/
     deploy:
-      replicas: 25
+      replicas: 8
       restart_policy:
         condition: on-failure
         delay: 10s
     networks:
       front:
       back:
+    # Override command to run more workers per task
+    # command: ["gunicorn", "-w", "4", "--preload", "-b",
+    #   "0.0.0.0:8000", "src.mediaserver:app"]
 
 volumes:
   dbdata1:
