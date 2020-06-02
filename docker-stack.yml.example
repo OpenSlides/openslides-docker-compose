@@ -1,5 +1,21 @@
 version: '3.4'
 
+x-osserver:
+  &default-osserver
+  image: openslides/openslides:latest
+  environment:
+      DEFAULT_FROM_EMAIL: "noreply@example.com"
+      REDIS_REPLICAS: 3 # must match redis-slave replicas below!
+      SERVER_IS_SECONDARY: # unset
+  volumes:
+    - type: volume
+      source: "staticfiles"
+      target: "/app/openslides/static"
+      volume:
+        nocopy: true
+  networks:
+    - front
+    - back
 x-pgnode: &default-pgnode
   image: openslides/openslides-repmgr:latest
   build: ./repmgr
@@ -20,39 +36,24 @@ services:
     # the direct access to this service's resources is only granted to select,
     # prioritized OpenSlides users or groups.  The general workload is handled
     # by the regular "server" service below.
-    # It will share all the same resources (DB, Redis, static files)
-    # as the regular server, so it is crucial that it is always kept at
-    # compatible versions.
-    image: openslides/openslides:latest
+    << : *default-osserver
     secrets:
       - os_admin
       - os_user
     command: "gunicorn -w 1 --preload -b 0.0.0.0:8000
       -k uvicorn.workers.UvicornWorker openslides.asgi:application"
-    volumes:
-      - type: volume
-        source: "staticfiles"
-        target: "/app/openslides/static"
-        volume:
-          nocopy: true
     depends_on:
       - postfix
       - pgbouncer
       - redis
       - redis-slave
-    networks:
-      - front
-      - back
-    environment:
-       - REDIS_REPLICAS=3 # must match redis-slave replicas below!
-       - DEFAULT_FROM_EMAIL=noreply@example.com
     deploy:
       mode: global
       restart_policy:
         condition: on-failure
         delay: 5s
   server:
-    image: openslides/openslides:latest
+    << : *default-osserver
     # Below is the default command.  You can uncomment it to override the
     # number of workers, for example:
     # command: "gunicorn -w 8 --preload -b 0.0.0.0:8000
@@ -65,16 +66,12 @@ services:
       - pgbouncer
       - redis
       - redis-slave
-    networks:
-      - front
-      - back
     environment:
       # With this variable set this service will not attempt to prepare the
       # instance by, e.g., running migations.  This is exclusively left up to
       # the main service to avoid conflicts.
-      - SERVER_IS_SECONDARY=1
+      SERVER_IS_SECONDARY: 1
     deploy:
-      replicas: 1
       restart_policy:
         condition: on-failure
         delay: 5s
