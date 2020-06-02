@@ -1,4 +1,18 @@
 version: '3.4'
+
+x-pgnode:
+  &default-pgnode
+  image: openslides/openslides-repmgr:latest
+  build: ./repmgr
+  networks:
+    - dbnet
+  labels:
+    org.openslides.role: "postgres"
+  restart: always
+x-pgnode-env: &default-pgnode-env
+  REPMGR_RECONNECT_ATTEMPTS: 30
+  REPMGR_RECONNECT_INTERVAL: 10
+
 services:
   prioserver:
     # This service is the main server service in that it is responsible for
@@ -75,50 +89,32 @@ services:
       - front
     ports:
       - "127.0.0.1:61000:80"
+
   pgnode1:
+    << : *default-pgnode
     environment:
-      - REPMGR_NODE_ID=1
-      - REPMGR_PRIMARY= # This *is* the primary
-      - REPMGR_RECONNECT_ATTEMPTS=30
-      - REPMGR_RECONNECT_INTERVAL=10
-    image: openslides/openslides-repmgr:latest
-    build: ./repmgr
-    restart: always
-    networks:
-      - dbnet
+      << : *default-pgnode-env
+      REPMGR_NODE_ID: 1
+      REPMGR_PRIMARY: # empty; this *is* the primary
     volumes:
       - "dbdata1:/var/lib/postgresql"
-    labels:
-      org.openslides.role: "postgres"
   # pgnode2:
+  #   << : *default-pgnode
   #   environment:
-  #     - REPMGR_NODE_ID=2
-  #     - REPMGR_PRIMARY=pgnode1
-  #     - REPMGR_RECONNECT_ATTEMPTS=30
-  #     - REPMGR_RECONNECT_INTERVAL=10
-  #
-  #   image: openslides/openslides-repmgr:latest
-  #   restart: always
-  #   networks:
-  #     - dbnet
+  #     << : *default-pgnode-env
+  #     REPMGR_NODE_ID: 2
+  #     REPMGR_PRIMARY: pgnode1
   #   volumes:
   #     - "dbdata2:/var/lib/postgresql"
-  #   labels:
-  #     org.openslides.role: "postgres"
   # pgnode3:
+  #   << : *default-pgnode
   #   environment:
-  #     - REPMGR_NODE_ID=3
-  #     - REPMGR_PRIMARY=pgnode1
-  #     - REPMGR_RECONNECT_ATTEMPTS=30
-  #     - REPMGR_RECONNECT_INTERVAL=10
-  #   image: openslides/openslides-repmgr:latest
-  #   restart: always
-  #   networks:
-  #     - dbnet
+  #     << : *default-pgnode-env
+  #     REPMGR_NODE_ID: 3
+  #     REPMGR_PRIMARY: pgnode1
   #   volumes:
   #     - "dbdata3:/var/lib/postgresql"
-  #   labels:
-  #     org.openslides.role: "postgres"
+
   pgbouncer:
     # environment:
     #   - PG_NODE_LIST=pgnode1,pgnode2,pgnode3
@@ -164,15 +160,18 @@ services:
     networks:
       front:
       back:
+
 volumes:
   dbdata1:
   dbdata2:
   dbdata3:
   staticfiles:
+
 networks:
   front:
   back:
   dbnet:
+
 secrets:
   os_admin:
     file: ./secrets/adminsecret.env

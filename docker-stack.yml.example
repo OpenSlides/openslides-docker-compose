@@ -1,4 +1,18 @@
 version: '3.4'
+
+x-pgnode: &default-pgnode
+  image: openslides/openslides-repmgr:latest
+  build: ./repmgr
+  networks:
+    - dbnet
+  labels:
+    org.openslides.role: "postgres"
+  deploy:
+    replicas: 1
+x-pgnode-env: &default-pgnode-env
+  REPMGR_RECONNECT_ATTEMPTS: 30
+  REPMGR_RECONNECT_INTERVAL: 10
+
 services:
   prioserver:
     # This service is the main server service in that it is responsible for
@@ -84,58 +98,41 @@ services:
       restart_policy:
         condition: on-failure
         delay: 5s
+
   pgnode1:
+    << : *default-pgnode
     environment:
-      - REPMGR_NODE_ID=1
-      - REPMGR_PRIMARY= # This *is* the primary
-      - REPMGR_RECONNECT_ATTEMPTS=30
-      - REPMGR_RECONNECT_INTERVAL=10
-    image: openslides/openslides-repmgr:latest
-    build: ./repmgr
-    networks:
-      - dbnet
-    volumes:
-      - "dbdata1:/var/lib/postgresql"
+      << : *default-pgnode-env
+      REPMGR_NODE_ID: 1
+      REPMGR_PRIMARY:  # This *is* the primary
     deploy:
-      replicas: 1
       placement:
         constraints: [node.labels.openslides-db == dbnode1]
-    labels:
-      org.openslides.role: "postgres"
+    volumes:
+      - "dbdata1:/var/lib/postgresql"
   # pgnode2:
+  #   << : *default-pgnode
   #   environment:
-  #     - REPMGR_NODE_ID=2
-  #     - REPMGR_PRIMARY=pgnode1
-  #     - REPMGR_RECONNECT_ATTEMPTS=30
-  #     - REPMGR_RECONNECT_INTERVAL=10
-  #   image: openslides/openslides-repmgr:latest
-  #   networks:
-  #     - dbnet
-  #   volumes:
-  #     - "dbdata2:/var/lib/postgresql"
+  #     << : *default-pgnode-env
+  #     REPMGR_NODE_ID: 2
+  #     REPMGR_PRIMARY: pgnode1
   #   deploy:
-  #     replicas: 1
   #     placement:
   #       constraints: [node.labels.openslides-db == dbnode2]
-  #   labels:
-  #     org.openslides.role: "postgres"
-  # pgnode3:
-  #   environment:
-  #     - REPMGR_NODE_ID=3
-  #     - REPMGR_PRIMARY=pgnode1
-  #     - REPMGR_RECONNECT_ATTEMPTS=30
-  #     - REPMGR_RECONNECT_INTERVAL=10
-  #   image: openslides/openslides-repmgr:latest
-  #   networks:
-  #     - dbnet
   #   volumes:
-  #     - "dbdata3:/var/lib/postgresql"
+  #     - "dbdata2:/var/lib/postgresql"
+  # pgnode3:
+  #   << : *default-pgnode
+  #   environment:
+  #     << : *default-pgnode-env
+  #     REPMGR_NODE_ID: 3
+  #     REPMGR_PRIMARY: pgnode1
   #   deploy:
-  #     replicas: 1
   #     placement:
   #       constraints: [node.labels.openslides-db == dbnode3]
-  #   labels:
-  #     org.openslides.role: "postgres"
+  #   volumes:
+  #     - "dbdata3:/var/lib/postgresql"
+
   pgbouncer:
     # environment:
     #   - PG_NODE_LIST=pgnode1,pgnode2,pgnode3
@@ -204,11 +201,13 @@ services:
     networks:
       front:
       back:
+
 volumes:
   dbdata1:
   dbdata2:
   dbdata3:
   staticfiles:
+
 networks:
   front:
   back:
@@ -217,6 +216,7 @@ networks:
   dbnet:
     driver_opts:
       encrypted: ""
+
 secrets:
   os_admin:
     file: ./secrets/adminsecret.env
