@@ -83,6 +83,23 @@ EOF
 
 }
 
+configure_users_configvars() {
+  [[ -n "$INSTANCE_DOMAIN" ]] || return 0
+  local config="openslides/users/config_variables.py"
+  local default_setting="http://example.com:8000"
+  echo "Updating ${config}..."
+  awk -v def="$default_setting" -v instance="$INSTANCE_DOMAIN" '
+    # set users_pdf_url
+    $1 ~ /users_pdf_url/ {
+      print;
+      getline;
+      $0 = sprintf("        default_value=\"%s\",", instance)
+    }
+    1
+  ' "${config}" > "${config}.tmp" &&
+  mv -f "${config}.tmp" "${config}"
+}
+
 configure_read_only() {
   {
     echo -e '\n# Read-only instance configuration'
@@ -162,6 +179,10 @@ retrieve_configs_from_db
 if [[ ! -f "/app/personal_data/var/settings.py" ]]; then
   # this container is the first to generate settings.py
   echo "settings.py not found in database."
+
+  # Update defaults prior to create_settings()
+  configure_users_configvars
+
   echo "Generating a new settings.py from template..."
   create_settings
 fi
