@@ -68,8 +68,12 @@ configure() {
     -e "/^DEBUG/s/True/False/" \
     /app/personal_data/var/settings.py
 
-  # Mediafile database settings
+  # Additional settings not included in default template
   cat >> /app/personal_data/var/settings.py << EOF
+
+# Additional settings added by entrypoint
+AUTOUPDATE_DELAY = 1
+WAIT_TIMEOUT = 10000
 
 DATABASES['mediafiles'] = {
     'ENGINE': 'django.db.backends.postgresql',
