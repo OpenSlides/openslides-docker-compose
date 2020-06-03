@@ -173,6 +173,15 @@ services:
       restart_policy:
         condition: on-failure
         delay: 5s
+  redis-channels:
+    image: redis:alpine
+    networks:
+      back:
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 5s
   media:
     image: openslides/openslides-media-service:latest
     build: https://github.com/OpenSlides/openslides-media-service.git
