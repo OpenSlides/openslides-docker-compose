@@ -143,8 +143,8 @@ services:
     image: openslides/openslides-postfix:latest
     build: ./postfix
     environment:
-      - MYHOSTNAME=localhost
-      - RELAYHOST=localhost
+      MYHOSTNAME: localhost
+      RELAYHOST: localhost
     networks:
       - back
     deploy:

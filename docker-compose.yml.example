@@ -128,8 +128,8 @@ services:
     build: ./postfix
     restart: always
     environment:
-      - MYHOSTNAME=localhost
-      - RELAYHOST=localhost
+      MYHOSTNAME: localhost
+      RELAYHOST: localhost
     networks:
       - back
   redis:

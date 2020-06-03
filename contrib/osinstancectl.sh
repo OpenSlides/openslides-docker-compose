@@ -250,7 +250,7 @@ create_config_from_template() {
   local templ="$1"
   local config="$2"
   gawk -v port="${PORT}" -v image="$DOCKER_IMAGE_NAME_OPENSLIDES" \
-      -v tag="$DOCKER_IMAGE_TAG_OPENSLIDES" '
+      -v tag="$DOCKER_IMAGE_TAG_OPENSLIDES" -v domain="$PROJECT_NAME" '
     BEGIN {FS=":"; OFS=FS}
     $0 ~ /^x-osserver:$/ {s=1}
     image != "" && $1 ~ /image/ && s { $2 = " " image; $3 = tag; s=0 }
@@ -272,19 +272,23 @@ create_config_from_template() {
     }
     1
     ' "$templ" |
-  gawk -v proj="$PROJECT_NAME" -v relay="$RELAYHOST" '
-    # Configure mail relay host
-    BEGIN {FS="="; OFS=FS}
-    $1 ~ /MYHOSTNAME$/ { $2 = proj }
-    relay != "" && $1 ~ /RELAYHOST$/ { $2 = relay }
-    1
-  ' |
-  gawk -v repo="$MAIN_REPOSITORY_URL" '
-    # Configure all OpenSlides-specific images for custom Docker repository
+  gawk -v proj="$PROJECT_NAME" -v relay="$RELAYHOST" \
+      -v repo="$MAIN_REPOSITORY_URL" '
     BEGIN { FS=": "; OFS=FS; }
+
+    # update INSTANCE_DOMAIN in x-osserver-env
+    $1 ~ "INSTANCE_DOMAIN$" {
+      $2 = "\"https://" proj "\""
+    }
+
+    # Configure all OpenSlides-specific images for custom Docker repository
     repo && $1 ~ / +image/ && $2 ~ /openslides\// {
       sub(/openslides\//, repo "/", $2)
     }
+
+    # Configure mail relay host
+    $1 ~ /MYHOSTNAME$/ { $2 = "\"" proj "\"" }
+    relay != "" && $1 ~ /RELAYHOST$/ { $2 = "\"" relay "\"" }
     1
   ' > "$config"
 }
