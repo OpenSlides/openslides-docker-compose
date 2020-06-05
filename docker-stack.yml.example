@@ -65,7 +65,6 @@ services:
         delay: 5s
   client:
     image: openslides/openslides-client:latest
-    build: ./client
     networks:
       - front
     ports:

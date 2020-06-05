@@ -65,7 +65,6 @@ services:
       SERVER_IS_SECONDARY: 1
   client:
     image: openslides/openslides-client:latest
-    build: ./client
     restart: always
     depends_on:
       - prioserver
