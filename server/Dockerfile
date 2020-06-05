@@ -1,4 +1,4 @@
-FROM python:3.7-slim
+FROM python:3.7-slim AS base
 
 ENV DEBIAN_FRONTEND noninteractive
 ENV DEBIAN_PRIORITY critical
@@ -55,6 +55,23 @@ RUN umask 0222 && \
   echo 'openslides ALL=(root) NOPASSWD: /usr/local/sbin/update-openslides-app' \
   > /etc/sudoers.d/openslides
 
+# Clone OpenSlides repo
+USER openslides
+ARG REPOSITORY_URL=https://github.com/OpenSlides/OpenSlides.git
+ARG GIT_CHECKOUT=master
+RUN git clone --no-checkout -- $REPOSITORY_URL .
+RUN git checkout $GIT_CHECKOUT
+RUN rm -rf .git
+
+USER root
+RUN pip install -r requirements/production.txt -r requirements/big_mode.txt
+RUN rm -rf /root/.cache/pip
+
+# ----------------------------------------
+
+FROM base AS nodejs
+USER root
+
 # NodeJS
 # Add included apt config and OpenPGP key for increased reproducibility (avoids
 # curl/bash invocation (see below))
@@ -63,24 +80,8 @@ COPY node-apt/nodesource.gpg.key /root/
 RUN apt-key add /root/nodesource.gpg.key
 # RUN curl -sL https://deb.nodesource.com/setup_13.x | bash -
 RUN apt-get update && apt-get -y install nodejs
-RUN rm -rf /var/lib/apt/lists/*
 
 RUN npm install -g @angular/cli@^9
-
-USER openslides
-ARG REPOSITORY_URL=https://github.com/OpenSlides/OpenSlides.git
-ARG GIT_CHECKOUT=master
-RUN git clone --no-checkout -- $REPOSITORY_URL .
-RUN git checkout $GIT_CHECKOUT
-
-USER root
-RUN printf "Built on %s:\n\n Repository: %s\n Branch:     %s\n\n%s\n" \
-  "$(date)" \
-  "$REPOSITORY_URL" \
-  "$(git rev-parse --abbrev-ref HEAD)" \
-  "$(git show -s --format=raw)" > /build/image-version.txt
-RUN rm -rf .git
-RUN pip install -r requirements/production.txt -r requirements/big_mode.txt
 
 USER openslides
 RUN ng config -g cli.warnings.versionMismatch false && \
@@ -90,6 +91,20 @@ RUN cd client && \
   npm run build && \
   rm -fr /build/app/client/node_modules
 
+# ----------------------------------------
+
+FROM base AS final
+USER root
+
+COPY --from=nodejs /build /build
+
+RUN printf "Built on %s:\n\n Repository: %s\n Branch:     %s\n\n%s\n" \
+  "$(date)" \
+  "$REPOSITORY_URL" \
+  "$(git rev-parse --abbrev-ref HEAD)" \
+  "$(git show -s --format=raw)" > /build/image-version.txt
+
+USER openslides
 WORKDIR /app
 
 COPY openslides-config.sh /usr/local/bin/openslides-config
