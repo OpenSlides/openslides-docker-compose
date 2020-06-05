@@ -48,7 +48,7 @@ configure() {
 
   # Redis for Django channels
   sed -i \
-    -e "/\"hosts\":.*6379/s/localhost/redis/" \
+    -e "/\"hosts\":.*6379/s/localhost/redis-channels/" \
     /app/personal_data/var/settings.py
 
   # Redis for collection cache
