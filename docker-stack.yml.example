@@ -3,10 +3,6 @@ version: '3.4'
 x-osserver:
   &default-osserver
   image: openslides/openslides:latest
-  environment:
-      DEFAULT_FROM_EMAIL: "noreply@example.com"
-      REDIS_REPLICAS: 3 # must match redis-slave replicas below!
-      SERVER_IS_SECONDARY: # unset
   volumes:
     - type: volume
       source: "staticfiles"
@@ -16,6 +12,11 @@ x-osserver:
   networks:
     - front
     - back
+x-osserver-env: &default-osserver-env
+    DEFAULT_FROM_EMAIL: "noreply@example.com"
+    REDIS_REPLICAS: 3 # must match redis-slave replicas below!
+    INSTANCE_DOMAIN: "http://example.com:8000"
+    SERVER_IS_SECONDARY: # unset
 x-pgnode: &default-pgnode
   image: openslides/openslides-repmgr:latest
   build: ./repmgr
@@ -37,6 +38,8 @@ services:
     # prioritized OpenSlides users or groups.  The general workload is handled
     # by the regular "server" service below.
     << : *default-osserver
+    environment:
+      << : *default-osserver-env
     secrets:
       - os_admin
       - os_user
@@ -57,6 +60,7 @@ services:
     # Uncomment the following line to use daphne instead of gunicorn:
     # command: "daphne -b 0.0.0.0 -p 8000 openslides.asgi:application"
     environment:
+      << : *default-osserver-env
       # With this variable set this service will not attempt to prepare the
       # instance by, e.g., running migations.  This is exclusively left up to
       # the main service to avoid conflicts.
@@ -139,8 +143,8 @@ services:
     image: openslides/openslides-postfix:latest
     build: ./postfix
     environment:
-      - MYHOSTNAME=localhost
-      - RELAYHOST=localhost
+      MYHOSTNAME: localhost
+      RELAYHOST: localhost
     networks:
       - back
     deploy:
