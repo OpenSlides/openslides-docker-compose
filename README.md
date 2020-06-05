@@ -18,9 +18,9 @@ Next, create `docker-compose.yml` from the template:
 
     cp docker-compose.yml.example docker-compose.yml
 
-Build the OpenSlides `server` image:
+Build the OpenSlides `server` and `client` images:
 
-    ./server/build.sh
+    ./build.sh server client
 
 By default, the admin user's login password is `admin`.  You can and should
 change it before starting the instance:
