@@ -2,7 +2,7 @@ version: '3.4'
 
 x-osserver:
   &default-osserver
-  image: openslides/openslides:latest
+  image: openslides/openslides-server:latest
   volumes:
     - type: volume
       source: "staticfiles"
@@ -70,7 +70,7 @@ services:
         condition: on-failure
         delay: 5s
   client:
-    image: openslides/openslides-proxy:latest
+    image: openslides/openslides-client:latest
     build: ./client
     volumes:
       - type: volume

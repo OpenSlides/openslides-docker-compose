@@ -2,7 +2,7 @@ version: '3.4'
 
 x-osserver:
   &default-osserver
-  image: openslides/openslides:latest
+  image: openslides/openslides-server:latest
   volumes:
     - type: volume
       source: "staticfiles"
@@ -70,7 +70,7 @@ services:
       # the main service to avoid conflicts.
       SERVER_IS_SECONDARY: 1
   client:
-    image: openslides/openslides-proxy:latest
+    image: openslides/openslides-client:latest
     build: ./client
     restart: always
     volumes:
