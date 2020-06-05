@@ -2,7 +2,6 @@
 
 set -e
 
-IMG_NAME="openslides"
 REPOSITORY_URL="https://github.com/OpenSlides/OpenSlides.git"
 GIT_CHECKOUT="master"
 DOCKER_REPOSITORY="openslides"
@@ -68,13 +67,14 @@ while true; do
   esac
 done
 
-DIR="$1"
+DIR="$2"
 if [[ -d "$DIR" ]]; then
   cd "$DIR"
 else
-  cd "$(dirname ${BASH_SOURCE[0]})"
+  cd "$(dirname ${BASH_SOURCE[0]})/${1}"
 fi
 
+IMG_NAME="openslides-${1}"
 IMG="${IMG_NAME}:${DOCKER_TAG}"
 if [[ -n "$DOCKER_REPOSITORY" ]]; then
   IMG="${DOCKER_REPOSITORY}/${IMG}"
