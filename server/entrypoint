@@ -157,8 +157,6 @@ create_settings() {
 }
 
 
-sudo /usr/local/sbin/update-openslides-app
-
 # Enable OpenSlides-specific DEBUG output
 export OPENSLIDES_LOG_LEVEL=DEBUG
 

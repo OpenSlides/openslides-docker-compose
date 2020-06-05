@@ -9,10 +9,10 @@ ENV APT_KEY_DONT_WARN_ON_DANGEROUS_USAGE 1
 ENV DJANGO_SETTINGS_MODULE settings
 ENV PYTHONPATH personal_data/var/
 
-RUN mkdir -p /build/app
-WORKDIR /build/app
+RUN mkdir -p /app
+WORKDIR /app
 RUN useradd -m openslides
-RUN chown -R openslides /build/app
+RUN chown -R openslides /app
 
 RUN apt-get -y update && apt-get -y upgrade && \
   apt-get install --no-install-recommends -y \
@@ -27,7 +27,6 @@ RUN apt-get -y update && apt-get -y upgrade && \
     make \
     postgresql-client \
     rsync \
-    sudo \
     wait-for-it \
     wget \
     xz-utils
@@ -48,64 +47,26 @@ RUN apt-get install --no-install-recommends -y \
   libxmlsec1-openssl \
   pkg-config
 
-# Install script which will be used to copy the files build below into the
-# container's volume upon creation.
-COPY update-openslides-app.sh /usr/local/sbin/update-openslides-app
-RUN umask 0222 && \
-  echo 'openslides ALL=(root) NOPASSWD: /usr/local/sbin/update-openslides-app' \
-  > /etc/sudoers.d/openslides
-
 # Clone OpenSlides repo
 USER openslides
 ARG REPOSITORY_URL=https://github.com/OpenSlides/OpenSlides.git
 ARG GIT_CHECKOUT=master
 RUN git clone --no-checkout -- $REPOSITORY_URL .
 RUN git checkout $GIT_CHECKOUT
-RUN rm -rf .git
 
 USER root
-RUN pip install -r requirements/production.txt -r requirements/big_mode.txt
-RUN rm -rf /root/.cache/pip
+RUN pip install -r requirements/production.txt -r requirements/big_mode.txt && \
+      rm -rf /root/.cache/pip
 
-# ----------------------------------------
+# RUN printf "Backend built on %s:\n\n Repository: %s\n Branch:     %s\n\n%s\n" \
+#   "$(date)" \
+#   "$REPOSITORY_URL" \
+#   "$(git rev-parse --abbrev-ref HEAD)" \
+#   "$(git show -s --format=raw)" > /app/image-version.txt
 
-FROM base AS nodejs
-USER root
-
-# NodeJS
-# Add included apt config and OpenPGP key for increased reproducibility (avoids
-# curl/bash invocation (see below))
-COPY node-apt/nodesource.list /etc/apt/sources.list.d/
-COPY node-apt/nodesource.gpg.key /root/
-RUN apt-key add /root/nodesource.gpg.key
-# RUN curl -sL https://deb.nodesource.com/setup_13.x | bash -
-RUN apt-get update && apt-get -y install nodejs
-
-RUN npm install -g @angular/cli@^9
+RUN rm -rf .git /var/lib/apt/lists/*
 
 USER openslides
-RUN ng config -g cli.warnings.versionMismatch false && \
-  cd client && \
-  npm install
-RUN cd client && \
-  npm run build && \
-  rm -fr /build/app/client/node_modules
-
-# ----------------------------------------
-
-FROM base AS final
-USER root
-
-COPY --from=nodejs /build /build
-
-RUN printf "Built on %s:\n\n Repository: %s\n Branch:     %s\n\n%s\n" \
-  "$(date)" \
-  "$REPOSITORY_URL" \
-  "$(git rev-parse --abbrev-ref HEAD)" \
-  "$(git show -s --format=raw)" > /build/image-version.txt
-
-USER openslides
-WORKDIR /app
 
 COPY openslides-config.sh /usr/local/bin/openslides-config
 COPY entrypoint /usr/local/sbin/
