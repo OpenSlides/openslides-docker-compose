@@ -8,10 +8,11 @@ DOCKER_REPOSITORY="openslides"
 DOCKER_TAG="latest"
 CONFIG="/etc/osinstancectl"
 OPTIONS=()
+BUILT_IMAGES=()
 
 usage() {
   cat << EOF
-Usage: $(basename ${BASH_SOURCE[0]}) [<options>] [<dir>]
+Usage: $(basename ${BASH_SOURCE[0]}) [<options>] <dir> [<dir>...]
 
 Options:
   -r, --revision     The OpenSlides version to check out
@@ -67,39 +68,43 @@ while true; do
   esac
 done
 
-DIR="$2"
-if [[ -d "$DIR" ]]; then
-  cd "$DIR"
-else
-  cd "$(dirname ${BASH_SOURCE[0]})/${1}"
-fi
+# Check availability of all requested targets beforehand
+for i in "$@"; do
+  DOCKERFILE="$(dirname "${BASH_SOURCE[0]}")/${i}/Dockerfile"
+  [[ -f "$DOCKERFILE" ]] || {
+    echo "ERROR: $DOCKERFILE can not found."
+    exit 2
+  }
+  DOCKERFILE=
+done
 
-IMG_NAME="openslides-${1}"
-IMG="${IMG_NAME}:${DOCKER_TAG}"
-if [[ -n "$DOCKER_REPOSITORY" ]]; then
-  IMG="${DOCKER_REPOSITORY}/${IMG}"
-fi
+for i in "$@"; do
+  IMG_NAME="openslides-${i}"
+  IMG="${IMG_NAME}:${DOCKER_TAG}"
+  if [[ -n "$DOCKER_REPOSITORY" ]]; then
+    IMG="${DOCKER_REPOSITORY}/${IMG}"
+  fi
 
-read -p "Build image '$IMG'? [y/N] " REPL
-case "$REPL" in
-  Y|y|Yes|yes|YES)
-    echo "Building $IMG..." ;;
-  *)
-    exit 0;;
-esac
+  (
+    cd "$(dirname "${BASH_SOURCE[0]}")/${i}"
+    echo "Building $IMG..."
+    set -x
+    docker build \
+      --build-arg "REPOSITORY_URL=${REPOSITORY_URL}" \
+      --build-arg "GIT_CHECKOUT=${GIT_CHECKOUT}" \
+      --tag "$IMG" \
+      --pull \
+      "${OPTIONS[@]}" \
+      .
+    set +x
+  )
+  BUILT_IMAGES+=("$IMG")
+done
 
-set -x
-docker build \
-  --build-arg "REPOSITORY_URL=${REPOSITORY_URL}" \
-  --build-arg "GIT_CHECKOUT=${GIT_CHECKOUT}" \
-  --tag "$IMG" \
-  --pull \
-  "${OPTIONS[@]}" \
-  .
-set +x
-
-read -p "Push image '$IMG' to repository? [y/N] " REPL
-case "$REPL" in
-  Y|y|Yes|yes|YES)
-    docker push "$IMG" ;;
-esac
+for IMG in "${BUILT_IMAGES[@]}"; do
+  read -p "Push image '$IMG' to repository? [y/N] " REPL
+  case "$REPL" in
+    Y|y|Yes|yes|YES)
+      docker push "$IMG" ;;
+  esac
+done
