@@ -3,12 +3,6 @@ version: '3.4'
 x-osserver:
   &default-osserver
   image: openslides/openslides-server:latest
-  volumes:
-    - type: volume
-      source: "staticfiles"
-      target: "/app/openslides/static"
-      volume:
-        nocopy: true
   networks:
     - front
     - back
@@ -72,12 +66,6 @@ services:
   client:
     image: openslides/openslides-client:latest
     build: ./client
-    volumes:
-      - type: volume
-        source: "staticfiles"
-        target: "/usr/share/nginx/html"
-        volume:
-          nocopy: true
     networks:
       - front
     ports:
@@ -207,7 +195,6 @@ volumes:
   dbdata1:
   dbdata2:
   dbdata3:
-  staticfiles:
 
 networks:
   front:
