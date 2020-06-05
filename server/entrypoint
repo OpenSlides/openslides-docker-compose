@@ -48,7 +48,7 @@ configure() {
 
   # Redis for Django channels
   sed -i \
-    -e "/\"hosts\":.*6379/s/localhost/redis/" \
+    -e "/\"hosts\":.*6379/s/localhost/redis-channels/" \
     /app/personal_data/var/settings.py
 
   # Redis for collection cache
@@ -68,8 +68,12 @@ configure() {
     -e "/^DEBUG/s/True/False/" \
     /app/personal_data/var/settings.py
 
-  # Mediafile database settings
+  # Additional settings not included in default template
   cat >> /app/personal_data/var/settings.py << EOF
+
+# Additional settings added by entrypoint
+AUTOUPDATE_DELAY = 1
+WAIT_TIMEOUT = 10000
 
 DATABASES['mediafiles'] = {
     'ENGINE': 'django.db.backends.postgresql',
