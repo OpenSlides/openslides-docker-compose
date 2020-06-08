@@ -12,8 +12,8 @@ RUN npm install -g @angular/cli@^9
 USER openslides
 ARG REPOSITORY_URL=https://github.com/OpenSlides/OpenSlides.git
 ARG GIT_CHECKOUT=master
-RUN git clone --no-checkout -- $REPOSITORY_URL .
-RUN git checkout $GIT_CHECKOUT
+RUN git clone --no-checkout -- $REPOSITORY_URL . && \
+      git checkout $GIT_CHECKOUT
 
 RUN ng config -g cli.warnings.versionMismatch false && \
   cd client && \

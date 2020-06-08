@@ -51,8 +51,8 @@ RUN apt-get install --no-install-recommends -y \
 USER openslides
 ARG REPOSITORY_URL=https://github.com/OpenSlides/OpenSlides.git
 ARG GIT_CHECKOUT=master
-RUN git clone --no-checkout -- $REPOSITORY_URL .
-RUN git checkout $GIT_CHECKOUT
+RUN git clone --no-checkout -- $REPOSITORY_URL . && \
+      git checkout $GIT_CHECKOUT
 
 USER root
 RUN pip install -r requirements/production.txt -r requirements/big_mode.txt && \
