@@ -9,10 +9,11 @@ DOCKER_TAG="latest"
 CONFIG="/etc/osinstancectl"
 OPTIONS=()
 BUILT_IMAGES=()
+DEFAULT_TARGETS=(server client)
 
 usage() {
   cat << EOF
-Usage: $(basename ${BASH_SOURCE[0]}) [<options>] <dir> [<dir>...]
+Usage: $(basename ${BASH_SOURCE[0]}) [<options>] [<dir>...]
 
 Options:
   -r, --revision     The OpenSlides version to check out
@@ -68,8 +69,11 @@ while true; do
   esac
 done
 
+TARGETS=($@)
+[[ "${#TARGETS[@]}" -ge 1 ]] || TARGETS=("${DEFAULT_TARGETS[@]}")
+
 # Check availability of all requested targets beforehand
-for i in "$@"; do
+for i in "${TARGETS[@]}"; do
   DOCKERFILE="$(dirname "${BASH_SOURCE[0]}")/${i}/Dockerfile"
   [[ -f "$DOCKERFILE" ]] || {
     echo "ERROR: $DOCKERFILE can not found."
@@ -78,7 +82,7 @@ for i in "$@"; do
   DOCKERFILE=
 done
 
-for i in "$@"; do
+for i in "${TARGETS[@]}"; do
   IMG_NAME="openslides-${i}"
   IMG="${IMG_NAME}:${DOCKER_TAG}"
   if [[ -n "$DOCKER_REPOSITORY" ]]; then
