@@ -7,7 +7,8 @@ _osinstancectl()
   opts="ls add rm start stop update erase vicfg"
   opts+=" --help --long --metadata --online --offline --no-add-account"
   opts+=" --clone-from --force --color --project-dir --fast"
-  opts+=" --default-repo --image --tag --image-info"
+  opts+=" --default-repo --image-info"
+  opts+=" --server-image --server-tag --client-image --client-tag --all-tags"
   opts+=" --local-only --mailserver"
   diropts="ls|rm|start|stop|update|erase|vicfg|--clone-from"
 
