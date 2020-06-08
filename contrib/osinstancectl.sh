@@ -13,6 +13,8 @@ OSDIR="/srv/openslides"
 INSTANCES="${OSDIR}/docker-instances"
 DEFAULT_DOCKER_IMAGE_NAME_OPENSLIDES=openslides/openslides-server
 DEFAULT_DOCKER_IMAGE_TAG_OPENSLIDES=latest
+DEFAULT_DOCKER_IMAGE_NAME_CLIENT=openslides/openslides-client
+DEFAULT_DOCKER_IMAGE_TAG_CLIENT=latest
 YAML_TEMPLATE= # leave empty for automatic (default)
 HOOKS_DIR=
 # If set, these variables override the defaults in the
@@ -27,6 +29,8 @@ MARKER=".osinstancectl-marker"
 PRIMARY_DATABASE_NODE="pgnode1"
 DOCKER_IMAGE_NAME_OPENSLIDES=
 DOCKER_IMAGE_TAG_OPENSLIDES=
+DOCKER_IMAGE_NAME_CLIENT=
+DOCKER_IMAGE_TAG_CLIENT=
 PROJECT_NAME=
 PROJECT_DIR=
 PROJECT_STACK_NAME=
@@ -119,8 +123,11 @@ Options:
   for add & update:
     -r, --default-repo Specifcy the default Docker repository for OpenSlides
                        images
-    -I, --image        Specify the OpenSlides server Docker image
-    -t, --tag          Specify the OpenSlides server Docker image
+    --server-image     Specify the OpenSlides server Docker image name
+    --server-tag       Specify the OpenSlides server Docker image tag
+    --client-image     Specify the OpenSlides client Docker image name
+    --client-tag       Specify the OpenSlides client Docker image tag
+    -t, --all-tags     Specify the OpenSlides server and client Docker image tag
     --no-add-account   Do not add an additional, customized local admin account
     --local-only       Create an instance without setting up HAProxy and Let's
                        Encrypt certificates.  Such an instance is only
@@ -180,8 +187,9 @@ arg_check() {
       }
       ;;
   esac
-  echo "$DOCKER_IMAGE_NAME_OPENSLIDES" | grep -q -v ':' ||
-    fatal "Image names must not contain colons.  Tags can be specified with --tag."
+  echo "$DOCKER_IMAGE_NAME_OPENSLIDES" \
+    "$DOCKER_IMAGE_NAME_CLIENT" | grep -q -v ':' ||
+    fatal "Image names must not contain colons.  Tags can be specified separately."
 }
 
 marker_check() {
@@ -249,11 +257,26 @@ next_free_port() {
 create_config_from_template() {
   local templ="$1"
   local config="$2"
-  gawk -v port="${PORT}" -v image="$DOCKER_IMAGE_NAME_OPENSLIDES" \
-      -v tag="$DOCKER_IMAGE_TAG_OPENSLIDES" -v domain="$PROJECT_NAME" '
+  gawk -v port="${PORT}" \
+      -v domain="$PROJECT_NAME" \
+      -v server_image="$DOCKER_IMAGE_NAME_OPENSLIDES" \
+      -v server_tag="$DOCKER_IMAGE_TAG_OPENSLIDES" \
+      -v client_image="$DOCKER_IMAGE_NAME_CLIENT" \
+      -v client_tag="$DOCKER_IMAGE_TAG_CLIENT" '
     BEGIN {FS=":"; OFS=FS}
-    $0 ~ /^x-osserver:$/ {s=1}
-    image != "" && $1 ~ /image/ && s { $2 = " " image; $3 = tag; s=0 }
+    $0 ~ /^x-osserver:$/ { s = 1 }
+    $1 ~ /image/ && s {
+      $2 = " " server_image;
+      $3 = server_tag;
+      s = 0
+    }
+
+    $0 ~ /^ +client:$/ { c = 1 }
+    $1 ~ /image/ && c {
+      $2 = " " client_image;
+      $3 = client_tag;
+      c = 0
+    }
 
     $0 ~ / +ports:$/ { # enter ports section
       p = $0
@@ -271,7 +294,7 @@ create_config_from_template() {
       if ( i > pi ) { next } else { pi = 0 }
     }
     1
-    ' "$templ" |
+  ' "$templ" |
   gawk -v proj="$PROJECT_NAME" -v relay="$RELAYHOST" \
       -v repo="$MAIN_REPOSITORY_URL" '
     BEGIN { FS=": "; OFS=FS; }
@@ -578,8 +601,9 @@ ls_instance() {
   # --long
   if [[ -n "$OPT_LONGLIST" ]] || [[ -n "$OPT_JSON" ]]; then
     # Parse docker-compose.yml
-    local image
-    image=$(value_from_yaml "$instance" x-osserver/image)
+    local server_image client_image
+    server_image=$(value_from_yaml "$instance" x-osserver/image)
+    client_image=$(value_from_yaml "$instance" client/image)
     # Parse admin credentials file
     if [[ -f "${instance}/secrets/${ADMIN_SECRETS_FILE}" ]]; then
       source "${instance}/secrets/${ADMIN_SECRETS_FILE}"
@@ -630,7 +654,8 @@ ls_instance() {
       --arg "instance"      "$instance" \
       --arg "version"       "$version" \
       --arg "status"        "$sym" \
-      --arg "image"         "$image" \
+      --arg "server_image"  "$server_image" \
+      --arg "client_image"  "$client_image" \
       --arg "port"          "$port" \
       --arg "admin"         "$OPENSLIDES_ADMIN_PASSWORD" \
       --arg "user_name"     "$user_name" \
@@ -646,7 +671,8 @@ ls_instance() {
             directory: $instance,
             version:   $version,
             status:    $status,
-            image:     $image,
+            server_image: $server_image,
+            client_image: $client_image,
             port:      $port,
             admin:     $admin,
             user: {
@@ -672,20 +698,21 @@ ls_instance() {
 
   # Additional output
   if [[ -n "$OPT_LONGLIST" ]]; then
-    printf "   ├ %-12s %s\n" "Directory:" "$instance"
+    printf "   ├ %-13s %s\n" "Directory:" "$instance"
     if [[ -n "$normalized_shortname" ]]; then
-      printf "   ├ %-12s %s\n" "Stack name:" "$normalized_shortname"
+      printf "   ├ %-13s %s\n" "Stack name:" "$normalized_shortname"
     fi
-    printf "   ├ %-12s %s\n" "Version:" "$version"
-    printf "   ├ %-12s %s\n" "Image:" "$image"
-    printf "   ├ %-12s %s\n" "Local port:" "$port"
-    printf "   ├ %-12s %s : %s\n" "Login:" "admin" "$OPENSLIDES_ADMIN_PASSWORD"
+    printf "   ├ %-13s %s\n" "Version:" "$version"
+    printf "   ├ %-13s %s\n" "Server image:" "$server_image"
+    printf "   ├ %-13s %s\n" "Client image:" "$client_image"
+    printf "   ├ %-13s %s\n" "Local port:" "$port"
+    printf "   ├ %-13s %s : %s\n" "Login:" "admin" "$OPENSLIDES_ADMIN_PASSWORD"
     # Include secondary account credentials if available
     [[ -n "$user_name" ]] &&
-      printf "   ├ %-12s \"%s\" : %s\n" \
+      printf "   ├ %-13s \"%s\" : %s\n" \
         "Login:" "$user_name" "$OPENSLIDES_USER_PASSWORD"
     [[ -n "$OPENSLIDES_USER_EMAIL" ]] &&
-      printf "   ├ %-12s %s\n" "Contact:" "$OPENSLIDES_USER_EMAIL"
+      printf "   ├ %-13s %s\n" "Contact:" "$OPENSLIDES_USER_EMAIL"
   fi
 
   # --metadata
@@ -950,33 +977,26 @@ instance_update() {
       'Please update it by comparing it to the provided example file.'
   fi
   #
-  gawk -v image="$DOCKER_IMAGE_NAME_OPENSLIDES" \
-      -v tag="$DOCKER_IMAGE_TAG_OPENSLIDES" '
-    BEGIN {FS=":"; OFS=FS}
-    $0 ~ /^x-osserver:$/ {i=1; t=1}
-    image != "" && $1 ~ /image/ && i { $2 = " " image; i=0 }
-    tag != "" && $1 ~ /image/ && t { $3 = tag; t=0 }
+  gawk \
+      -v server_image="$DOCKER_IMAGE_NAME_OPENSLIDES" \
+      -v client_image="$DOCKER_IMAGE_NAME_CLIENT" \
+      -v server_tag="$DOCKER_IMAGE_TAG_OPENSLIDES" \
+      -v client_tag="$DOCKER_IMAGE_TAG_CLIENT" '
+    BEGIN { FS=":"; OFS=FS; }
+    # Server
+    $0 ~ /^x-osserver:$/ { si = 1; st = 1; }
+    server_image && si && $1 ~ /image/ { $2 = " " server_image; si = 0; }
+    server_tag && st && $1 ~ /image/ { $3 = server_tag; st = 0; }
+    # Client
+    $0 ~ /^ +client:$/ { ci = 1; ct = 1; }
+    client_image && ci && $1 ~ /image/ { $2 = " " client_image; ci = 0; }
+    client_tag && ct && $1 ~ /image/ { $3 = client_tag; ct = 0; }
     1
     ' "${DCCONFIG}" > "${DCCONFIG}.tmp" &&
   mv -f "${DCCONFIG}.tmp" "${DCCONFIG}"
   case "$DEPLOYMENT_MODE" in
     "compose")
-      local vol
-      local prioserver
       echo "Creating services"
-      _docker_compose "$PROJECT_DIR" up --no-start
-      prioserver="$(_docker_compose "$PROJECT_DIR" ps -q prioserver)"
-      # Delete staticfiles volume
-      vol=$(docker inspect --format \
-          '{{ range .Mounts }}{{ if eq .Destination "/app/openslides/static" }}{{ .Name }}{{ end }}{{ end }}' \
-          "$prioserver"
-      )
-      echo "Scaling down"
-      _docker_compose "$PROJECT_DIR" up -d \
-        --scale server=0 --scale prioserver=0 --scale client=0
-      echo "Deleting staticfiles volume"
-      docker volume rm "$vol"
-      echo "OK.  Bringing up all services"
       _docker_compose "$PROJECT_DIR" up -d
       ;;
     "stack")
@@ -985,6 +1005,7 @@ instance_update() {
       [[ -z "$OPT_FORCE" ]] || local force_opt="--force"
       source "${PROJECT_DIR}/.env"
       # Parse image and/or tag from original config if necessary
+      # Server
       IFS=: read -r image tag < <(value_from_yaml "$PROJECT_DIR" x-osserver/image)
       [[ -n "$DOCKER_IMAGE_NAME_OPENSLIDES" ]] ||
         DOCKER_IMAGE_NAME_OPENSLIDES="${image}"
@@ -1000,10 +1021,36 @@ instance_update() {
           echo "WARN: ${PROJECT_STACK_NAME}_${i} is not running."
         fi
       done
+
+      # Client
+      IFS=: read -r image tag < <(value_from_yaml "$PROJECT_DIR" x-osserver/image)
+      [[ -n "$DOCKER_IMAGE_NAME_CLIENT" ]] ||
+        DOCKER_IMAGE_NAME_CLIENT="${image}"
+      [[ -n "$DOCKER_IMAGE_TAG_CLIENT" ]] ||
+        DOCKER_IMAGE_TAG_CLIENT="${tag}"
+      if docker service ls --format '{{.Name}}' | grep -q "${PROJECT_STACK_NAME}_client"
+      then
+        docker service update --image \
+          "${DOCKER_IMAGE_NAME_CLIENT}:${DOCKER_IMAGE_TAG_CLIENT}" \
+          $force_opt "${PROJECT_STACK_NAME}_client"
+      else
+        echo "WARN: ${PROJECT_STACK_NAME}_client is not running."
+      fi
       ;;
   esac
-  append_metadata "$PROJECT_DIR" "$(date +"%F %H:%M"): Updated to" \
-    "${DOCKER_IMAGE_NAME_OPENSLIDES}:${DOCKER_IMAGE_TAG_OPENSLIDES}"
+  # Metadata
+  if [[ -n "$DOCKER_IMAGE_NAME_OPENSLIDES" ]] ||
+      [[ -n "$DOCKER_IMAGE_TAG_OPENSLIDES" ]]
+  then
+    append_metadata "$PROJECT_DIR" "$(date +"%F %H:%M"): Updated server to" \
+      "${DOCKER_IMAGE_NAME_OPENSLIDES}:${DOCKER_IMAGE_TAG_OPENSLIDES}"
+  fi
+  if [[ -n "$DOCKER_IMAGE_NAME_CLIENT" ]] ||
+      [[ -n "$DOCKER_IMAGE_TAG_CLIENT" ]]
+  then
+    append_metadata "$PROJECT_DIR" "$(date +"%F %H:%M"): Updated client to" \
+      "${DOCKER_IMAGE_NAME_CLIENT}:${DOCKER_IMAGE_TAG_CLIENT}"
+  fi
 }
 
 instance_config() {
@@ -1095,7 +1142,7 @@ case "$(basename "${BASH_SOURCE[0]}")" in
     ;;
 esac
 
-shortopt="haljmiMnfd:r:I:t:"
+shortopt="haljmiMnfd:r:t:"
 longopt=(
   help
   color:
@@ -1122,8 +1169,11 @@ longopt=(
   www
 
   # adding & upgrading instances
-  image:
-  tag:
+  server-image:
+  server-tag:
+  client-image:
+  client-tag:
+  all-tags:
 )
 # format options array to comma-separated string for getopt
 longopt=$(IFS=,; echo "${longopt[*]}")
@@ -1149,12 +1199,25 @@ while true; do
       MAIN_REPOSITORY_URL="$2"
       shift 2
       ;;
-    -I|--image)
+    --server-image)
       DOCKER_IMAGE_NAME_OPENSLIDES="$2"
       shift 2
       ;;
-    -t|--tag)
+    --server-tag)
       DOCKER_IMAGE_TAG_OPENSLIDES="$2"
+      shift 2
+      ;;
+    --client-image)
+      DOCKER_IMAGE_NAME_CLIENT="$2"
+      shift 2
+      ;;
+    --client-tag)
+      DOCKER_IMAGE_TAG_CLIENT="$2"
+      shift 2
+      ;;
+    -t|--all-tags)
+      DOCKER_IMAGE_TAG_OPENSLIDES="$2"
+      DOCKER_IMAGE_TAG_CLIENT="$2"
       shift 2
       ;;
     --mailserver)
@@ -1267,8 +1330,10 @@ for arg; do
       [[ -z "$MODE" ]] || { usage; exit 2; }
       MODE=update
       [[ -n "$DOCKER_IMAGE_NAME_OPENSLIDES" ]] ||
-      [[ -n "$DOCKER_IMAGE_TAG_OPENSLIDES" ]] || {
-        fatal "Need image or tag for update"
+          [[ -n "$DOCKER_IMAGE_TAG_OPENSLIDES" ]] ||
+          [[ -n "$DOCKER_IMAGE_NAME_CLIENT" ]] ||
+          [[ -n "$DOCKER_IMAGE_TAG_CLIENT" ]] || {
+        fatal "Need at least one image name or tag for update"
       }
       shift 1
       ;;
@@ -1372,6 +1437,10 @@ case "$MODE" in
       DOCKER_IMAGE_NAME_OPENSLIDES="$DEFAULT_DOCKER_IMAGE_NAME_OPENSLIDES"
     [[ -n "$DOCKER_IMAGE_TAG_OPENSLIDES" ]] ||
       DOCKER_IMAGE_TAG_OPENSLIDES="$DEFAULT_DOCKER_IMAGE_TAG_OPENSLIDES"
+    [[ -n "$DOCKER_IMAGE_NAME_CLIENT" ]] ||
+      DOCKER_IMAGE_NAME_CLIENT="$DEFAULT_DOCKER_IMAGE_NAME_CLIENT"
+    [[ -n "$DOCKER_IMAGE_TAG_CLIENT" ]] ||
+      DOCKER_IMAGE_TAG_CLIENT="$DEFAULT_DOCKER_IMAGE_TAG_CLIENT"
     query_user_account_name
     echo "Creating new instance: $PROJECT_NAME"
     PORT=$(next_free_port)
@@ -1402,6 +1471,11 @@ case "$MODE" in
       DOCKER_IMAGE_NAME_OPENSLIDES="${image}"
     [[ -n "$DOCKER_IMAGE_TAG_OPENSLIDES" ]] ||
       DOCKER_IMAGE_TAG_OPENSLIDES="${tag}"
+    IFS=: read -r image tag < <(value_from_yaml "$CLONE_FROM_DIR" client/image)
+    [[ -n "$DOCKER_IMAGE_NAME_CLIENT" ]] ||
+      DOCKER_IMAGE_NAME_CLIENT="${image}"
+    [[ -n "$DOCKER_IMAGE_TAG_CLIENT" ]] ||
+      DOCKER_IMAGE_TAG_CLIENT="${tag}"
     gen_tls_cert
     create_instance_dir
     create_config_from_template "${DCCONFIG_TEMPLATE}" \
