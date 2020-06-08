@@ -490,15 +490,6 @@ value_from_yaml() {
   ' "${instance}/${CONFIG_FILE}"
 }
 
-image_from_yaml() {
-  instance="$1"
-  gawk '
-    BEGIN {FS=":"}
-    $0 ~ /^x-osserver:$/ {s=1}
-    $1 ~ /image/ && s { printf("%s\n%s\n", $2, $3); exit; }
-    ' "${instance}/${CONFIG_FILE}" | tr -d ' '
-}
-
 highlight_match() {
   # Highlight search term match in string
   if [[ -n "$NCOLORS" ]] && [[ -n "$PROJECT_NAME" ]]; then
@@ -588,7 +579,7 @@ ls_instance() {
   if [[ -n "$OPT_LONGLIST" ]] || [[ -n "$OPT_JSON" ]]; then
     # Parse docker-compose.yml
     local image
-    image=$(value_from_yaml "$instance" "x-osserver/image")
+    image=$(value_from_yaml "$instance" x-osserver/image)
     # Parse admin credentials file
     if [[ -f "${instance}/secrets/${ADMIN_SECRETS_FILE}" ]]; then
       source "${instance}/secrets/${ADMIN_SECRETS_FILE}"
@@ -990,15 +981,15 @@ instance_update() {
       ;;
     "stack")
       local force_opt=
+      local image tag
       [[ -z "$OPT_FORCE" ]] || local force_opt="--force"
       source "${PROJECT_DIR}/.env"
       # Parse image and/or tag from original config if necessary
-      ia=()
-      readarray -n 2 -t ia < <(image_from_yaml "$PROJECT_DIR")
+      IFS=: read -r image tag < <(value_from_yaml "$PROJECT_DIR" x-osserver/image)
       [[ -n "$DOCKER_IMAGE_NAME_OPENSLIDES" ]] ||
-        DOCKER_IMAGE_NAME_OPENSLIDES="${ia[0]}"
+        DOCKER_IMAGE_NAME_OPENSLIDES="${image}"
       [[ -n "$DOCKER_IMAGE_TAG_OPENSLIDES" ]] ||
-        DOCKER_IMAGE_TAG_OPENSLIDES="${ia[1]}"
+        DOCKER_IMAGE_TAG_OPENSLIDES="${tag}"
       for i in prioserver server; do
         if docker service ls --format '{{.Name}}' | grep -q "${PROJECT_STACK_NAME}_${i}"
         then
@@ -1406,12 +1397,11 @@ case "$MODE" in
     echo "Creating new instance: $PROJECT_NAME (based on $CLONE_FROM)"
     PORT=$(next_free_port)
     # Parse image and/or tag from original config if necessary
-    ia=()
-    readarray -n 2 -t ia < <(image_from_yaml "$CLONE_FROM_DIR")
+    IFS=: read -r image tag < <(value_from_yaml "$CLONE_FROM_DIR" x-osserver/image)
     [[ -n "$DOCKER_IMAGE_NAME_OPENSLIDES" ]] ||
-      DOCKER_IMAGE_NAME_OPENSLIDES="${ia[0]}"
+      DOCKER_IMAGE_NAME_OPENSLIDES="${image}"
     [[ -n "$DOCKER_IMAGE_TAG_OPENSLIDES" ]] ||
-      DOCKER_IMAGE_TAG_OPENSLIDES="${ia[1]}"
+      DOCKER_IMAGE_TAG_OPENSLIDES="${tag}"
     gen_tls_cert
     create_instance_dir
     create_config_from_template "${DCCONFIG_TEMPLATE}" \
