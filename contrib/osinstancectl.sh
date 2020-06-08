@@ -636,7 +636,7 @@ ls_instance() {
   if [[ -n "$OPT_IMAGE_INFO" ]] || [[ -n "$OPT_JSON" ]]; then
     if [[ -n "$version" ]]; then
       image_info="$(curl -s "http://localhost:${port}/image-version.txt")"
-      [[ "$image_info" =~ ^Built ]] || image_info=
+      [[ "$image_info" =~ built\ on ]] || image_info=
     fi
   fi
 
