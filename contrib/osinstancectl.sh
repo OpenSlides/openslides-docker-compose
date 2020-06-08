@@ -458,11 +458,36 @@ ping_instance_websocket() {
 }
 
 value_from_yaml() {
-  # XXX: Not a generic function yet; first match wins!
+  # XXX: Not a generic YAML parser!
+  # target must be a path, e.g., x-pgnode/labels/org.openslides.role
   instance="$1"
-  awk -v m="^ *${2}:$" \
-    '$1 ~ m { print $2; exit; }' \
-    "${instance}/${CONFIG_FILE}"
+  target="$2"
+  awk -v target="$2" '
+    BEGIN {
+      FS = ": "; OFS = ""
+      split(target, tree, /\//)
+      levels = length(tree)
+      ospaces = -1
+      skip_lvl = 0
+      search_term = tree[1]
+    }
+    { spaces = length(gensub(/(^\ *).*/, "\\1", "g", $1)); }
+    # This node does not match, so neither will its children
+    $1 !~ search_term { skip_lvl = spaces; }
+    # Skip children
+    skip_lvl && spaces > skip_lvl { next; }
+    $1 ~ search_term && spaces > ospaces {
+      ind++
+      search_term = tree[ind + 1]
+      skip_lvl = 0 # reset
+      ospaces = spaces
+    }
+    $1 ~ search_term && ind == levels { # found the final item
+      $1 = ""  # drop key
+      print $0 # print value
+      exit
+    }
+  ' "${instance}/${CONFIG_FILE}"
 }
 
 image_from_yaml() {
@@ -563,7 +588,7 @@ ls_instance() {
   if [[ -n "$OPT_LONGLIST" ]] || [[ -n "$OPT_JSON" ]]; then
     # Parse docker-compose.yml
     local image
-    image=$(value_from_yaml "$instance" "image")
+    image=$(value_from_yaml "$instance" "x-osserver/image")
     # Parse admin credentials file
     if [[ -f "${instance}/secrets/${ADMIN_SECRETS_FILE}" ]]; then
       source "${instance}/secrets/${ADMIN_SECRETS_FILE}"
