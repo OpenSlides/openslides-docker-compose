@@ -976,7 +976,18 @@ instance_update() {
     fatal 'This appears to be a legacy configuration file.' \
       'Please update it by comparing it to the provided example file.'
   fi
-  #
+
+  # Note options to be able to minimize updates
+  local server_changed= client_changed=
+  if [[ -n "$DOCKER_IMAGE_NAME_OPENSLIDES" ]] ||
+      [[ -n "$DOCKER_IMAGE_TAG_OPENSLIDES" ]]; then
+    server_changed=1
+  fi
+  if [[ -n "$DOCKER_IMAGE_NAME_CLIENT" ]] ||
+      [[ -n "$DOCKER_IMAGE_TAG_CLIENT" ]]; then
+    client_changed=1
+  fi
+
   gawk \
       -v server_image="$DOCKER_IMAGE_NAME_OPENSLIDES" \
       -v client_image="$DOCKER_IMAGE_NAME_CLIENT" \
@@ -1006,48 +1017,49 @@ instance_update() {
       source "${PROJECT_DIR}/.env"
       # Parse image and/or tag from original config if necessary
       # Server
-      IFS=: read -r image tag < <(value_from_yaml "$PROJECT_DIR" x-osserver/image)
-      [[ -n "$DOCKER_IMAGE_NAME_OPENSLIDES" ]] ||
-        DOCKER_IMAGE_NAME_OPENSLIDES="${image}"
-      [[ -n "$DOCKER_IMAGE_TAG_OPENSLIDES" ]] ||
-        DOCKER_IMAGE_TAG_OPENSLIDES="${tag}"
-      for i in prioserver server; do
-        if docker service ls --format '{{.Name}}' | grep -q "${PROJECT_STACK_NAME}_${i}"
-        then
-          docker service update --image \
-            "${DOCKER_IMAGE_NAME_OPENSLIDES}:${DOCKER_IMAGE_TAG_OPENSLIDES}" \
-            $force_opt "${PROJECT_STACK_NAME}_${i}"
-        else
-          echo "WARN: ${PROJECT_STACK_NAME}_${i} is not running."
-        fi
-      done
+      if [[ "$server_changed" ]]; then
+        IFS=: read -r image tag < <(value_from_yaml "$PROJECT_DIR" x-osserver/image)
+        [[ -n "$DOCKER_IMAGE_NAME_OPENSLIDES" ]] ||
+          DOCKER_IMAGE_NAME_OPENSLIDES="${image}"
+        [[ -n "$DOCKER_IMAGE_TAG_OPENSLIDES" ]] ||
+          DOCKER_IMAGE_TAG_OPENSLIDES="${tag}"
+        for i in prioserver server; do
+          if docker service ls --format '{{.Name}}' | grep -q "${PROJECT_STACK_NAME}_${i}"
+          then
+            docker service update --image \
+              "${DOCKER_IMAGE_NAME_OPENSLIDES}:${DOCKER_IMAGE_TAG_OPENSLIDES}" \
+              $force_opt "${PROJECT_STACK_NAME}_${i}"
+          else
+            echo "WARN: ${PROJECT_STACK_NAME}_${i} is not running."
+          fi
+        done
+      fi
 
       # Client
-      IFS=: read -r image tag < <(value_from_yaml "$PROJECT_DIR" x-osserver/image)
-      [[ -n "$DOCKER_IMAGE_NAME_CLIENT" ]] ||
-        DOCKER_IMAGE_NAME_CLIENT="${image}"
-      [[ -n "$DOCKER_IMAGE_TAG_CLIENT" ]] ||
-        DOCKER_IMAGE_TAG_CLIENT="${tag}"
-      if docker service ls --format '{{.Name}}' | grep -q "${PROJECT_STACK_NAME}_client"
-      then
-        docker service update --image \
-          "${DOCKER_IMAGE_NAME_CLIENT}:${DOCKER_IMAGE_TAG_CLIENT}" \
-          $force_opt "${PROJECT_STACK_NAME}_client"
-      else
-        echo "WARN: ${PROJECT_STACK_NAME}_client is not running."
+      if [[ "$client_changed" ]]; then
+        IFS=: read -r image tag < <(value_from_yaml "$PROJECT_DIR" client/image)
+        [[ -n "$DOCKER_IMAGE_NAME_CLIENT" ]] ||
+          DOCKER_IMAGE_NAME_CLIENT="${image}"
+        [[ -n "$DOCKER_IMAGE_TAG_CLIENT" ]] ||
+          DOCKER_IMAGE_TAG_CLIENT="${tag}"
+        if docker service ls --format '{{.Name}}' | grep -q "${PROJECT_STACK_NAME}_client"
+        then
+          docker service update --image \
+            "${DOCKER_IMAGE_NAME_CLIENT}:${DOCKER_IMAGE_TAG_CLIENT}" \
+            $force_opt "${PROJECT_STACK_NAME}_client"
+        else
+          echo "WARN: ${PROJECT_STACK_NAME}_client is not running."
+        fi
       fi
       ;;
   esac
+
   # Metadata
-  if [[ -n "$DOCKER_IMAGE_NAME_OPENSLIDES" ]] ||
-      [[ -n "$DOCKER_IMAGE_TAG_OPENSLIDES" ]]
-  then
+  if [[ "$server_changed" ]]; then
     append_metadata "$PROJECT_DIR" "$(date +"%F %H:%M"): Updated server to" \
       "${DOCKER_IMAGE_NAME_OPENSLIDES}:${DOCKER_IMAGE_TAG_OPENSLIDES}"
   fi
-  if [[ -n "$DOCKER_IMAGE_NAME_CLIENT" ]] ||
-      [[ -n "$DOCKER_IMAGE_TAG_CLIENT" ]]
-  then
+  if [[ -n "$client_changed" ]]; then
     append_metadata "$PROJECT_DIR" "$(date +"%F %H:%M"): Updated client to" \
       "${DOCKER_IMAGE_NAME_CLIENT}:${DOCKER_IMAGE_TAG_CLIENT}"
   fi
