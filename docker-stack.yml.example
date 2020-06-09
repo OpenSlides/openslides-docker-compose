@@ -40,7 +40,6 @@ services:
     command: "gunicorn -w 1 --preload -b 0.0.0.0:8000
       -k uvicorn.workers.UvicornWorker openslides.asgi:application"
     deploy:
-      mode: global
       restart_policy:
         condition: on-failure
         delay: 5s
