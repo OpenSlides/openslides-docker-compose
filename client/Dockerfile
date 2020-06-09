@@ -26,7 +26,7 @@ RUN printf "Client built on %s:\n\n Repository: %s\n Branch:     %s\n\n%s\n" \
   "$(date)" \
   "$REPOSITORY_URL" \
   "$(git rev-parse --abbrev-ref HEAD)" \
-  "$(git show -s --format=raw)" > /build/app/openslides/static/image-version.txt
+  "$(git show -s --format=raw)" > /build/app/openslides/static/client-version.txt
 
 FROM nginx
 COPY --from=nodejs /build/app/openslides/static /usr/share/nginx/html

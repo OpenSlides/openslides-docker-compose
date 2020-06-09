@@ -632,11 +632,13 @@ ls_instance() {
   fi
 
   # --image-info
-  local image_info=
+  local server_image_info= client_image_info=
   if [[ -n "$OPT_IMAGE_INFO" ]] || [[ -n "$OPT_JSON" ]]; then
     if [[ -n "$version" ]]; then
-      image_info="$(curl -s "http://localhost:${port}/image-version.txt")"
-      [[ "$image_info" =~ built\ on ]] || image_info=
+      server_image_info="$(curl -s "http://localhost:${port}/server-version.txt")"
+      [[ "$server_image_info" =~ built\ on ]] || server_image_info=
+      client_image_info="$(curl -s "http://localhost:${port}/client-version.txt")"
+      [[ "$client_image_info" =~ built\ on ]] || client_image_info=
     fi
   fi
 
@@ -662,7 +664,8 @@ ls_instance() {
       --arg "user_password" "$OPENSLIDES_USER_PASSWORD" \
       --arg "user_email"    "$OPENSLIDES_USER_EMAIL" \
       --arg "metadata"      "$(printf "%s\n" "${metadata[@]}")" \
-      --arg "image_info"    "$image_info" \
+      --arg "server_image_info" "$server_image_info" \
+      --arg "client_image_info" "$client_image_info" \
       '{
         instances: [
           {
@@ -681,7 +684,8 @@ ls_instance() {
               user_email: $user_email
             },
             metadata: $metadata,
-            image_info: $image_info
+            server_image_info: $server_image_info,
+            client_image_info: $client_image_info
           }
         ]
       }'
@@ -725,9 +729,13 @@ ls_instance() {
   fi
 
   # --image-info
-  if [[ -n "$image_info" ]]; then
-    printf "   └ %s\n" "Image info:"
-    echo "${image_info}" | sed 's/^/     ┆ /'
+  if [[ -n "$server_image_info" ]]; then
+    printf "   └ %s\n" "Server image info:"
+    echo "${server_image_info}" | sed 's/^/     ┆ /'
+  fi
+  if [[ -n "$client_image_info" ]]; then
+    printf "   └ %s\n" "Client image info:"
+    echo "${client_image_info}" | sed 's/^/     ┆ /'
   fi
 }
 

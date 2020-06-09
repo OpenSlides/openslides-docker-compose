@@ -58,11 +58,11 @@ USER root
 RUN pip install -r requirements/production.txt -r requirements/big_mode.txt && \
       rm -rf /root/.cache/pip
 
-# RUN printf "Backend built on %s:\n\n Repository: %s\n Branch:     %s\n\n%s\n" \
-#   "$(date)" \
-#   "$REPOSITORY_URL" \
-#   "$(git rev-parse --abbrev-ref HEAD)" \
-#   "$(git show -s --format=raw)" > /app/image-version.txt
+RUN printf "Backend built on %s:\n\n Repository: %s\n Branch:     %s\n\n%s\n" \
+  "$(date)" \
+  "$REPOSITORY_URL" \
+  "$(git rev-parse --abbrev-ref HEAD)" \
+  "$(git show -s --format=raw)" > /app/openslides/core/static/server-version.txt
 
 RUN rm -rf .git /var/lib/apt/lists/*
 
