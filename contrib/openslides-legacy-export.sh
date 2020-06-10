@@ -64,7 +64,9 @@ ALTER TABLE mediafile_data OWNER TO openslides;
 
 EOF
 docker-compose exec prioserver python manage.py export_mediafiles \
-  --path /dev/stdout | tail +4 | head -n -1 >> mediafiledata.sql
+  --path /dev/stdout |
+awk '/Generated file to import into the media service db/ { s=1; } s' |
+head -n -1 >> mediafiledata.sql
 
 ###############
 # Configuration
@@ -89,15 +91,16 @@ UPDATE markers set configured = true;
 
 INSERT INTO files(filename, data, from_host)
 VALUES(
-  'personal_data/var/settings.py',
-  convert_from(decode('$SETTINGS','base64'), 'utf-8'),
+  '/app/personal_data/var/settings.py',
+  decode('$SETTINGS','base64'),
   'Initial import from legacy export'
 );
 EOF
 
 
 echo "Creating $TARBALL tarball..."
-tar czvf "$TARBALL" openslides.sql mediafiledata.sql secrets instancecfg.sql metadata.txt
+tar czvf "$TARBALL" openslides.sql mediafiledata.sql instancecfg.sql \
+  secrets/*.env metadata.txt
 
 cat <<EOF
 Done.
