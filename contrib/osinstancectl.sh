@@ -1094,24 +1094,37 @@ instance_config() {
         esac
         ;;
     "stack")
-      local servicename
-      local this_node_id
-      local this_node_name
-      local taskid
-      local containerid
-      servicename="${PROJECT_STACK_NAME}_prioserver"
+      local this_node_id this_node_name
+      local containerid=
       read -r this_node_id this_node_name <<< "$(docker node ls \
         --format '{{.Self}}\t{{.ID}}\t{{.Hostname}}' |
         awk '$1 == "true" { print $2, $3 }')"
-      taskid="$(docker service ps --format '{{.ID}}\t{{.Node}}' "${servicename}" |
-        awk -v this_node="${this_node_name}" '$2 == this_node { print $1; exit }')"
-      [[ -n "${taskid}" ]] || {
-        echo "ERROR: No $servicename is running on this node"
-        exit 4
+
+      # Try to find contanier on localhost
+      while read -r taskid; do
+        # This state check could potentially be handled more efficiently using
+        # another --filter.  The observed behavior is that multiple filter
+        # options get combined as an AND expression; however, the official
+        # documentation claims it should be treated as an OR expression.
+        [[ "$(docker inspect --format='{{.Status.State}}' "$taskid")" = "running" ]] || continue
+        containerid="$(docker inspect -f \
+          '{{.Status.ContainerStatus.ContainerID}}' ${taskid})"
+        break
+      done < <(docker service ps --filter "node=$this_node_id" \
+        --format '{{.ID}}' "${PROJECT_STACK_NAME}"_{prio,}server)
+
+      # Failed to find container on localhost; suggest alternatives
+      [[ -n "$containerid" ]] || {
+        echo "Could not find a suitable container for vicfg on local host ($this_node_name)."
+        while read -r node; do
+          printf " Try: ssh -t %s osstackctl vicfg %s\n" "$node" "$PROJECT_NAME"
+        done < <(docker service ps --filter "desired-state=running" \
+          --format '{{.Node}}' "${PROJECT_STACK_NAME}"_{prio,}server | sort -u)
+        exit 6
       }
-      containerid="$(docker inspect -f '{{.Status.ContainerStatus.ContainerID}}' \
-        ${taskid})"
-      docker exec -it -e "STACK=${PROJECT_STACK_NAME}" "${containerid}" bash -c "$container_cmd"
+
+      docker exec -it -e "STACK=${PROJECT_STACK_NAME}" "${containerid}" \
+        bash -c "$container_cmd"
       read -p "Update server containers now? [Y/n] " start
       case "$start" in
         Y|y|Yes|yes|YES|"")
