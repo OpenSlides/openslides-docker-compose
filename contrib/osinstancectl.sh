@@ -317,12 +317,24 @@ create_config_from_template() {
 }
 
 create_instance_dir() {
-  # Update yaml
-  git clone "${TEMPLATE_REPO}" "${PROJECT_DIR}"
-  # prepare secrets files
-  [[ -d "${PROJECT_DIR}/secrets" ]] ||
-    mkdir -m 700 "${PROJECT_DIR}/secrets"
-  touch "${PROJECT_DIR}/secrets/${ADMIN_SECRETS_FILE}"
+  case "$DEPLOYMENT_MODE" in
+    "compose")
+      git clone "${TEMPLATE_REPO}" "${PROJECT_DIR}"
+      ;;
+    "stack")
+      # If the template repo is a local worktree, copy files from it
+      if [[ -d "${TEMPLATE_REPO}" ]]; then
+        mkdir -p "${PROJECT_DIR}"
+        # prepare secrets files
+        mkdir -p -m 700 "${PROJECT_DIR}/secrets"
+        cp -f "${TEMPLATE_REPO}/secrets/${ADMIN_SECRETS_FILE}" "${PROJECT_DIR}/secrets/"
+        cp -f "${TEMPLATE_REPO}/secrets/${USER_SECRETS_FILE}" "${PROJECT_DIR}/secrets/"
+      else
+        # Template repo appears to be remote, so clone it
+        git clone "${TEMPLATE_REPO}" "${PROJECT_DIR}"
+      fi
+      ;;
+  esac
   touch "${PROJECT_DIR}/${MARKER}"
   # Add stack name to .env file
   touch "${PROJECT_DIR}/.env"
@@ -1440,10 +1452,15 @@ case "$DEPLOYMENT_MODE" in
     PROJECT_STACK_NAME="$(echo "$PROJECT_NAME" | tr -d '.')"
     ;;
 esac
-
 DCCONFIG="${PROJECT_DIR}/${CONFIG_FILE}"
 
-DEFAULT_DCCONFIG_TEMPLATE="${PROJECT_DIR}/${CONFIG_FILE}.example"
+# If a template repo exists as a local worktree, copy files from there;
+# otherwise, clone a repo and use its included files as templates
+if [[ -d "${TEMPLATE_REPO}" ]]; then
+  DEFAULT_DCCONFIG_TEMPLATE="${TEMPLATE_REPO}/${CONFIG_FILE}.example"
+else
+  DEFAULT_DCCONFIG_TEMPLATE="${PROJECT_DIR}/${CONFIG_FILE}.example"
+fi
 DCCONFIG_TEMPLATE="${YAML_TEMPLATE:-${DEFAULT_DCCONFIG_TEMPLATE}}"
 
 case "$MODE" in
