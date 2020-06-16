@@ -824,7 +824,7 @@ list_instances() {
     for instance in "${j[@]}"; do
       ls_instance "$instance" || continue
     done
-  fi | colorize_ls | merge_if_json
+  fi | colorize_ls | column -ts $'\t' | merge_if_json
 }
 
 clone_secrets() {
