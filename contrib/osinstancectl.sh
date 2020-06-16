@@ -705,7 +705,8 @@ ls_instance() {
   fi
 
   # Basic output
-  if [[ -z "$OPT_LONGLIST" ]]; then
+  if [[ -z "$OPT_LONGLIST" ]] && [[ -z "$OPT_METADATA" ]] && [[ -z "$OPT_IMAGE_INFO" ]]
+  then
     printf "%s %-30s\t%-10s\t%s\n" "$sym" "$shortname" "$version" "$first_metadatum"
   else
     # Hide details if they are going to be included in the long output format
