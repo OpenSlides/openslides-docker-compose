@@ -116,12 +116,12 @@ if [[ -z "$TIME" ]]; then
      echo "$str" | sed -e 's/./—/g'
      echo "$str"
      echo "$str" | sed -e 's/./—/g'
-     "$OSCTL" --tag "$TAG" update "$i"
+     "$OSCTL" --all-tags "$TAG" update "$i"
    done
 else
   # Prepare "at" job
   for i in "${INSTANCES[@]}"; do
-    echo "chronic \"$OSCTL\" --tag \"$TAG\" update \"$i\""
+    echo "chronic \"$OSCTL\" --all-tags \"$TAG\" update \"$i\""
   done |
   at "$TIME"
 fi
