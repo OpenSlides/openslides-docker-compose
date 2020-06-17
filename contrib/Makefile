@@ -18,7 +18,6 @@ install:
 	#
 	$(INSTALL) -pm 0755 openslides-docker-pg-dump.sh \
 	  $(dest_bindir)/openslides-docker-pg-dump
-	$(INSTALL) -pm 0755 openslides-logwatch.sh $(dest_bindir)/openslides-logwatch
 	$(INSTALL) -pm 0755 openslides-pg-mgr.sh \
 	  $(dest_bindir)/openslides-pg-mgr
 	$(INSTALL) -pm 0755 openslides-repmgr-status.sh \
