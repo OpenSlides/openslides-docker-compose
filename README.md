@@ -134,3 +134,9 @@ please create a fresh instance and import the legacy instance's data into it.
 A script to export data from legacy instances is provided in the legacy branch.
 
 To import the exported legacy data, use `./contrib/legacy-import.sh`.
+
+
+## Requirements
+
+Building the client image requires a significant amount of RAM, probably at
+least 8GB.
