@@ -1,7 +1,50 @@
 version: '3.4'
+
+x-osserver:
+  &default-osserver
+  image: openslides/openslides-server:latest
+  networks:
+    - front
+    - back
+x-osserver-env: &default-osserver-env
+    DEFAULT_FROM_EMAIL: "noreply@example.com"
+    REDIS_REPLICAS: 3 # must match redis-slave replicas below!
+    INSTANCE_DOMAIN: "http://example.com:8000"
+    SERVER_IS_SECONDARY: # unset
+x-pgnode: &default-pgnode
+  image: openslides/openslides-repmgr:latest
+  build: ./repmgr
+  networks:
+    - dbnet
+  labels:
+    org.openslides.role: "postgres"
+  deploy:
+    replicas: 1
+x-pgnode-env: &default-pgnode-env
+  REPMGR_RECONNECT_ATTEMPTS: 30
+  REPMGR_RECONNECT_INTERVAL: 10
+
 services:
+  prioserver:
+    # This service is the main server service in that it is responsible for
+    # database migrations, adding the initial user credentials etc.  However,
+    # the direct access to this service's resources is only granted to select,
+    # prioritized OpenSlides users or groups.  The general workload is handled
+    # by the regular "server" service below.
+    << : *default-osserver
+    environment:
+      << : *default-osserver-env
+    secrets:
+      - os_admin
+      - os_user
+    command: "gunicorn -w 1 --preload -b 0.0.0.0:8000
+      -k uvicorn.workers.UvicornWorker openslides.asgi:application"
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 5s
   server:
-    image: openslides:latest
+    << : *default-osserver
     # Below is the default command.  You can uncomment it to override the
     # number of workers, for example:
     # command: "gunicorn -w 8 --preload -b 0.0.0.0:8000
@@ -9,152 +52,161 @@ services:
     #
     # Uncomment the following line to use daphne instead of gunicorn:
     # command: "daphne -b 0.0.0.0 -p 8000 openslides.asgi:application"
-    volumes:
-      - type: volume
-        source: "personaldata"
-        target: "/app/personal_data"
-        volume:
-          nocopy: true
-    depends_on:
-      - prioserver
-      - postfix
-      - postgres
-      - redis
-      - rediscache
-    networks:
-      - front
-      - back
     environment:
+      << : *default-osserver-env
       # With this variable set this service will not attempt to prepare the
       # instance by, e.g., running migations.  This is exclusively left up to
       # the main service to avoid conflicts.
-      - SERVER_IS_SECONDARY=1
-    secrets:
-      - django
-  prioserver:
-    # This service is basically a simple copy of the main server service
-    # (above).  It will share all the same resources (DB, Redis, static files)
-    # as the main server, so it is crucial that it is always kept at
-    # compatible versions.
-    image: openslides:latest
-    secrets:
-      - django
-      - os_admin
-      - os_user
-    command: "gunicorn -w 1 --preload -b 0.0.0.0:8000
-      -k uvicorn.workers.UvicornWorker openslides.asgi:application"
-    volumes:
-      - type: volume
-        source: "staticfiles"
-        target: "/app/openslides/static"
-        volume:
-          nocopy: true
-      - type: volume
-        source: "personaldata"
-        target: "/app/personal_data"
-        volume:
-          nocopy: true
-    depends_on:
-      - postfix
-      - postgres
-      - redis
-      - rediscache
-    networks:
-      - front
-      - back
-    # environment:
-    #  - INSTANCE_IS_READONLY=1
+      SERVER_IS_SECONDARY: 1
     deploy:
-      replicas: 1
-  redis:
-    image: redis:alpine
-    volumes:
-      - "redisdata:/data"
-    networks:
-      - back
-    deploy:
-      replicas: 1
-  rediscache:
-    image: redis:alpine
-    command: ["redis-server", "--save", ""]
-    networks:
-      - back
-    deploy:
-      replicas: 1
-  rediscache-slave:
-    image: redis:alpine
-    command: ["redis-server", "--save", "", "--slaveof", "rediscache", "6379"]
-    networks:
-      - back
+      restart_policy:
+        condition: on-failure
+        delay: 5s
   client:
-    image: openslides-proxy:latest
-    volumes:
-      - type: volume
-        source: "staticfiles"
-        target: "/usr/share/nginx/html"
-        volume:
-          nocopy: true
-    depends_on:
-      - prioserver
+    image: openslides/openslides-client:latest
     networks:
       - front
     ports:
-      - 61000:80
-    deploy:
-      mode: global
-  postgres:
-    image: sameersbn/postgresql:10
-    labels:
-      org.openslides.role: "postgres"
-    volumes:
-      - "dbdata:/var/lib/postgresql"
-    environment:
-      - DB_USER=openslides
-      - DB_PASS=openslides
-      - DB_NAME=openslides
-    networks:
-      - back
+      - "0.0.0.0:61000:80"
     deploy:
       replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+
+  pgnode1:
+    << : *default-pgnode
+    environment:
+      << : *default-pgnode-env
+      REPMGR_NODE_ID: 1
+      REPMGR_PRIMARY:  # This *is* the primary
+    deploy:
+      placement:
+        constraints: [node.labels.openslides-db == dbnode1]
+    volumes:
+      - "dbdata1:/var/lib/postgresql"
+  # pgnode2:
+  #   << : *default-pgnode
+  #   environment:
+  #     << : *default-pgnode-env
+  #     REPMGR_NODE_ID: 2
+  #     REPMGR_PRIMARY: pgnode1
+  #   deploy:
+  #     placement:
+  #       constraints: [node.labels.openslides-db == dbnode2]
+  #   volumes:
+  #     - "dbdata2:/var/lib/postgresql"
+  # pgnode3:
+  #   << : *default-pgnode
+  #   environment:
+  #     << : *default-pgnode-env
+  #     REPMGR_NODE_ID: 3
+  #     REPMGR_PRIMARY: pgnode1
+  #   deploy:
+  #     placement:
+  #       constraints: [node.labels.openslides-db == dbnode3]
+  #   volumes:
+  #     - "dbdata3:/var/lib/postgresql"
+
+  pgbouncer:
+    # environment:
+    #   - PG_NODE_LIST=pgnode1,pgnode2,pgnode3
+    image: openslides/openslides-pgbouncer:latest
+    build: ./pgbouncer
+    networks:
+      back:
+        aliases:
+          - db
+          - postgres
+      dbnet:
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 10s
       placement:
         constraints: [node.role == manager]
   postfix:
-    image: openslides-postfix:latest
+    image: openslides/openslides-postfix:latest
+    build: ./postfix
     environment:
-      - MYHOSTNAME=localhost
-      - RELAYHOST=localhost
+      MYHOSTNAME: localhost
+      RELAYHOST: localhost
     networks:
       - back
     deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 5s
       replicas: 1
       placement:
         constraints: [node.role == manager]
+  redis:
+    image: redis:alpine
+    networks:
+      back:
+        aliases:
+          - rediscache
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+  redis-slave:
+    image: redis:alpine
+    command: ["redis-server", "--save", "", "--slaveof", "redis", "6379"]
+    networks:
+      back:
+        aliases:
+          - rediscache-slave
+    deploy:
+      replicas: 3 # must match REDIS_REPLICAS above!
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+  redis-channels:
+    image: redis:alpine
+    networks:
+      back:
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+  media:
+    image: openslides/openslides-media-service:latest
+    build: https://github.com/OpenSlides/openslides-media-service.git
+    environment:
+      - CHECK_REQUEST_URL=server:8000/check-media/
+    deploy:
+      replicas: 8
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+    networks:
+      front:
+      back:
+    # Override command to run more workers per task
+    # command: ["gunicorn", "-w", "4", "--preload", "-b",
+    #   "0.0.0.0:8000", "src.mediaserver:app"]
+
 volumes:
-  dbdata:
-  redisdata:
-  staticfiles:
-    driver: local
-    driver_opts:
-      type: nfs
-      o: "addr=nfs.example.com,rw,soft,nolock"
-      device: ":/srv/openslides/nfs/staticfiles"
-  personaldata:
-    driver: local
-    driver_opts:
-      type: nfs
-      o: "addr=nfs.example.com,rw,soft,nolock"
-      device: ":/srv/openslides/nfs/personaldata"
+  dbdata1:
+  dbdata2:
+  dbdata3:
+
 networks:
   front:
   back:
     driver_opts:
       encrypted: ""
+  dbnet:
+    driver_opts:
+      encrypted: ""
+
 secrets:
   os_admin:
     file: ./secrets/adminsecret.env
   os_user:
     file: ./secrets/usersecret.env
-  django:
-    file: ./secrets/django
 
 # vim: set ft=yaml sw=2 et:

@@ -1,0 +1,16 @@
+node_id=<NODEID>
+node_name=pgnode<NODEID>
+conninfo='host=pgnode<NODEID> user=repmgr dbname=repmgr connect_timeout=2'
+data_directory='/var/lib/postgresql/11/main/'
+pg_bindir='/usr/lib/postgresql/11/bin/'
+
+failover=automatic
+promote_command='/usr/local/bin/repmgr-promote'
+follow_command='/usr/bin/repmgr standby follow -f /etc/repmgr.conf --upstream-node-id=%n'
+reconnect_attempts=<RECONNECT_ATTEMPTS>
+reconnect_interval=<RECONNECT_INTERVAL>
+
+service_start_command   = '/usr/bin/pg_ctlcluster 11 main start'
+service_stop_command    = '/usr/bin/pg_ctlcluster 11 main stop'
+service_restart_command = '/usr/bin/pg_ctlcluster 11 main restart'
+service_reload_command  = '/usr/bin/pg_ctlcluster 11 main reload'

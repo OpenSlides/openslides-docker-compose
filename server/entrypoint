@@ -4,36 +4,31 @@
 
 set -e
 
-configure() {
-  python manage.py createsettings
-  echo "Creating settings.py"
+warn_insecure_admin() {
+  cat <<-EOF
 
-  # Set our own the Django secret key to make sure it is consistent across
-  # nodes
-  if [[ -f /run/secrets/django ]]; then
-    awk -v sec="'$(< /run/secrets/django)'" '$1 == "SECRET_KEY" { $3 = sec }1' \
-      /app/personal_data/var/settings.py > /app/personal_data/var/settings.py.tmp &&
-      mv /app/personal_data/var/settings.py.tmp /app/personal_data/var/settings.py
-  else
-    cat <<-EOF
                  ==============================================
                                     WARNING
                  ==============================================
 
-                   WARNING: no Django SECRET_KEY configured!
+                 WARNING: INSECURE ADMIN ACCOUNT CONFIGURATION!
 
-               We will be using the Django-generated secret key.
-
-Please be aware that this is an unsuitable setup for for multi-node setups (but
-                           fine for Docker Compose).
 EOF
-fi
+  sleep 10
+}
+
+configure() {
+  echo "postgres:5432:instancecfg:openslides:openslides" > "${HOME}/.pgpass"
+  chmod 600 "${HOME}/.pgpass"
+
+  python manage.py createsettings
 
   # settings.py customizations for docker-compose setup
   # Email server: use postfix service
   sed -i \
     -e "/EMAIL_HOST\ /s/localhost/postfix/" \
     -e "/EMAIL_PORT/s/587/25/" \
+    -e "/DEFAULT_FROM_EMAIL/s/noreply@example\.com/${DEFAULT_FROM_EMAIL:-noreply@example.com}/" \
     /app/personal_data/var/settings.py
 
   # database: use postgres service
@@ -42,7 +37,7 @@ fi
     -e "/^\s*'NAME'/s/\(^.*'NAME':\).*/\1\ 'openslides',/" \
     -e "/^\s*'NAME'/a\ \ \ \ \ \ \ \ 'USER': 'openslides',\n \
         'PASSWORD': 'openslides',\n \
-        'HOST': 'postgres',\n \
+        'HOST': 'db',\n \
         'PORT': '5432'" \
     /app/personal_data/var/settings.py
 
@@ -53,13 +48,14 @@ fi
 
   # Redis for Django channels
   sed -i \
-    -e "/\"hosts\":.*6379/s/localhost/redis/" \
+    -e "/\"hosts\":.*6379/s/localhost/redis-channels/" \
     /app/personal_data/var/settings.py
 
   # Redis for collection cache
   sed -i \
-    -e "/REDIS_ADDRESS/s/127\.0\.0\.1/rediscache:6379\/0/" \
-    -e '/REDIS_ADDRESS/a\ \ \ \ REDIS_READ_ONLY_ADDRESS = "redis://rediscache-slave:6379/0"' \
+    -e "/REDIS_ADDRESS/s/127\.0\.0\.1/redis:6379\/0/" \
+    -e '/REDIS_ADDRESS/a\ \ \ \ REDIS_READ_ONLY_ADDRESS = "redis://redis-slave:6379/0"' \
+    -e "/AMOUNT_REPLICAS/s/1/${REDIS_REPLICAS:-1}/" \
     /app/personal_data/var/settings.py
 
   # Redis for session backend
@@ -71,9 +67,95 @@ fi
   sed -i \
     -e "/^DEBUG/s/True/False/" \
     /app/personal_data/var/settings.py
+
+  # Additional settings not included in default template
+  cat >> /app/personal_data/var/settings.py << EOF
+
+# Additional settings added by entrypoint
+AUTOUPDATE_DELAY = 1
+WAIT_TIMEOUT = 10000
+
+DATABASES['mediafiles'] = {
+    'ENGINE': 'django.db.backends.postgresql',
+    'NAME': 'mediafiledata',
+    'USER': 'openslides',
+    'PASSWORD': 'openslides',
+    'HOST': 'db',
+    'PORT': '5432',
+}
+EOF
+
 }
 
-sudo /usr/local/bin/update-openslides-app
+configure_users_configvars() {
+  [[ -n "$INSTANCE_DOMAIN" ]] || return 0
+  local config="openslides/users/config_variables.py"
+  local default_setting="http://example.com:8000"
+  echo "Updating ${config}..."
+  awk -v def="$default_setting" -v instance="$INSTANCE_DOMAIN" '
+    # set users_pdf_url
+    $1 ~ /users_pdf_url/ {
+      print;
+      getline;
+      $0 = sprintf("        default_value=\"%s\",", instance)
+    }
+    1
+  ' "${config}" > "${config}.tmp" &&
+  mv -f "${config}.tmp" "${config}"
+}
+
+configure_read_only() {
+  {
+    echo -e '\n# Read-only instance configuration'
+    # Revert CHANNEL_LAYERS to back default settings
+    echo 'CHANNEL_LAYERS = {"default": {"BACKEND": "channels.layers.InMemoryChannelLayer"}}'
+    # Read-only mode specific settings
+    echo 'PUSH_INTERVAL = 5'
+    echo 'CACHE_RETRY_TIME = 10'
+    # XXX this should be here only temporarily until it becomes the default
+    echo 'REDIS_ADDRESS = "redis://redis-slave:6379/0"'
+  } >> /app/personal_data/var/settings.py
+}
+
+retrieve_configs_from_db() {
+  mkdir -p /app/personal_data/var
+  psql -qAt0 -h db -d instancecfg <<< "
+    SELECT DISTINCT ON (filename) filename FROM files
+    ORDER BY filename, id DESC;" |
+  while IFS= read -r -d $'\0' target_filename; do
+    echo "Fetching ${target_filename} from database..."
+    psql -h db -d instancecfg -qtA <<< "
+      SELECT DISTINCT ON (filename) data FROM files
+        WHERE filename = '${target_filename}'
+        ORDER BY filename, id DESC;
+      " | xxd -r -p > "${target_filename}"
+  done
+}
+
+insert_config_into_db() {
+  [[ -f "$1" ]] || fatal "File not found: $1"
+  local cfg b64
+  local cfg="$(realpath "$1")"
+  b64="$(base64 < "$cfg")"
+  psql -v ON_ERROR_STOP=1 -1 -h db -d instancecfg \
+    -c "INSERT INTO files(filename, data, from_host)
+      VALUES(
+        '${cfg}',
+        decode('$b64', 'base64'),
+        '$(hostname)'
+      )"
+}
+
+create_settings() {
+    configure
+    if [[ "$INSTANCE_IS_READONLY" ]]; then
+      echo "Configuring instance as read-only mirror"
+      configure_read_only
+    fi
+    echo "Storing settings.py in database..."
+    insert_config_into_db "/app/personal_data/var/settings.py"
+}
+
 
 # Enable OpenSlides-specific DEBUG output
 export OPENSLIDES_LOG_LEVEL=DEBUG
@@ -83,60 +165,59 @@ export OPENSLIDES_LOG_LEVEL=DEBUG
 if [[ "$SERVER_IS_SECONDARY" ]]; then
   echo "This is a secondary server instance.  Waiting for main server..."
   wait-for-it --timeout=0 prioserver:8000
+  retrieve_configs_from_db
   exec $*
 fi
 
-if [[ ! -f /app/personal_data/var/settings.py ]]; then
-  configure
-  if [[ "$INSTANCE_IS_READONLY" ]]; then
-    echo "DEBUG: Configuring instance as read-only mirror"
-    {
-      echo -e '\n# Read-only instance configuration'
-      # Revert CHANNEL_LAYERS to back default settings
-      echo 'CHANNEL_LAYERS = {"default": {"BACKEND": "channels.layers.InMemoryChannelLayer"}}'
-      # Read-only mode specific settings
-      echo 'PUSH_INTERVAL = 5'
-      echo 'CACHE_RETRY_TIME = 10'
-      # XXX this should be here only temporarily until it becomes the default
-      echo 'REDIS_ADDRESS = "redis://rediscache-slave:6379/0"'
-    } >> /app/personal_data/var/settings.py
-  fi
+until pg_isready -h db; do
+  echo "Waiting for Postgres cluster to become available..."
+  sleep 3
+done
+
+# Get all available config files from database
+retrieve_configs_from_db
+
+# Generate settings.py if necessary
+if [[ ! -f "/app/personal_data/var/settings.py" ]]; then
+  # this container is the first to generate settings.py
+  echo "settings.py not found in database."
+
+  # Update defaults prior to create_settings()
+  configure_users_configvars
+
+  echo "Generating a new settings.py from template..."
+  create_settings
 fi
 
-wait-for-it --timeout=60 postgres:5432
+# Read config from database
+read -ra admin_marker < <(psql -h db -d instancecfg -qtAF, \
+    -c "SELECT configured FROM markers WHERE name = 'admin'")
+read -ra user_marker < <(psql -h db -d instancecfg -qtAF, \
+    -c "SELECT configured FROM markers WHERE name = 'user'")
 
 echo 'running migrations'
 python manage.py migrate
 
-if [[ -f /run/secrets/os_admin ]]; then
-  if [[ ! -f /app/personal_data/admin-password-set ]]; then
-    echo "Retrieving secure admin password"
-    source /run/secrets/os_admin
-    [[ -n "${OPENSLIDES_ADMIN_PASSWORD}" ]] || {
-      echo "ERROR: OpenSlides admin password not set.  Aborting."
-      exit 2
-    }
-    echo 'change admin password'
-    python manage.py insecurechangepassword admin "${OPENSLIDES_ADMIN_PASSWORD}"
-    # Note password change in persistent volume
-    touch /app/personal_data/admin-password-set
-  fi
-elif [[  -f /app/personal_data/admin-password-set ]]; then
+if [[ "$admin_marker" = "t" ]]; then
   echo "Admin password already set; nothing to do."
+elif [[ -f /run/secrets/os_admin ]]; then
+  echo "Retrieving secure admin password"
+  source /run/secrets/os_admin
+  if [[ -n "${OPENSLIDES_ADMIN_PASSWORD}" ]] && [[ "$admin_marker" = "f" ]]
+  then
+    echo 'Changing admin password'
+    python manage.py insecurechangepassword admin "${OPENSLIDES_ADMIN_PASSWORD}"
+    # Make note of changed admin password
+    psql -h db -d instancecfg -a \
+        -c "UPDATE markers SET configured = true WHERE name = 'admin'"
+  else
+    warn_insecure_admin
+  fi
 else
-  cat <<-EOF
-
-                 ==============================================
-                                    WARNING
-                 ==============================================
-
-                 WARNING: INSECURE ADMIN ACCOUNT CONFIGURATION!
-
-EOF
-  sleep 10
+  warn_insecure_admin
 fi
 
-if [[ -f /run/secrets/os_user ]] && [[ ! -f /app/personal_data/user-added ]]; then
+if [[ -f /run/secrets/os_user ]] && [[ "$user_marker" = "f" ]]; then
   echo "Retrieving user credentials"
   source /run/secrets/os_user
   if [[ -n "${OPENSLIDES_USER_FIRSTNAME}" ]] &&
@@ -163,8 +244,9 @@ if [[ -f /run/secrets/os_user ]] && [[ ! -f /app/personal_data/user-added ]]; th
         "${OPENSLIDES_USER_PASSWORD}" \
         2
     fi
-    # Note password change in persistent volume
-    touch /app/personal_data/user-added
+    # Make note of changed admin password
+    psql -h db -d instancecfg -a \
+        -c "UPDATE markers SET configured = true WHERE name = 'user'"
   else
     echo "Incomplete user account data.  Skipping account creation."
   fi

@@ -1,12 +1,53 @@
-version: '3.1'
-secrets:
-  os_admin:
-    file: ./secrets/adminsecret.env
-  os_user:
-    file: ./secrets/usersecret.env
+version: '3.4'
+
+x-osserver:
+  &default-osserver
+  image: openslides/openslides-server:latest
+  networks:
+    - front
+    - back
+  restart: always
+x-osserver-env: &default-osserver-env
+    DEFAULT_FROM_EMAIL: "noreply@example.com"
+    REDIS_REPLICAS: 3 # must match redis-slave replicas below!
+    INSTANCE_DOMAIN: "http://example.com:8000"
+    SERVER_IS_SECONDARY: # unset
+x-pgnode:
+  &default-pgnode
+  image: openslides/openslides-repmgr:latest
+  build: ./repmgr
+  networks:
+    - dbnet
+  labels:
+    org.openslides.role: "postgres"
+  restart: always
+x-pgnode-env: &default-pgnode-env
+  REPMGR_RECONNECT_ATTEMPTS: 30
+  REPMGR_RECONNECT_INTERVAL: 10
+
 services:
+  prioserver:
+    # This service is the main server service in that it is responsible for
+    # database migrations, adding the initial user credentials etc.  However,
+    # the direct access to this service's resources is only granted to select,
+    # prioritized OpenSlides users or groups.  The general workload is handled
+    # by the regular "server" service below.
+    << : *default-osserver
+    environment:
+      << : *default-osserver-env
+    secrets:
+      - os_admin
+      - os_user
+    command: "gunicorn -w 1 --preload -b 0.0.0.0:8000
+      -k uvicorn.workers.UvicornWorker openslides.asgi:application"
+    depends_on:
+      - postfix
+      - pgbouncer
+      - redis
+      - redis-slave
+      - redis-channels
   server:
-    image: openslides:latest
+    << : *default-osserver
     # Below is the default command.  You can uncomment it to override the
     # number of workers, for example:
     # command: "gunicorn -w 8 --preload -b 0.0.0.0:8000
@@ -14,109 +55,120 @@ services:
     #
     # Uncomment the following line to use daphne instead of gunicorn:
     # command: "daphne -b 0.0.0.0 -p 8000 openslides.asgi:application"
-    restart: always
-    volumes:
-      - "personaldata:/app/personal_data"
     depends_on:
-      - postfix
-      - postgres
-      - redis
-      - rediscache
       - prioserver
-    networks:
-      - front
-      - back
-    sysctls:
-      net.core.somaxconn: 1024
-      net.ipv4.ip_local_port_range: 1024 60999
     environment:
+      << : *default-osserver-env
       # With this variable set this service will not attempt to prepare the
       # instance by, e.g., running migations.  This is exclusively left up to
       # the main service to avoid conflicts.
-      - SERVER_IS_SECONDARY=1
-  prioserver:
-    # This service is basically a simple copy of the main server service
-    # (above).  It will share all the same resources (e.g., DB, Redis)
-    # as the main server, so it is crucial that it is always kept at
-    # compatible versions.
-    image: openslides:latest
-    command: "gunicorn -w 1 --preload -b 0.0.0.0:8000
-      -k uvicorn.workers.UvicornWorker openslides.asgi:application"
-    restart: always
-    volumes:
-      - "personaldata:/app/personal_data"
-      - "staticfiles:/app/openslides/static"
-    depends_on:
-      - postfix
-      - postgres
-      - redis
-      - rediscache
-    networks:
-      - front
-      - back
-    secrets:
-      - os_admin
-      - os_user
-  redis:
-    image: redis:alpine
-    restart: always
-    volumes:
-      - "redisdata:/data"
-    networks:
-      - back
-  rediscache:
-    image: redis:alpine
-    restart: always
-    command: ["redis-server", "--save", ""]
-    networks:
-      - back
-  rediscache-slave:
-    image: redis:alpine
-    restart: always
-    command: ["redis-server", "--save", "", "--slaveof", "rediscache", "6379"]
-    networks:
-      - back
+      SERVER_IS_SECONDARY: 1
   client:
-    image: openslides-proxy:latest
-    build: ./client
+    image: openslides/openslides-client:latest
     restart: always
-    volumes:
-      - "staticfiles:/usr/share/nginx/html"
     depends_on:
+      - prioserver
       - server
     networks:
       - front
     ports:
       - "127.0.0.1:61000:80"
-  postgres:
-    image: sameersbn/postgresql:10
-    labels:
-      org.openslides.role: "postgres"
-    restart: always
+
+  pgnode1:
+    << : *default-pgnode
+    environment:
+      << : *default-pgnode-env
+      REPMGR_NODE_ID: 1
+      REPMGR_PRIMARY: # empty; this *is* the primary
     volumes:
-      - "dbdata:/var/lib/postgresql"
-    environment:
-      - DB_USER=openslides
-      - DB_PASS=openslides
-      - DB_NAME=openslides
+      - "dbdata1:/var/lib/postgresql"
+  # pgnode2:
+  #   << : *default-pgnode
+  #   environment:
+  #     << : *default-pgnode-env
+  #     REPMGR_NODE_ID: 2
+  #     REPMGR_PRIMARY: pgnode1
+  #   volumes:
+  #     - "dbdata2:/var/lib/postgresql"
+  # pgnode3:
+  #   << : *default-pgnode
+  #   environment:
+  #     << : *default-pgnode-env
+  #     REPMGR_NODE_ID: 3
+  #     REPMGR_PRIMARY: pgnode1
+  #   volumes:
+  #     - "dbdata3:/var/lib/postgresql"
+
+  pgbouncer:
+    # environment:
+    #   - PG_NODE_LIST=pgnode1,pgnode2,pgnode3
+    image: openslides/openslides-pgbouncer:latest
+    build: ./pgbouncer
+    restart: always
     networks:
-      - back
+      back:
+        aliases:
+          - db
+          - postgres
+      dbnet:
   postfix:
+    image: openslides/openslides-postfix:latest
     build: ./postfix
-    image: openslides-postfix:latest
     restart: always
     environment:
-      - MYHOSTNAME=localhost
-      - RELAYHOST=localhost
+      MYHOSTNAME: localhost
+      RELAYHOST: localhost
     networks:
       - back
+  redis:
+    image: redis:alpine
+    restart: always
+    networks:
+      back:
+        aliases:
+          - rediscache
+  redis-slave:
+    image: redis:alpine
+    restart: always
+    command: ["redis-server", "--save", "", "--slaveof", "redis", "6379"]
+    depends_on:
+      - redis
+    networks:
+      back:
+        aliases:
+          - rediscache-slave
+  redis-channels:
+    image: redis:alpine
+    restart: always
+    networks:
+      back:
+  media:
+    image: openslides/openslides-media-service:latest
+    build: https://github.com/OpenSlides/openslides-media-service.git
+    environment:
+      - CHECK_REQUEST_URL=server:8000/check-media/
+    restart: always
+    networks:
+      front:
+      back:
+    # Override command to run more workers per task
+    # command: ["gunicorn", "-w", "4", "--preload", "-b",
+    #   "0.0.0.0:8000", "src.mediaserver:app"]
+
 volumes:
-  dbdata:
-  personaldata:
-  redisdata:
-  staticfiles:
+  dbdata1:
+  dbdata2:
+  dbdata3:
+
 networks:
   front:
   back:
+  dbnet:
+
+secrets:
+  os_admin:
+    file: ./secrets/adminsecret.env
+  os_user:
+    file: ./secrets/usersecret.env
 
 # vim: set ft=yaml sw=2 et:

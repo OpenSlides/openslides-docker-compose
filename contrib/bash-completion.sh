@@ -4,12 +4,13 @@ _osinstancectl()
   COMPREPLY=()
   cur="${COMP_WORDS[COMP_CWORD]}"
   prev="${COMP_WORDS[COMP_CWORD-1]}"
-  opts="ls add rm start stop update erase flush"
+  opts="ls add rm start stop update erase vicfg"
   opts+=" --help --long --metadata --online --offline --no-add-account"
   opts+=" --clone-from --force --color --project-dir --fast"
-  opts+=" --image --tag --image-info"
+  opts+=" --default-repo --image-info"
+  opts+=" --server-image --server-tag --client-image --client-tag --all-tags"
   opts+=" --local-only --mailserver"
-  diropts="ls|rm|start|stop|update|erase|flush|--clone-from"
+  diropts="ls|rm|start|stop|update|erase|vicfg|--clone-from"
 
   if [[ ${prev} =~ ${diropts} ]]; then
     COMPREPLY=( $(cd /srv/openslides/docker-instances && compgen -d -- ${cur}) )
@@ -23,3 +24,4 @@ _osinstancectl()
 }
 
 complete -F _osinstancectl osinstancectl
+complete -F _osinstancectl osstackctl
