@@ -124,6 +124,8 @@ retrieve_configs_from_db() {
     ORDER BY filename, id DESC;" |
   while IFS= read -r -d $'\0' target_filename; do
     echo "Fetching ${target_filename} from database..."
+    d="$(dirname "${target_filename}")"
+    [[ -d "$d" ]] || mkdir -p "$d"
     psql -h db -d instancecfg -qtA <<< "
       SELECT DISTINCT ON (filename) data FROM files
         WHERE filename = '${target_filename}'
