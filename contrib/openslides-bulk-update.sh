@@ -13,13 +13,14 @@ ME="$(basename -s .sh "${BASH_SOURCE[0]}")"
 
 usage() {
 cat << EOF
-Usage: $ME [<options>] --tag <tag> [--] [<name pattern>...]
+Usage: $ME [<options>] --tag <tag> < INSTANCES
 
-  -t, --tag   Docker image tag to which to update
-  --at        "at" timespec, cf. \`man at\`
-  --mode      Select Docker deployment mode, 'swarm' (default) or 'compose'
+  -t TAG, --tag=TAG   Docker image tag to which to update
+  --at=TIME           "at" timespec, cf. \`man at\`
+  --mode=MODE         Select Docker deployment mode, 'swarm' (default)
+                      or 'compose'
 
-The pattern is passed to $OSCTL; so, for details, see \`$OSCTL --help\`.
+$ME expects the output of "osinstancectl ls" on its standard input.
 EOF
 }
 
@@ -91,17 +92,28 @@ done
 # Verify options
 [[ -n "$TAG" ]] || { fatal "Missing option: --tag"; }
 
-# Pre-select instances and prepare output for whiptail
-readarray INSTANCES_PRE < <("$OSCTL" --color=never ls "$PATTERN")
+# Read instance listing from osinstancectl/osstackctl on stdin
 INSTANCES="$(
-  awk '
-    $1 == "OK" { i = $3; s = "ON"; printf("%s (%s) %s\n", $2, i, s) }
-    $1 == "XX" { i = "offline"; s = "OFF"; printf("%s (%s) %s\n", $2, i, s) }
-  ' <<< "${INSTANCES_PRE[@]}" |
-  while read -r i v c; do
-    printf "%s %s %s\n" "$i" "$v" "$c"
+  while IFS= read -r line; do
+    # Skip irrelevant lines, probably from ls --long
+    grep -q '^[^\ ]' <<< "$line" || continue
+    read -r status instance version memo <<< "$line"
+    # Pre-select instances
+    [[ -n "$status" ]] || continue
+    if [[ "$status" = "OK" ]]; then
+      checked="ON"
+    else
+      checked="OFF"
+      version="offline"
+    fi
+    # XXX: Currently, this code can only parse osinstancectl's default short
+    # listing output because it include the version directly on the same line.
+    # Multi-line parsing for `ls --long` output could be added if necessary.
+    [[ -n "$version" ]] || version="parsing_error"
+    # Prepare output for whiptail
+    printf "%s (%s) %s\n" "$instance" "$version" "$checked"
   done
-  )"
+)"
 INSTANCES=($(instance_menu "$TAG" "${INSTANCES[@]}")) # User-selected instances
 if [[ $? -eq 0 ]]; then clear; else exit 3; fi
 [[ ${#INSTANCES[@]} -ge 1 ]] || exit 0
