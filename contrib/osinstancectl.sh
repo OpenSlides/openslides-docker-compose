@@ -1481,7 +1481,7 @@ case "$MODE" in
     run_hook "post-${MODE}"
     ;;
   create)
-    [[ -f "$CONFIG" ]] && echo "Found ${CONFIG} file." || true
+    [[ -f "$CONFIG" ]] && echo "Applying options from ${CONFIG}." || true
     arg_check || { usage; exit 2; }
     # Use defaults in the absence of options
     [[ -n "$DOCKER_IMAGE_NAME_OPENSLIDES" ]] ||
@@ -1571,7 +1571,7 @@ case "$MODE" in
     run_hook "post-${MODE}"
     ;;
   update)
-    [[ -f "$CONFIG" ]] && echo "Found ${CONFIG} file." || true
+    [[ -f "$CONFIG" ]] && echo "Applying options from ${CONFIG}." || true
     arg_check || { usage; exit 2; }
     instance_update
     run_hook "post-${MODE}"
