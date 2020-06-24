@@ -73,7 +73,7 @@ configure() {
 
 # Additional settings added by entrypoint
 AUTOUPDATE_DELAY = 1
-WAIT_TIMEOUT = 10000
+WAIT_TIMEOUT = 1000
 
 DATABASES['mediafiles'] = {
     'ENGINE': 'django.db.backends.postgresql',
