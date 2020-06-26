@@ -47,7 +47,8 @@ OPT_LOCALONLY=
 OPT_FORCE=
 OPT_WWW=
 OPT_FAST=
-FILTER=
+FILTER_STATE=
+FILTER_VERSION=
 CLONE_FROM=
 ADMIN_SECRETS_FILE="adminsecret.env"
 USER_SECRETS_FILE="usersecret.env"
@@ -119,6 +120,8 @@ Options:
     --search-metadata  Include metadata in instance list
     --fast             Include less information to increase listing speed
     -j, --json         Enable JSON output format
+    --version          Filter results based on the version reported by
+                       OpenSlides (implies --online)
 
   for add & update:
     -r, --default-repo Specifcy the default Docker repository for OpenSlides
@@ -583,13 +586,18 @@ ls_instance() {
   fi
 
   # Filter online/offline instances
-  case "$FILTER" in
+  case "$FILTER_STATE" in
     online)
       [[ -n "$version" ]] || return 1 ;;
     offline)
       [[ -z "$version" ]] || return 1 ;;
     *) ;;
   esac
+
+  # Filter based on comparison with the currently running version (as reported
+  # by the Web frontend)
+  [[ -z "$FILTER_VERSION" ]] ||
+    { [[ "$version" = "$FILTER_VERSION" ]] || return 1; }
 
   # Parse metadata for first line (used in overview)
   local first_metadatum=
@@ -1205,6 +1213,7 @@ longopt=(
   image-info
   fast
   search-metadata
+  version:
 
   # adding instances
   default-repo:
@@ -1301,12 +1310,16 @@ while true; do
       shift 1
       ;;
     -n|--online)
-      FILTER="online"
+      FILTER_STATE="online"
       shift 1
       ;;
     -f|--offline)
-      FILTER="offline"
+      FILTER_STATE="offline"
       shift 1
+      ;;
+    --version)
+      FILTER_VERSION="$2"
+      shift 2
       ;;
     --clone-from)
       CLONE_FROM="$2"
