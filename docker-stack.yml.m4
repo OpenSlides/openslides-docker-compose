@@ -51,6 +51,7 @@ x-pgnode: &default-pgnode
 x-pgnode-env: &default-pgnode-env
   REPMGR_RECONNECT_ATTEMPTS: 30
   REPMGR_RECONNECT_INTERVAL: 10
+  REPMGR_WAL_ARCHIVE: "ifenvelse(`PGNODE_WAL_ARCHIVING', on)"
 
 services:
   prioserver:
