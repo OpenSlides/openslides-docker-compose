@@ -38,7 +38,7 @@ x-osserver:
 x-osserver-env: &default-osserver-env
     INSTANCE_DOMAIN: "ifenvelse(`INSTANCE_DOMAIN', http://example.com:8000)"
     DEFAULT_FROM_EMAIL: "ifenvelse(`DEFAULT_FROM_EMAIL', noreply@example.com)"
-    REDIS_REPLICAS: ifenvelse(`REDIS_RO_SERVICE_REPLICAS', 3)
+    REDIS_REPLICAS: ifenvelse(`REDIS_RO_SERVICE_REPLICAS', 1)
     SERVER_IS_SECONDARY: # unset
 x-pgnode: &default-pgnode
   image: ifenvelse(`DEFAULT_DOCKER_REGISTRY', openslides)/openslides-repmgr:latest
