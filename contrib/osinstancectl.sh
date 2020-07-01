@@ -16,9 +16,10 @@ DEFAULT_DOCKER_IMAGE_TAG_OPENSLIDES=latest
 DEFAULT_DOCKER_IMAGE_NAME_CLIENT=openslides/openslides-client
 DEFAULT_DOCKER_IMAGE_TAG_CLIENT=latest
 YAML_TEMPLATE= # leave empty for automatic (default)
+DOT_ENV_TEMPLATE=
 HOOKS_DIR=
 # If set, these variables override the defaults in the
-# docker-compose.yml.example template file.  They can be configured on the
+# docker-compose.yml.m4 template file.  They can be configured on the
 # command line as well as in /etc/osinstancectl.
 RELAYHOST=
 MAIN_REPOSITORY_URL= # default repo used for all openslides/* images
@@ -233,13 +234,9 @@ next_free_port() {
   local HIGHEST_PORT_IN_USE
   local PORT
   HIGHEST_PORT_IN_USE=$(
-    # CONFIG_FILE is dependend on the deployment mode.  Maybe this should be
-    # a wildcard such as docker-*.yml to cover both docker-compose and swarm
-    # deployments at the same time.  However, in any case the check below
-    # (ss) will avoid duplication.
-    find "${INSTANCES}" -type f -name "${CONFIG_FILE}" -print0 |
-    xargs -0 grep -h -o "\.0\.0\.[01]:61[0-9]\{3\}:80"|
-    cut -d: -f2 | sort -rn | head -1
+    find "${INSTANCES}" -type f -name ".env" -print0 |
+    xargs -0 grep -h "EXTERNAL_HTTP_PORT" |
+    cut -d= -f2 | sort -rn | head -1
   )
   [[ -n "$HIGHEST_PORT_IN_USE" ]] || HIGHEST_PORT_IN_USE=61000
   PORT=$((HIGHEST_PORT_IN_USE + 1))
@@ -257,66 +254,35 @@ next_free_port() {
   echo "$PORT"
 }
 
+update_env_file() {
+  [[ -f "$1" ]] || fatal "$1 not found."
+  gawk -v env_var_name="$2" -v env_var_val="$3" '
+    BEGIN { FS = "="; OFS=FS }
+    $1 == env_var_name { $2 = env_var_val; s=1 }
+    1
+    END { if (!s) printf("%s=%s\n", env_var_name, env_var_val) }
+  ' "$1" | sponge "$1"
+}
+
 create_config_from_template() {
-  local templ="$1"
-  local config="$2"
-  gawk -v port="${PORT}" \
-      -v domain="$PROJECT_NAME" \
-      -v server_image="$DOCKER_IMAGE_NAME_OPENSLIDES" \
-      -v server_tag="$DOCKER_IMAGE_TAG_OPENSLIDES" \
-      -v client_image="$DOCKER_IMAGE_NAME_CLIENT" \
-      -v client_tag="$DOCKER_IMAGE_TAG_CLIENT" '
-    BEGIN {FS=":"; OFS=FS}
-    $0 ~ /^x-osserver:$/ { s = 1 }
-    $1 ~ /image/ && s {
-      $2 = " " server_image;
-      $3 = server_tag;
-      s = 0
-    }
-
-    $0 ~ /^ +client:$/ { c = 1 }
-    $1 ~ /image/ && c {
-      $2 = " " client_image;
-      $3 = client_tag;
-      c = 0
-    }
-
-    $0 ~ / +ports:$/ { # enter ports section
-      p = $0
-      pi = length(gensub(/(^\ *).*/, "\\1", "g")) # indent level
-      next
-    }
-    pi > 0 && /80"?$/ { # update host port for port 80 mapping
-      $(NF - 1) = port
-      printf("%s\n%s\n", p, $0)
-      pi = 0
-      next
-    }
-    pi > 0 { # strip all other published ports
-      i = length(gensub(/(^\ *).*/, "\\1", "g")) # indent level
-      if ( i > pi ) { next } else { pi = 0 }
-    }
-    1
-  ' "$templ" |
-  gawk -v proj="$PROJECT_NAME" -v relay="$RELAYHOST" \
-      -v repo="$MAIN_REPOSITORY_URL" '
-    BEGIN { FS=": "; OFS=FS; }
-
-    # update INSTANCE_DOMAIN in x-osserver-env
-    $1 ~ "INSTANCE_DOMAIN$" {
-      $2 = "\"https://" proj "\""
-    }
-
-    # Configure all OpenSlides-specific images for custom Docker repository
-    repo && $1 ~ / +image/ && $2 ~ /openslides\// {
-      sub(/openslides\//, repo "/", $2)
-    }
-
-    # Configure mail relay host
-    $1 ~ /MYHOSTNAME$/ { $2 = "\"" proj "\"" }
-    relay != "" && $1 ~ /RELAYHOST$/ { $2 = "\"" relay "\"" }
-    1
-  ' > "$config"
+  local _env="${PROJECT_DIR}/.env"
+  local temp_file
+  temp_file="$(mktemp)"
+  # Create .env
+  [[ ! -f "${_env}" ]] || cp -af "${_env}" "$temp_file"
+  update_env_file "$temp_file" "EXTERNAL_HTTP_PORT" "$PORT"
+  update_env_file "$temp_file" "INSTANCE_DOMAIN" "$PROJECT_NAME"
+  update_env_file "$temp_file" "DEFAULT_DOCKER_REGISTRY" "$MAIN_REPOSITORY_URL"
+  update_env_file "$temp_file" "DOCKER_OPENSLIDES_BACKEND_NAME" "$DOCKER_IMAGE_NAME_OPENSLIDES"
+  update_env_file "$temp_file" "DOCKER_OPENSLIDES_BACKEND_TAG" "$DOCKER_IMAGE_TAG_OPENSLIDES"
+  update_env_file "$temp_file" "DOCKER_OPENSLIDES_FRONTEND_NAME" "$DOCKER_IMAGE_NAME_CLIENT"
+  update_env_file "$temp_file" "DOCKER_OPENSLIDES_FRONTEND_TAG" "$DOCKER_IMAGE_TAG_CLIENT"
+  update_env_file "$temp_file" "POSTFIX_MYHOSTNAME" "$PROJECT_NAME"
+  update_env_file "$temp_file" "POSTFIX_RELAYHOST" "$RELAYHOST"
+  cp -af "$temp_file" "${_env}"
+  # Create config from template + .env
+  ( set -a && source "${_env}" && m4 "$DCCONFIG_TEMPLATE" > "${DCCONFIG}" )
+  rm -rf "$temp_file" # TODO: trap
 }
 
 create_instance_dir() {
@@ -339,10 +305,10 @@ create_instance_dir() {
       ;;
   esac
   touch "${PROJECT_DIR}/${MARKER}"
+  # Add .env if template available
+  [[ ! -f "$DOT_ENV_TEMPLATE" ]] || cp -af "$DOT_ENV_TEMPLATE" "${PROJECT_DIR}/.env"
   # Add stack name to .env file
-  touch "${PROJECT_DIR}/.env"
-  printf "%s=%s\n" "PROJECT_STACK_NAME" "${PROJECT_STACK_NAME}" \
-    >> "${PROJECT_DIR}/.env"
+  update_env_file "${PROJECT_DIR}/.env" "PROJECT_STACK_NAME" "$PROJECT_STACK_NAME"
 }
 
 gen_pw() {
@@ -458,16 +424,14 @@ remove() {
 
 local_port() {
   # Retrieve the reverse proxy's published port from config file
-  [[ -f "${1}/${CONFIG_FILE}" ]] &&
-  gawk 'BEGIN { FS=":" }
-    $0 ~ / +client:$/ { c = 1 }
-    c && $0 ~ / +ports:$/ { s = 1; next; }
-    # print second to last element in ports definition, i.e., the local port
-    s && ( NF == 2 || NF == 3 ) {
-      gsub(/[\ "-]/, "")
-      print $(NF - 1)
-      exit
-    }' "${instance}/${CONFIG_FILE}"
+  if [[ -f "${1}/.env" ]]; then
+    (
+      source "${1}/.env"
+      printf "$EXTERNAL_HTTP_PORT"
+    )
+  else
+    return 1
+  fi
   # better but slower:
   # docker inspect --format '{{ (index (index .NetworkSettings.Ports "80/tcp") 0).HostPort }}' \
   #   $(docker-compose ps -q client))
@@ -495,37 +459,12 @@ ping_instance_websocket() {
   gawk 'BEGIN { FPAT = "\"[^\"]*\"" } { gsub(/"/, "", $2); print $2}' || true
 }
 
-value_from_yaml() {
-  # XXX: Not a generic YAML parser!
-  # target must be a path, e.g., x-pgnode/labels/org.openslides.role
+value_from_env() {
+  local instance target
   instance="$1"
   target="$2"
-  awk -v target="$2" '
-    BEGIN {
-      FS = ": "; OFS = ""
-      split(target, tree, /\//)
-      levels = length(tree)
-      ospaces = -1
-      skip_lvl = 0
-      search_term = tree[1]
-    }
-    { spaces = length(gensub(/(^\ *).*/, "\\1", "g", $1)); }
-    # This node does not match, so neither will its children
-    $1 !~ search_term { skip_lvl = spaces; }
-    # Skip children
-    skip_lvl && spaces > skip_lvl { next; }
-    $1 ~ search_term && spaces > ospaces {
-      ind++
-      search_term = tree[ind + 1]
-      skip_lvl = 0 # reset
-      ospaces = spaces
-    }
-    $1 ~ search_term && ind == levels { # found the final item
-      $1 = ""  # drop key
-      print $0 # print value
-      exit
-    }
-  ' "${instance}/${CONFIG_FILE}"
+  [[ -f "${instance}/.env" ]] || return 0
+  ( source "${1}/.env" && printf "${!target}" )
 }
 
 highlight_match() {
@@ -549,14 +488,12 @@ ls_instance() {
 
   [[ -f "${instance}/${CONFIG_FILE}" ]] ||
     fatal "$shortname is not a $DEPLOYMENT_MODE instance."
+  [[ -f "${instance}/.env" ]] || fatal "${instance}/.env not found."
 
   #  For stacks, get the normalized shortname
-  if [[ -f "${instance}/.env" ]]; then
-    PROJECT_STACK_NAME=
-    source "${instance}/.env"
-    [[ -z "${PROJECT_STACK_NAME}" ]] ||
-      local normalized_shortname="${PROJECT_STACK_NAME}"
-  fi
+  PROJECT_STACK_NAME="$(value_from_env "$instance" PROJECT_STACK_NAME)"
+  [[ -z "${PROJECT_STACK_NAME}" ]] ||
+    local normalized_shortname="${PROJECT_STACK_NAME}"
 
   # Determine instance state
   local port
@@ -621,9 +558,13 @@ ls_instance() {
   # --long
   if [[ -n "$OPT_LONGLIST" ]] || [[ -n "$OPT_JSON" ]]; then
     # Parse docker-compose.yml
-    local server_image client_image
-    server_image=$(value_from_yaml "$instance" x-osserver/image)
-    client_image=$(value_from_yaml "$instance" client/image)
+    local server_image client_image server_tag client_tag
+    server_image="$(value_from_env "$instance" DOCKER_OPENSLIDES_BACKEND_NAME)"
+    server_tag="$(value_from_env "$instance" DOCKER_OPENSLIDES_BACKEND_TAG)"
+    client_image="$(value_from_env "$instance" DOCKER_OPENSLIDES_FRONTEND_NAME)"
+    client_tag="$(value_from_env "$instance" DOCKER_OPENSLIDES_FRONTEND_TAG)"
+    server_image="${server_image}:${server_tag}"
+    client_image="${client_image}:${client_tag}"
     # Parse admin credentials file
     if [[ -f "${instance}/secrets/${ADMIN_SECRETS_FILE}" ]]; then
       source "${instance}/secrets/${ADMIN_SECRETS_FILE}"
@@ -941,7 +882,7 @@ ask_start() {
         "Next, you should review the configuration file, paying special attention to" \
         "service placement constraints."
       printf "\n%s\n  %s\n" "The configuration file is:" \
-        "$PROJECT_DIR/docker-stack.yml"
+        "$PROJECT_DIR/.env"
       printf "\n%s\n  %s\n" "Afterwards, you can start this instance with:" \
         "\`osstackctl start $PROJECT_NAME\`."
       return 0
@@ -1000,40 +941,27 @@ instance_erase() {
 }
 
 instance_update() {
-  # Try to identify incompatible configuration files
-  if ! grep -q '&default-osserver' "${DCCONFIG}"; then
-    fatal 'This appears to be a legacy configuration file.' \
-      'Please update it by comparing it to the provided example file.'
-  fi
-
-  # Note options to be able to minimize updates
   local server_changed= client_changed=
-  if [[ -n "$DOCKER_IMAGE_NAME_OPENSLIDES" ]] ||
-      [[ -n "$DOCKER_IMAGE_TAG_OPENSLIDES" ]]; then
+  # Update values in .env
+  if [[ -n "$DOCKER_IMAGE_NAME_OPENSLIDES" ]]; then
+    update_env_file "${PROJECT_DIR}/.env" "DOCKER_OPENSLIDES_BACKEND_NAME" "$DOCKER_IMAGE_NAME_OPENSLIDES"
     server_changed=1
   fi
-  if [[ -n "$DOCKER_IMAGE_NAME_CLIENT" ]] ||
-      [[ -n "$DOCKER_IMAGE_TAG_CLIENT" ]]; then
+  if [[ -n "$DOCKER_IMAGE_TAG_OPENSLIDES" ]]; then
+    update_env_file "${PROJECT_DIR}/.env" "DOCKER_OPENSLIDES_BACKEND_TAG" "$DOCKER_IMAGE_TAG_OPENSLIDES"
+    server_changed=1
+  fi
+  if [[ -n "$DOCKER_IMAGE_NAME_CLIENT" ]]; then
+    update_env_file "${PROJECT_DIR}/.env" "DOCKER_OPENSLIDES_FRONTEND_NAME" "$DOCKER_IMAGE_NAME_CLIENT"
     client_changed=1
   fi
+  if [[ -n "$DOCKER_IMAGE_TAG_CLIENT" ]]; then
+    update_env_file "${PROJECT_DIR}/.env" "DOCKER_OPENSLIDES_FRONTEND_TAG" "$DOCKER_IMAGE_TAG_CLIENT"
+    client_changed=1
+  fi
+  # Write YAML config
+  ( set -a  && source "${PROJECT_DIR}/.env" && m4 "$DCCONFIG_TEMPLATE" >| "${DCCONFIG}" )
 
-  gawk \
-      -v server_image="$DOCKER_IMAGE_NAME_OPENSLIDES" \
-      -v client_image="$DOCKER_IMAGE_NAME_CLIENT" \
-      -v server_tag="$DOCKER_IMAGE_TAG_OPENSLIDES" \
-      -v client_tag="$DOCKER_IMAGE_TAG_CLIENT" '
-    BEGIN { FS=":"; OFS=FS; }
-    # Server
-    $0 ~ /^x-osserver:$/ { si = 1; st = 1; }
-    server_image && si && $1 ~ /image/ { $2 = " " server_image; si = 0; }
-    server_tag && st && $1 ~ /image/ { $3 = server_tag; st = 0; }
-    # Client
-    $0 ~ /^ +client:$/ { ci = 1; ct = 1; }
-    client_image && ci && $1 ~ /image/ { $2 = " " client_image; ci = 0; }
-    client_tag && ct && $1 ~ /image/ { $3 = client_tag; ct = 0; }
-    1
-    ' "${DCCONFIG}" > "${DCCONFIG}.tmp" &&
-  mv -f "${DCCONFIG}.tmp" "${DCCONFIG}"
   case "$DEPLOYMENT_MODE" in
     "compose")
       echo "Creating services"
@@ -1041,17 +969,15 @@ instance_update() {
       ;;
     "stack")
       local force_opt=
-      local image tag
       [[ -z "$OPT_FORCE" ]] || local force_opt="--force"
-      source "${PROJECT_DIR}/.env"
+      PROJECT_STACK_NAME="$(value_from_env "${PROJECT_DIR}" PROJECT_STACK_NAME)"
       # Parse image and/or tag from original config if necessary
       # Server
       if [[ "$server_changed" ]]; then
-        IFS=: read -r image tag < <(value_from_yaml "$PROJECT_DIR" x-osserver/image)
         [[ -n "$DOCKER_IMAGE_NAME_OPENSLIDES" ]] ||
-          DOCKER_IMAGE_NAME_OPENSLIDES="${image}"
+          DOCKER_IMAGE_NAME_OPENSLIDES="$(value_from_env "$PROJECT_DIR" DOCKER_OPENSLIDES_BACKEND_NAME)"
         [[ -n "$DOCKER_IMAGE_TAG_OPENSLIDES" ]] ||
-          DOCKER_IMAGE_TAG_OPENSLIDES="${tag}"
+          DOCKER_IMAGE_TAG_OPENSLIDES="$(value_from_env "$PROJECT_DIR" DOCKER_OPENSLIDES_BACKEND_TAG)"
         for i in prioserver server; do
           if docker service ls --format '{{.Name}}' | grep -q "${PROJECT_STACK_NAME}_${i}"
           then
@@ -1066,11 +992,10 @@ instance_update() {
 
       # Client
       if [[ "$client_changed" ]]; then
-        IFS=: read -r image tag < <(value_from_yaml "$PROJECT_DIR" client/image)
         [[ -n "$DOCKER_IMAGE_NAME_CLIENT" ]] ||
-          DOCKER_IMAGE_NAME_CLIENT="${image}"
+          DOCKER_IMAGE_NAME_CLIENT="$(value_from_env "$PROJECT_DIR" DOCKER_OPENSLIDES_FRONTEND_NAME)"
         [[ -n "$DOCKER_IMAGE_TAG_CLIENT" ]] ||
-          DOCKER_IMAGE_TAG_CLIENT="${tag}"
+          DOCKER_IMAGE_TAG_CLIENT="$(value_from_env "$PROJECT_DIR" DOCKER_OPENSLIDES_FRONTEND_TAG)"
         if docker service ls --format '{{.Name}}' | grep -q "${PROJECT_STACK_NAME}_client"
         then
           docker service update --image \
@@ -1421,12 +1346,14 @@ esac
 
 
 DEPS=(
+  acmetool
   docker
   docker-compose
   gawk
-  acmetool
-  nc
   jq
+  m4
+  nc
+  sponge
 )
 # Check dependencies
 for i in "${DEPS[@]}"; do
@@ -1471,9 +1398,9 @@ DCCONFIG="${PROJECT_DIR}/${CONFIG_FILE}"
 # If a template repo exists as a local worktree, copy files from there;
 # otherwise, clone a repo and use its included files as templates
 if [[ -d "${TEMPLATE_REPO}" ]]; then
-  DEFAULT_DCCONFIG_TEMPLATE="${TEMPLATE_REPO}/${CONFIG_FILE}.example"
+  DEFAULT_DCCONFIG_TEMPLATE="${TEMPLATE_REPO}/${CONFIG_FILE}.m4"
 else
-  DEFAULT_DCCONFIG_TEMPLATE="${PROJECT_DIR}/${CONFIG_FILE}.example"
+  DEFAULT_DCCONFIG_TEMPLATE="${PROJECT_DIR}/${CONFIG_FILE}.m4"
 fi
 DCCONFIG_TEMPLATE="${YAML_TEMPLATE:-${DEFAULT_DCCONFIG_TEMPLATE}}"
 
@@ -1510,8 +1437,7 @@ case "$MODE" in
     PORT=$(next_free_port)
     gen_tls_cert
     create_instance_dir
-    create_config_from_template "${DCCONFIG_TEMPLATE}" \
-      "${PROJECT_DIR}/${CONFIG_FILE}"
+    create_config_from_template
     create_admin_secrets_file
     create_user_secrets_file "${OPENSLIDES_USER_FIRSTNAME}" \
       "${OPENSLIDES_USER_LASTNAME}" "${OPENSLIDES_USER_EMAIL}"
@@ -1530,20 +1456,17 @@ case "$MODE" in
     echo "Creating new instance: $PROJECT_NAME (based on $CLONE_FROM)"
     PORT=$(next_free_port)
     # Parse image and/or tag from original config if necessary
-    IFS=: read -r image tag < <(value_from_yaml "$CLONE_FROM_DIR" x-osserver/image)
     [[ -n "$DOCKER_IMAGE_NAME_OPENSLIDES" ]] ||
-      DOCKER_IMAGE_NAME_OPENSLIDES="${image}"
+      DOCKER_IMAGE_NAME_OPENSLIDES="$(value_from_env "$PROJECT_DIR" DOCKER_OPENSLIDES_BACKEND_NAME)"
     [[ -n "$DOCKER_IMAGE_TAG_OPENSLIDES" ]] ||
-      DOCKER_IMAGE_TAG_OPENSLIDES="${tag}"
-    IFS=: read -r image tag < <(value_from_yaml "$CLONE_FROM_DIR" client/image)
+      DOCKER_IMAGE_TAG_OPENSLIDES="$(value_from_env "$PROJECT_DIR" DOCKER_OPENSLIDES_BACKEND_TAG)"
     [[ -n "$DOCKER_IMAGE_NAME_CLIENT" ]] ||
-      DOCKER_IMAGE_NAME_CLIENT="${image}"
+      DOCKER_IMAGE_NAME_CLIENT="$(value_from_env "$PROJECT_DIR" DOCKER_OPENSLIDES_FRONTEND_NAME)"
     [[ -n "$DOCKER_IMAGE_TAG_CLIENT" ]] ||
-      DOCKER_IMAGE_TAG_CLIENT="${tag}"
+      DOCKER_IMAGE_TAG_CLIENT="$(value_from_env "$PROJECT_DIR" DOCKER_OPENSLIDES_FRONTEND_TAG)"
     gen_tls_cert
     create_instance_dir
-    create_config_from_template "${DCCONFIG_TEMPLATE}" \
-      "${PROJECT_DIR}/${CONFIG_FILE}"
+    create_config_from_template
     clone_secrets
     clone_db
     instance_stop # to force pgnode1 to be restarted
