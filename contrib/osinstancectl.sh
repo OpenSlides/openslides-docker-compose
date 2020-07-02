@@ -256,12 +256,15 @@ next_free_port() {
 
 update_env_file() {
   [[ -f "$1" ]] || fatal "$1 not found."
+  local temp_file="$(mktemp)"
   gawk -v env_var_name="$2" -v env_var_val="$3" '
     BEGIN { FS = "="; OFS=FS }
     $1 == env_var_name { $2 = env_var_val; s=1 }
     1
     END { if (!s) printf("%s=%s\n", env_var_name, env_var_val) }
-  ' "$1" | sponge "$1"
+  ' "$1" >| "$temp_file"
+  cp -f "$temp_file" "$1"
+  rm "$temp_file"
 }
 
 create_config_from_template() {
@@ -1355,7 +1358,6 @@ DEPS=(
   jq
   m4
   nc
-  sponge
 )
 # Check dependencies
 for i in "${DEPS[@]}"; do
