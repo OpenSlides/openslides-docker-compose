@@ -274,7 +274,7 @@ create_config_from_template() {
   # Create .env
   [[ ! -f "${_env}" ]] || cp -af "${_env}" "$temp_file"
   update_env_file "$temp_file" "EXTERNAL_HTTP_PORT" "$PORT"
-  update_env_file "$temp_file" "INSTANCE_DOMAIN" "$PROJECT_NAME"
+  update_env_file "$temp_file" "INSTANCE_DOMAIN" "https://${PROJECT_NAME}"
   update_env_file "$temp_file" "DEFAULT_DOCKER_REGISTRY" "$MAIN_REPOSITORY_URL"
   update_env_file "$temp_file" "DOCKER_OPENSLIDES_BACKEND_NAME" "$DOCKER_IMAGE_NAME_OPENSLIDES"
   update_env_file "$temp_file" "DOCKER_OPENSLIDES_BACKEND_TAG" "$DOCKER_IMAGE_TAG_OPENSLIDES"
