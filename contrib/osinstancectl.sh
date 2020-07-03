@@ -406,7 +406,7 @@ add_to_haproxy_cfg() {
     BEGIN {
       begin_block = "-----BEGIN AUTOMATIC OPENSLIDES CONFIG-----"
       end_block   = "-----END AUTOMATIC OPENSLIDES CONFIG-----"
-      use_server_tmpl = "\tuse-server %s if { ssl_fc_sni -i ^%s$ }"
+      use_server_tmpl = "\tuse-server %s if { ssl_fc_sni_reg -i ^%s$ }"
       if ( www == 1 ) {
         use_server_tmpl = "\tuse-server %s if { ssl_fc_sni_reg -i ^(www\\.)?%s$ }"
       }
