@@ -412,22 +412,6 @@ remove() {
   echo "Done."
 }
 
-local_port() {
-  # Retrieve the reverse proxy's published port from config file
-  if [[ -f "${1}/.env" ]]; then
-    (
-      source "${1}/.env"
-      printf "$EXTERNAL_HTTP_PORT"
-    )
-  else
-    return 1
-  fi
-  # better but slower:
-  # docker inspect --format '{{ (index (index .NetworkSettings.Ports "80/tcp") 0).HostPort }}' \
-  #   $(docker-compose ps -q client))
-}
-
-
 ping_instance_simple() {
   # Check if the instance's reverse proxy is listening
   #
@@ -489,7 +473,8 @@ ls_instance() {
   local port
   local sym="$SYM_UNKNOWN"
   local version=
-  port=$(local_port "$instance")
+  port="$(value_from_env "$instance" "EXTERNAL_HTTP_PORT")"
+  [[ -n "$port" ]]
   if [[ -n "$OPT_FAST" ]]; then
     version="[skipped]"
     ping_instance_simple "$port" || {
@@ -958,7 +943,7 @@ instance_update() {
 
   # Start/update if instance was already running
   local port
-  port=$(local_port "$PROJECT_DIR")
+  port="$(value_from_env "$PROJECT_DIR" "EXTERNAL_HTTP_PORT")"
   if ping_instance_simple "$port"; then
     case "$DEPLOYMENT_MODE" in
       "compose")
