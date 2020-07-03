@@ -11,10 +11,6 @@ TEMPLATE_REPO="/srv/openslides/openslides-docker-compose"
 # TEMPLATE_REPO="https://github.com/OpenSlides/openslides-docker-compose"
 OSDIR="/srv/openslides"
 INSTANCES="${OSDIR}/docker-instances"
-DEFAULT_DOCKER_IMAGE_NAME_OPENSLIDES=openslides/openslides-server
-DEFAULT_DOCKER_IMAGE_TAG_OPENSLIDES=latest
-DEFAULT_DOCKER_IMAGE_NAME_CLIENT=openslides/openslides-client
-DEFAULT_DOCKER_IMAGE_TAG_CLIENT=latest
 YAML_TEMPLATE= # leave empty for automatic (default)
 DOT_ENV_TEMPLATE=
 HOOKS_DIR=
@@ -1416,14 +1412,6 @@ case "$MODE" in
     [[ -f "$CONFIG" ]] && echo "Applying options from ${CONFIG}." || true
     arg_check || { usage; exit 2; }
     # Use defaults in the absence of options
-    [[ -n "$DOCKER_IMAGE_NAME_OPENSLIDES" ]] ||
-      DOCKER_IMAGE_NAME_OPENSLIDES="$DEFAULT_DOCKER_IMAGE_NAME_OPENSLIDES"
-    [[ -n "$DOCKER_IMAGE_TAG_OPENSLIDES" ]] ||
-      DOCKER_IMAGE_TAG_OPENSLIDES="$DEFAULT_DOCKER_IMAGE_TAG_OPENSLIDES"
-    [[ -n "$DOCKER_IMAGE_NAME_CLIENT" ]] ||
-      DOCKER_IMAGE_NAME_CLIENT="$DEFAULT_DOCKER_IMAGE_NAME_CLIENT"
-    [[ -n "$DOCKER_IMAGE_TAG_CLIENT" ]] ||
-      DOCKER_IMAGE_TAG_CLIENT="$DEFAULT_DOCKER_IMAGE_TAG_CLIENT"
     query_user_account_name
     echo "Creating new instance: $PROJECT_NAME"
     PORT=$(next_free_port)
