@@ -115,9 +115,9 @@ Options:
     -M,
     --search-metadata  Include metadata in instance list
     --fast             Include less information to increase listing speed
-    -j, --json         Enable JSON output format
     --version          Filter results based on the version reported by
                        OpenSlides (implies --online)
+    -j, --json         Enable JSON output format
 
   for add & update:
     --server-image     Specify the OpenSlides server Docker image name
