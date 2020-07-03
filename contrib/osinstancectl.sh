@@ -881,6 +881,8 @@ ask_start() {
 }
 
 instance_start() {
+  # Write YAML config
+  ( set -a  && source "${PROJECT_DIR}/.env" && m4 "$DCCONFIG_TEMPLATE" >| "${DCCONFIG}" )
   case "$DEPLOYMENT_MODE" in
     "compose")
       _docker_compose "$PROJECT_DIR" build
@@ -888,8 +890,6 @@ instance_start() {
       ;;
     "stack")
       PROJECT_STACK_NAME="$(value_from_env "${PROJECT_DIR}" PROJECT_STACK_NAME)"
-      # Write YAML config
-      ( set -a  && source "${PROJECT_DIR}/.env" && m4 "$DCCONFIG_TEMPLATE" >| "${DCCONFIG}" )
       docker stack deploy -c "${PROJECT_DIR}/docker-stack.yml" \
         "$PROJECT_STACK_NAME"
       ;;
