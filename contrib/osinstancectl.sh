@@ -955,54 +955,23 @@ instance_update() {
       "DOCKER_OPENSLIDES_FRONTEND_TAG" "$DOCKER_IMAGE_TAG_CLIENT" --force
     client_changed=1
   fi
-  # Write YAML config
-  ( set -a  && source "${PROJECT_DIR}/.env" && m4 "$DCCONFIG_TEMPLATE" >| "${DCCONFIG}" )
 
-  case "$DEPLOYMENT_MODE" in
-    "compose")
-      echo "Creating services"
-      _docker_compose "$PROJECT_DIR" up -d
-      ;;
-    "stack")
-      local force_opt=
-      [[ -z "$OPT_FORCE" ]] || local force_opt="--force"
-      PROJECT_STACK_NAME="$(value_from_env "${PROJECT_DIR}" PROJECT_STACK_NAME)"
-      # Parse image and/or tag from original config if necessary
-      # Server
-      if [[ "$server_changed" ]]; then
-        [[ -n "$DOCKER_IMAGE_NAME_OPENSLIDES" ]] ||
-          DOCKER_IMAGE_NAME_OPENSLIDES="$(value_from_env "$PROJECT_DIR" DOCKER_OPENSLIDES_BACKEND_NAME)"
-        [[ -n "$DOCKER_IMAGE_TAG_OPENSLIDES" ]] ||
-          DOCKER_IMAGE_TAG_OPENSLIDES="$(value_from_env "$PROJECT_DIR" DOCKER_OPENSLIDES_BACKEND_TAG)"
-        for i in prioserver server; do
-          if docker service ls --format '{{.Name}}' | grep -q "${PROJECT_STACK_NAME}_${i}"
-          then
-            docker service update --image \
-              "${DOCKER_IMAGE_NAME_OPENSLIDES}:${DOCKER_IMAGE_TAG_OPENSLIDES}" \
-              $force_opt "${PROJECT_STACK_NAME}_${i}"
-          else
-            echo "WARN: ${PROJECT_STACK_NAME}_${i} is not running."
-          fi
-        done
-      fi
-
-      # Client
-      if [[ "$client_changed" ]]; then
-        [[ -n "$DOCKER_IMAGE_NAME_CLIENT" ]] ||
-          DOCKER_IMAGE_NAME_CLIENT="$(value_from_env "$PROJECT_DIR" DOCKER_OPENSLIDES_FRONTEND_NAME)"
-        [[ -n "$DOCKER_IMAGE_TAG_CLIENT" ]] ||
-          DOCKER_IMAGE_TAG_CLIENT="$(value_from_env "$PROJECT_DIR" DOCKER_OPENSLIDES_FRONTEND_TAG)"
-        if docker service ls --format '{{.Name}}' | grep -q "${PROJECT_STACK_NAME}_client"
-        then
-          docker service update --image \
-            "${DOCKER_IMAGE_NAME_CLIENT}:${DOCKER_IMAGE_TAG_CLIENT}" \
-            $force_opt "${PROJECT_STACK_NAME}_client"
-        else
-          echo "WARN: ${PROJECT_STACK_NAME}_client is not running."
-        fi
-      fi
-      ;;
-  esac
+  # Start/update if instance was already running
+  local port
+  port=$(local_port "$PROJECT_DIR")
+  if ping_instance_simple "$port"; then
+    case "$DEPLOYMENT_MODE" in
+      "compose")
+        echo "Creating services"
+        _docker_compose "$PROJECT_DIR" up -d
+        ;;
+      "stack")
+        instance_start
+        ;;
+    esac
+  else
+    echo "WARN: ${PROJECT_NAME} is not running."
+  fi
 
   # Metadata
   if [[ "$server_changed" ]]; then
