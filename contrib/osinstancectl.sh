@@ -1406,13 +1406,13 @@ case "$MODE" in
     PORT=$(next_free_port)
     # Parse image and/or tag from original config if necessary
     [[ -n "$DOCKER_IMAGE_NAME_OPENSLIDES" ]] ||
-      DOCKER_IMAGE_NAME_OPENSLIDES="$(value_from_env "$PROJECT_DIR" DOCKER_OPENSLIDES_BACKEND_NAME)"
+      DOCKER_IMAGE_NAME_OPENSLIDES="$(value_from_env "$CLONE_FROM_DIR" DOCKER_OPENSLIDES_BACKEND_NAME)"
     [[ -n "$DOCKER_IMAGE_TAG_OPENSLIDES" ]] ||
-      DOCKER_IMAGE_TAG_OPENSLIDES="$(value_from_env "$PROJECT_DIR" DOCKER_OPENSLIDES_BACKEND_TAG)"
+      DOCKER_IMAGE_TAG_OPENSLIDES="$(value_from_env "$CLONE_FROM_DIR" DOCKER_OPENSLIDES_BACKEND_TAG)"
     [[ -n "$DOCKER_IMAGE_NAME_CLIENT" ]] ||
-      DOCKER_IMAGE_NAME_CLIENT="$(value_from_env "$PROJECT_DIR" DOCKER_OPENSLIDES_FRONTEND_NAME)"
+      DOCKER_IMAGE_NAME_CLIENT="$(value_from_env "$CLONE_FROM_DIR" DOCKER_OPENSLIDES_FRONTEND_NAME)"
     [[ -n "$DOCKER_IMAGE_TAG_CLIENT" ]] ||
-      DOCKER_IMAGE_TAG_CLIENT="$(value_from_env "$PROJECT_DIR" DOCKER_OPENSLIDES_FRONTEND_TAG)"
+      DOCKER_IMAGE_TAG_CLIENT="$(value_from_env "$CLONE_FROM_DIR" DOCKER_OPENSLIDES_FRONTEND_TAG)"
     gen_tls_cert
     create_instance_dir
     create_config_from_template
