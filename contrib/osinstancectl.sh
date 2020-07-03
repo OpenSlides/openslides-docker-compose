@@ -18,11 +18,6 @@ DEFAULT_DOCKER_IMAGE_TAG_CLIENT=latest
 YAML_TEMPLATE= # leave empty for automatic (default)
 DOT_ENV_TEMPLATE=
 HOOKS_DIR=
-# If set, these variables override the defaults in the
-# docker-compose.yml.m4 template file.  They can be configured on the
-# command line as well as in /etc/osinstancectl.
-RELAYHOST=
-MAIN_REPOSITORY_URL= # default repo used for all openslides/* images
 
 ME=$(basename -s .sh "${BASH_SOURCE[0]}")
 CONFIG="/etc/osinstancectl"
@@ -125,8 +120,6 @@ Options:
                        OpenSlides (implies --online)
 
   for add & update:
-    -r, --default-repo Specifcy the default Docker repository for OpenSlides
-                       images
     --server-image     Specify the OpenSlides server Docker image name
     --server-tag       Specify the OpenSlides server Docker image tag
     --client-image     Specify the OpenSlides client Docker image name
@@ -140,8 +133,6 @@ Options:
                        instance
     --www              Add a www subdomain in addition to the specified
                        instance domain
-    --mailserver       Mail server to configure as Postfix's smarthost (default
-                       is the host system)
 
 Meaning of colored status indicators in ls mode:
   green                The instance appears to be fully functional
@@ -277,13 +268,11 @@ create_config_from_template() {
   [[ ! -f "${_env}" ]] || cp -af "${_env}" "$temp_file"
   update_env_file "$temp_file" "EXTERNAL_HTTP_PORT" "$PORT"
   update_env_file "$temp_file" "INSTANCE_DOMAIN" "https://${PROJECT_NAME}"
-  update_env_file "$temp_file" "DEFAULT_DOCKER_REGISTRY" "$MAIN_REPOSITORY_URL"
   update_env_file "$temp_file" "DOCKER_OPENSLIDES_BACKEND_NAME" "$DOCKER_IMAGE_NAME_OPENSLIDES"
   update_env_file "$temp_file" "DOCKER_OPENSLIDES_BACKEND_TAG" "$DOCKER_IMAGE_TAG_OPENSLIDES"
   update_env_file "$temp_file" "DOCKER_OPENSLIDES_FRONTEND_NAME" "$DOCKER_IMAGE_NAME_CLIENT"
   update_env_file "$temp_file" "DOCKER_OPENSLIDES_FRONTEND_TAG" "$DOCKER_IMAGE_TAG_CLIENT"
   update_env_file "$temp_file" "POSTFIX_MYHOSTNAME" "$PROJECT_NAME"
-  update_env_file "$temp_file" "POSTFIX_RELAYHOST" "$RELAYHOST"
   cp -af "$temp_file" "${_env}"
   # Create config from template + .env
   ( set -a && source "${_env}" && m4 "$DCCONFIG_TEMPLATE" > "${DCCONFIG}" )
@@ -1132,7 +1121,7 @@ case "$(basename "${BASH_SOURCE[0]}")" in
     ;;
 esac
 
-shortopt="haljmiMnfd:r:t:"
+shortopt="haljmiMnfd:t:"
 longopt=(
   help
   color:
@@ -1152,11 +1141,9 @@ longopt=(
   version:
 
   # adding instances
-  default-repo:
   clone-from:
   local-only
   no-add-account
-  mailserver:
   www
 
   # adding & upgrading instances
@@ -1186,10 +1173,6 @@ while true; do
       PROJECT_DIR="$2"
       shift 2
       ;;
-    -r|--default-repo)
-      MAIN_REPOSITORY_URL="$2"
-      shift 2
-      ;;
     --server-image)
       DOCKER_IMAGE_NAME_OPENSLIDES="$2"
       shift 2
@@ -1209,10 +1192,6 @@ while true; do
     -t|--all-tags)
       DOCKER_IMAGE_TAG_OPENSLIDES="$2"
       DOCKER_IMAGE_TAG_CLIENT="$2"
-      shift 2
-      ;;
-    --mailserver)
-      RELAYHOST="$2"
       shift 2
       ;;
     --no-add-account)
