@@ -783,7 +783,7 @@ containerid_from_service_name() {
 }
 
 get_clone_from_id() (
-  source "${1}/.env"
+  PROJECT_STACK_NAME="$(value_from_env "${1}" PROJECT_STACK_NAME)"
   containerid_from_service_name "${PROJECT_STACK_NAME}_${PRIMARY_DATABASE_NODE}"
 )
 
@@ -802,7 +802,7 @@ clone_db() {
       ;;
     "stack")
       clone_from_id="$(get_clone_from_id "$CLONE_FROM_DIR")"
-      source "${PROJECT_DIR}/.env"
+      PROJECT_STACK_NAME="$(value_from_env "${PROJECT_DIR}" PROJECT_STACK_NAME)"
       instance_start
       echo "Waiting 20 seconds for database to become available..."
       sleep 20 # XXX
@@ -902,7 +902,7 @@ instance_stop() {
       _docker_compose "$PROJECT_DIR" down
       ;;
     "stack")
-      source "${PROJECT_DIR}/.env"
+      PROJECT_STACK_NAME="$(value_from_env "${PROJECT_DIR}" PROJECT_STACK_NAME)"
       docker stack rm "$PROJECT_STACK_NAME"
     ;;
 esac
