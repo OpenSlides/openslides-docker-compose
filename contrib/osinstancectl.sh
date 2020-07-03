@@ -256,6 +256,8 @@ next_free_port() {
 
 update_env_file() {
   [[ -f "$1" ]] || fatal "$1 not found."
+  # Exit if variable is non-empty because it indicates a template customization
+  [[ "${4:-NOFORCE}" = "--force" ]] || ( source "$1" && [[ -z "${!2}" ]] ) || return 0
   local temp_file="$(mktemp)"
   gawk -v env_var_name="$2" -v env_var_val="$3" '
     BEGIN { FS = "="; OFS=FS }
@@ -949,19 +951,23 @@ instance_update() {
   local server_changed= client_changed=
   # Update values in .env
   if [[ -n "$DOCKER_IMAGE_NAME_OPENSLIDES" ]]; then
-    update_env_file "${PROJECT_DIR}/.env" "DOCKER_OPENSLIDES_BACKEND_NAME" "$DOCKER_IMAGE_NAME_OPENSLIDES"
+    update_env_file "${PROJECT_DIR}/.env" \
+      "DOCKER_OPENSLIDES_BACKEND_NAME" "$DOCKER_IMAGE_NAME_OPENSLIDES" --force
     server_changed=1
   fi
   if [[ -n "$DOCKER_IMAGE_TAG_OPENSLIDES" ]]; then
-    update_env_file "${PROJECT_DIR}/.env" "DOCKER_OPENSLIDES_BACKEND_TAG" "$DOCKER_IMAGE_TAG_OPENSLIDES"
+    update_env_file "${PROJECT_DIR}/.env" \
+      "DOCKER_OPENSLIDES_BACKEND_TAG" "$DOCKER_IMAGE_TAG_OPENSLIDES" --force
     server_changed=1
   fi
   if [[ -n "$DOCKER_IMAGE_NAME_CLIENT" ]]; then
-    update_env_file "${PROJECT_DIR}/.env" "DOCKER_OPENSLIDES_FRONTEND_NAME" "$DOCKER_IMAGE_NAME_CLIENT"
+    update_env_file "${PROJECT_DIR}/.env" \
+      "DOCKER_OPENSLIDES_FRONTEND_NAME" "$DOCKER_IMAGE_NAME_CLIENT" --force
     client_changed=1
   fi
   if [[ -n "$DOCKER_IMAGE_TAG_CLIENT" ]]; then
-    update_env_file "${PROJECT_DIR}/.env" "DOCKER_OPENSLIDES_FRONTEND_TAG" "$DOCKER_IMAGE_TAG_CLIENT"
+    update_env_file "${PROJECT_DIR}/.env" \
+      "DOCKER_OPENSLIDES_FRONTEND_TAG" "$DOCKER_IMAGE_TAG_CLIENT" --force
     client_changed=1
   fi
   # Write YAML config
