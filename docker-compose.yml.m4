@@ -91,6 +91,8 @@ services:
       # instance by, e.g., running migations.  This is exclusively left up to
       # the main service to avoid conflicts.
       SERVER_IS_SECONDARY: 1
+    ifelse(read_env(`OPENSLIDES_BACKEND_SERVICE_REPLICAS'),,,deploy:
+      replicas: ifenvelse(`OPENSLIDES_BACKEND_SERVICE_REPLICAS', 1))
   client:
     image: FRONTEND_IMAGE
     restart: always
@@ -167,6 +169,8 @@ ifelse(read_env(`PGNODE_3_ENABLED'), 1, `'
       back:
         aliases:
           - rediscache-slave
+    ifelse(read_env(`REDIS_RO_SERVICE_REPLICAS'),,,deploy:
+      replicas: ifenvelse(`REDIS_RO_SERVICE_REPLICAS', 1))
   redis-channels:
     image: redis:alpine
     restart: always
