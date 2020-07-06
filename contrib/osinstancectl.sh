@@ -59,6 +59,7 @@ BULLET='●'
 SYM_NORMAL="OK"
 SYM_ERROR="XX"
 SYM_UNKNOWN="??"
+SYM_STOPPED="__"
 JQ="jq --monochrome-output"
 
 # Internal options
@@ -72,6 +73,7 @@ enable_color() {
     COL_RED="$(tput setaf 1)"
     COL_YELLOW="$(tput setaf 3)"
     COL_GREEN="$(tput setaf 2)"
+    COL_GRAY="$(tput bold; tput setaf 0)"
     JQ="jq --color-output"
   fi
 }
@@ -107,7 +109,8 @@ Options:
     -i, --image-info   Show image version info (requires instance to be
                        started)
     -n, --online       Show only online instances
-    -f, --offline      Show only offline instances
+    -f, --offline      Show only stopped instances
+    -e, --error        Show only running but unreachable instances
     -M,
     --search-metadata  Include metadata in instance list
     --fast             Include less information to increase listing speed
@@ -130,16 +133,11 @@ Options:
     --www              Add a www subdomain in addition to the specified
                        instance domain
 
-Meaning of colored status indicators in ls mode:
+Colored status indicators in ls mode:
   green                The instance appears to be fully functional
-  red                  The instance is unreachable, probably stopped
-  yellow               The instance is started but a websocket connection
-                       cannot be established.  This usually means that the
-                       instance is starting or, if the status persists, that
-                       something is wrong.  Check the logs in this case.  (If
-                       --fast is given, however, this is the best possible
-                       status due to uncertainty and does not necessarily
-                       indicate a problem.)
+  red                  The instance is running but is unreachable
+  yellow               The instance's status can not be determined
+  gray                 The instance has been stopped
 EOF
 }
 
@@ -423,12 +421,30 @@ ping_instance_simple() {
   nc -z localhost "$1" || return 1
 }
 
+instance_has_services_running() {
+  # Check if the instance has been deployed.
+  #
+  # This is used as an indicator as to whether the instance is *supposed* to be
+  # running or not.
+  local instance="$1"
+  case "$DEPLOYMENT_MODE" in
+    "compose")
+      # Check if a network exists
+      docker network ls --format '{{ .Name }}' |
+        grep -q "^${instance}_" || return 1
+      ;;
+    "stack")
+      docker stack ls | grep -q "$instance" || return 1
+      ;;
+  esac
+}
+
 ping_instance_websocket() {
   # Connect to OpenSlides and parse its version string
   #
   # This is a way to test the availability of the app.  Most grave errors in
   # OpenSlides lead to this function failing.
-  LC_ALL=C curl --silent --max-time 0.1 \
+  LC_ALL=C curl --silent --max-time 0.25 \
     "http://127.0.0.1:${1}/apps/core/version/" |
   gawk 'BEGIN { FPAT = "\"[^\"]*\"" } { gsub(/"/, "", $2); print $2}' || true
 }
@@ -475,34 +491,40 @@ ls_instance() {
   local version=
   port="$(value_from_env "$instance" "EXTERNAL_HTTP_PORT")"
   [[ -n "$port" ]]
-  if [[ -n "$OPT_FAST" ]]; then
+
+  # Check instance deployment state and health
+  if ping_instance_simple "$port"; then
+    # If we can open a connection to the reverse proxy, the instance has been
+    # deployed.
+    sym="$SYM_NORMAL"
     version="[skipped]"
-    ping_instance_simple "$port" || {
+    if [[ -z "$OPT_FAST" ]]; then
+      # If we can fetch the version string from the app this is an indicator of
+      # a fully functional instance.  If we can not, there is a problem.
+      version=$(ping_instance_websocket "$port")
+      [[ -n "$version" ]] || { sym="$SYM_ERROR"; version=; }
+    fi
+  else
+    # If we can not connect to the reverse proxy, the instance may have been
+    # stopped on purpose or there is a problem
+    version=
+    sym="$SYM_STOPPED"
+    if [[ -z "$OPT_FAST" ]] &&
+        instance_has_services_running "$normalized_shortname"; then
+      # The instance has been deployed but it is unreachable
       version=
       sym="$SYM_ERROR"
-    }
-  else
-    # If we can fetch the version string from the app this is an indicator of
-    # a fully functional instance.  If we cannot this could either mean that
-    # the instance has been stopped or that it is only partially working.
-    version=$(ping_instance_websocket "$port")
-    sym="$SYM_NORMAL"
-    if [[ -z "$version" ]]; then
-      sym="$SYM_UNKNOWN"
-      version=
-      # The following function simply checks if the reverse proxy port is open.
-      # If it is the instance is *supposed* to be running but is not fully
-      # functional; otherwise, it is assumed to be turned off on purpose.
-      ping_instance_simple "$port" || sym="$SYM_ERROR"
     fi
   fi
 
   # Filter online/offline instances
   case "$FILTER_STATE" in
     online)
-      [[ -n "$version" ]] || return 1 ;;
-    offline)
-      [[ -z "$version" ]] || return 1 ;;
+      [[ "$sym" = "$SYM_NORMAL" ]] || return 1 ;;
+    stopped)
+      [[ "$sym" = "$SYM_STOPPED" ]] || return 1 ;;
+    error)
+      [[ "$sym" = "$SYM_ERROR" ]] || [[ "$sym" = "$SYM_UNKNOWN" ]] || return 1 ;;
     *) ;;
   esac
 
@@ -687,6 +709,7 @@ colorize_ls() {
       -v normal="${COL_NORMAL}" \
       -v green="${COL_GREEN}" \
       -v yellow="${COL_YELLOW}" \
+      -v gray="${COL_GRAY}" \
       -v red="${COL_RED}" \
     'BEGIN {
       FPAT = "([[:space:]]*[^[:space:]]+)"
@@ -698,6 +721,7 @@ colorize_ls() {
     /^OK/   { $1 = " " green  bullet normal }
     /^\?\?/ { $1 = " " yellow bullet normal }
     /^XX/   { $1 = " " red    bullet normal }
+    /^__/   { $1 = " " gray   bullet normal }
     1'
   else
     cat -
@@ -944,7 +968,7 @@ instance_update() {
   # Start/update if instance was already running
   local port
   port="$(value_from_env "$PROJECT_DIR" "EXTERNAL_HTTP_PORT")"
-  if ping_instance_simple "$port"; then
+  if instance_has_services_running "$PROJECT_STACK_NAME"; then
     case "$DEPLOYMENT_MODE" in
       "compose")
         echo "Creating services"
@@ -1071,7 +1095,7 @@ case "$(basename "${BASH_SOURCE[0]}")" in
     ;;
 esac
 
-shortopt="haljmiMnfd:t:"
+shortopt="haljmiMnfed:t:"
 longopt=(
   help
   color:
@@ -1084,6 +1108,7 @@ longopt=(
   all
   online
   offline
+  error
   metadata
   image-info
   fast
@@ -1179,7 +1204,11 @@ while true; do
       shift 1
       ;;
     -f|--offline)
-      FILTER_STATE="offline"
+      FILTER_STATE="stopped"
+      shift 1
+      ;;
+    -e|--error)
+      FILTER_STATE="error"
       shift 1
       ;;
     --version)
@@ -1319,17 +1348,18 @@ else
   PROJECT_DIR="${INSTANCES}/${PROJECT_NAME}"
 fi
 
+# The project name is a valid domain which is not suitable as a Docker
+# stack name.  Here, we remove all dots from the domain which turns the
+# domain into a compatible name.  This also appears to be the method
+# docker-compose uses to name its containers, networks, etc.
+PROJECT_STACK_NAME="$(echo "$PROJECT_NAME" | tr -d '.')"
+
 case "$DEPLOYMENT_MODE" in
   "compose")
     CONFIG_FILE="docker-compose.yml"
     ;;
   "stack")
     CONFIG_FILE="docker-stack.yml"
-    # The project name is a valid domain which is not suitable as a Docker
-    # stack name.  Here, we remove all dots from the domain which turns the
-    # domain into a compatible name.  This also appears to be the method
-    # docker-compose uses to name its containers.
-    PROJECT_STACK_NAME="$(echo "$PROJECT_NAME" | tr -d '.')"
     ;;
 esac
 DCCONFIG="${PROJECT_DIR}/${CONFIG_FILE}"
