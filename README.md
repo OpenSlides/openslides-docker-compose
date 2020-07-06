@@ -5,8 +5,8 @@ This repository provides the basis for *dockerized*
 
 It is suitable for both Docker Compose and Swarm setups.  All required images
 can be built using docker-compose and the server build script.  The included
-`docker-compose.yml.example` and `docker-stack.yml.example` files need little
-tweaking before starting an instance.
+`docker-compose.yml.m4` and `docker-stack.yml.m4` files need little tweaking
+before starting an instance.
 
 ## Usage Example: Docker Compose
 
@@ -16,7 +16,7 @@ clone (or copy) this repository to, e.g.,
 
 Next, create `docker-compose.yml` from the template:
 
-    cp docker-compose.yml.example docker-compose.yml
+    m4 docker-compose.yml.m4 > docker-compose.yml
 
 Build the OpenSlides `server` and `client` images:
 
@@ -38,7 +38,7 @@ To build the remaining services and start the instance, run:
 OpenSlides may also be deployed in Swarm mode.  Distributing instances over
 multiple nodes may increase performance and offer failure resistance.
 
-An example configuration file, `docker-stack.yml.example`, is provided.  Unlike
+An example configuration file, `docker-stack.yml.m4`, is provided.  Unlike
 the Docker Compose setup, this configuration will most likely need to be
 customized, especially its placement constraints and database-related
 preferences.
@@ -57,11 +57,10 @@ production setups it is strongly advised to review the database configuration.
 
 By default, the primary database cluster will archive all WAL files in its
 volume.  Regularly pruning old data is left up to the host system, i.e., you.
-Alternatively, you may disable WAL archiving by setting the environment
-variable `REPMGR_WAL_ARCHIVE=off` for the `pgnode1` service before its first
-startup.
+Alternatively, you may disable WAL archiving by setting
+`PGNODE_WAL_ARCHIVING=off` in `.env` before starting the instance.
 
-The provided `docker-stack.yml.example` file includes additional database
+The provided `docker-stack.yml.m4` file includes additional database
 services which can act as hot standby clusters with automatic failover
 functionality.  To take advantage of this setup, the database services need to
 be configured with proper placement constraints.  Before relying on this setup,

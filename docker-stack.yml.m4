@@ -1,18 +1,46 @@
+dnl This is a YAML template file.  Simply translate it with m4 to create
+dnl a standard configuration.  Customizations can and should be added in .env
+dnl by setting the appropriate variables.
+dnl
+dnl Usage:
+dnl   m4 docker-stack.yml.m4 > docker-stack.yml
+dnl   ( set -a; source .env; m4 docker-stack.yml.m4 ) > docker-stack.yml
+dnl
+dnl ----------------------------------------
+divert(-1)dnl
+define(`read_env', `esyscmd(`printf "%s" "$$1"')')
+define(`ifenvelse', `ifelse(read_env(`$1'),, `$2', read_env(`$1'))')
+
+define(`BACKEND_IMAGE',
+ifenvelse(`DOCKER_OPENSLIDES_BACKEND_NAME', openslides/openslides-server):dnl
+ifenvelse(`DOCKER_OPENSLIDES_BACKEND_TAG', latest))
+define(`FRONTEND_IMAGE',
+ifenvelse(`DOCKER_OPENSLIDES_FRONTEND_NAME', openslides/openslides-client):dnl
+ifenvelse(`DOCKER_OPENSLIDES_FRONTEND_TAG', latest))
+define(`PGBOUNCER_NODELIST',
+`ifelse(read_env(`PGNODE_2_ENABLED'), 1, `,pgnode2')`'dnl
+ifelse(read_env(`PGNODE_3_ENABLED'), 1, `,pgnode3')')
+divert(0)dnl
+dnl ----------------------------------------
+# This configuration was created from a template file.  Before making changes,
+# please make sure that you do not have a process in place that would override
+# your changes in the future.  The accompanying .env file might be the correct
+# place for customizations instead.
 version: '3.4'
 
 x-osserver:
   &default-osserver
-  image: openslides/openslides-server:latest
+  image: BACKEND_IMAGE
   networks:
     - front
     - back
 x-osserver-env: &default-osserver-env
-    DEFAULT_FROM_EMAIL: "noreply@example.com"
-    REDIS_REPLICAS: 3 # must match redis-slave replicas below!
-    INSTANCE_DOMAIN: "http://example.com:8000"
+    INSTANCE_DOMAIN: "ifenvelse(`INSTANCE_DOMAIN', http://example.com:8000)"
+    DEFAULT_FROM_EMAIL: "ifenvelse(`DEFAULT_FROM_EMAIL', noreply@example.com)"
+    REDIS_REPLICAS: ifenvelse(`REDIS_RO_SERVICE_REPLICAS', 3)
     SERVER_IS_SECONDARY: # unset
 x-pgnode: &default-pgnode
-  image: openslides/openslides-repmgr:latest
+  image: ifenvelse(`DEFAULT_DOCKER_REGISTRY', openslides)/openslides-repmgr:latest
   build: ./repmgr
   networks:
     - dbnet
@@ -23,6 +51,7 @@ x-pgnode: &default-pgnode
 x-pgnode-env: &default-pgnode-env
   REPMGR_RECONNECT_ATTEMPTS: 30
   REPMGR_RECONNECT_INTERVAL: 10
+  REPMGR_WAL_ARCHIVE: "ifenvelse(`PGNODE_WAL_ARCHIVING', on)"
 
 services:
   prioserver:
@@ -62,14 +91,15 @@ services:
       restart_policy:
         condition: on-failure
         delay: 5s
+      replicas: ifenvelse(`OPENSLIDES_BACKEND_SERVICE_REPLICAS', 1)
   client:
-    image: openslides/openslides-client:latest
+    image: FRONTEND_IMAGE
     networks:
       - front
     ports:
-      - "0.0.0.0:61000:80"
+      - "0.0.0.0:ifenvelse(`EXTERNAL_HTTP_PORT', 61000):80"
     deploy:
-      replicas: 1
+      replicas: ifenvelse(`OPENSLIDES_FRONTEND_SERVICE_REPLICAS', 1)
       restart_policy:
         condition: on-failure
         delay: 5s
@@ -79,39 +109,41 @@ services:
     environment:
       << : *default-pgnode-env
       REPMGR_NODE_ID: 1
-      REPMGR_PRIMARY:  # This *is* the primary
+      REPMGR_PRIMARY: ifenvelse(`PGNODE_1_REPMGR_PRIMARY', `# This *is* the primary')
     deploy:
       placement:
-        constraints: [node.labels.openslides-db == dbnode1]
+        constraints: ifenvelse(`PGNODE_1_PLACEMENT_CONSTR', [node.labels.openslides-db == dbnode1])
     volumes:
       - "dbdata1:/var/lib/postgresql"
-  # pgnode2:
-  #   << : *default-pgnode
-  #   environment:
-  #     << : *default-pgnode-env
-  #     REPMGR_NODE_ID: 2
-  #     REPMGR_PRIMARY: pgnode1
-  #   deploy:
-  #     placement:
-  #       constraints: [node.labels.openslides-db == dbnode2]
-  #   volumes:
-  #     - "dbdata2:/var/lib/postgresql"
-  # pgnode3:
-  #   << : *default-pgnode
-  #   environment:
-  #     << : *default-pgnode-env
-  #     REPMGR_NODE_ID: 3
-  #     REPMGR_PRIMARY: pgnode1
-  #   deploy:
-  #     placement:
-  #       constraints: [node.labels.openslides-db == dbnode3]
-  #   volumes:
-  #     - "dbdata3:/var/lib/postgresql"
+ifelse(read_env(`PGNODE_2_ENABLED'), 1, `'
+  pgnode2:
+    << : *default-pgnode
+    environment:
+      << : *default-pgnode-env
+      REPMGR_NODE_ID: 2
+      REPMGR_PRIMARY: ifenvelse(`PGNODE_2_REPMGR_PRIMARY', pgnode1)
+    deploy:
+      placement:
+        constraints: ifenvelse(`PGNODE_2_PLACEMENT_CONSTR', [node.labels.openslides-db == dbnode2])
+    volumes:
+      - "dbdata2:/var/lib/postgresql")
+ifelse(read_env(`PGNODE_3_ENABLED'), 1, `'
+  pgnode3:
+    << : *default-pgnode
+    environment:
+      << : *default-pgnode-env
+      REPMGR_NODE_ID: 3
+      REPMGR_PRIMARY: ifenvelse(`PGNODE_3_REPMGR_PRIMARY', pgnode1)
+    deploy:
+      placement:
+        constraints: ifenvelse(`PGNODE_3_PLACEMENT_CONSTR', [node.labels.openslides-db == dbnode3])
+    volumes:
+      - "dbdata3:/var/lib/postgresql")
 
   pgbouncer:
-    # environment:
-    #   - PG_NODE_LIST=pgnode1,pgnode2,pgnode3
-    image: openslides/openslides-pgbouncer:latest
+    environment:
+      - PG_NODE_LIST=pgnode1`'PGBOUNCER_NODELIST
+    image: ifenvelse(`DEFAULT_DOCKER_REGISTRY', openslides)/openslides-pgbouncer:latest
     build: ./pgbouncer
     networks:
       back:
@@ -124,13 +156,13 @@ services:
         condition: on-failure
         delay: 10s
       placement:
-        constraints: [node.role == manager]
+        constraints: ifenvelse(`PGBOUNCER_PLACEMENT_CONSTR', [node.role == manager])
   postfix:
-    image: openslides/openslides-postfix:latest
+    image: ifenvelse(`DEFAULT_DOCKER_REGISTRY', openslides)/openslides-postfix:latest
     build: ./postfix
     environment:
-      MYHOSTNAME: localhost
-      RELAYHOST: localhost
+      MYHOSTNAME: "ifenvelse(`POSTFIX_MYHOSTNAME', localhost)"
+      RELAYHOST: "ifenvelse(`POSTFIX_RELAYHOST', localhost)"
     networks:
       - back
     deploy:
@@ -159,7 +191,7 @@ services:
         aliases:
           - rediscache-slave
     deploy:
-      replicas: 3 # must match REDIS_REPLICAS above!
+      replicas: ifenvelse(`REDIS_RO_SERVICE_REPLICAS', 3)
       restart_policy:
         condition: on-failure
         delay: 5s
@@ -173,12 +205,12 @@ services:
         condition: on-failure
         delay: 5s
   media:
-    image: openslides/openslides-media-service:latest
+    image: ifenvelse(`DEFAULT_DOCKER_REGISTRY', openslides)/openslides-media-service:latest
     build: https://github.com/OpenSlides/openslides-media-service.git
     environment:
       - CHECK_REQUEST_URL=server:8000/check-media/
     deploy:
-      replicas: 8
+      replicas: ifenvelse(`MEDIA_SERVICE_REPLICAS', 8)
       restart_policy:
         condition: on-failure
         delay: 10s
@@ -191,8 +223,8 @@ services:
 
 volumes:
   dbdata1:
-  dbdata2:
-  dbdata3:
+ifelse(read_env(`PGNODE_2_ENABLED'), 1, `  dbdata2:')
+ifelse(read_env(`PGNODE_3_ENABLED'), 1, `  dbdata3:')
 
 networks:
   front:
@@ -209,4 +241,4 @@ secrets:
   os_user:
     file: ./secrets/usersecret.env
 
-# vim: set ft=yaml sw=2 et:
+# vim: set sw=2 et:
