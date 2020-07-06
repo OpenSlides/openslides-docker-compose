@@ -107,7 +107,7 @@ services:
     environment:
       << : *default-pgnode-env
       REPMGR_NODE_ID: 1
-      REPMGR_PRIMARY: # empty; this *is* the primary
+      REPMGR_PRIMARY: ifenvelse(`PGNODE_1_REPMGR_PRIMARY', `# This *is* the primary')
     volumes:
       - "dbdata1:/var/lib/postgresql"
 ifelse(read_env(`PGNODE_2_ENABLED'), 1, `'
@@ -116,7 +116,7 @@ ifelse(read_env(`PGNODE_2_ENABLED'), 1, `'
     environment:
       << : *default-pgnode-env
       REPMGR_NODE_ID: 2
-      REPMGR_PRIMARY: pgnode1
+      REPMGR_PRIMARY: ifenvelse(`PGNODE_2_REPMGR_PRIMARY', pgnode1)
     volumes:
       - "dbdata2:/var/lib/postgresql")
 ifelse(read_env(`PGNODE_3_ENABLED'), 1, `'
@@ -125,7 +125,7 @@ ifelse(read_env(`PGNODE_3_ENABLED'), 1, `'
     environment:
       << : *default-pgnode-env
       REPMGR_NODE_ID: 3
-      REPMGR_PRIMARY: pgnode1
+      REPMGR_PRIMARY: ifenvelse(`PGNODE_3_REPMGR_PRIMARY', pgnode1)
     volumes:
       - "dbdata3:/var/lib/postgresql")
 

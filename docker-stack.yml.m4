@@ -109,7 +109,7 @@ services:
     environment:
       << : *default-pgnode-env
       REPMGR_NODE_ID: 1
-      REPMGR_PRIMARY:  # This *is* the primary
+      REPMGR_PRIMARY: ifenvelse(`PGNODE_1_REPMGR_PRIMARY', `# This *is* the primary')
     deploy:
       placement:
         constraints: ifenvelse(`PGNODE_1_PLACEMENT_CONSTR', [node.labels.openslides-db == dbnode1])
@@ -121,7 +121,7 @@ ifelse(read_env(`PGNODE_2_ENABLED'), 1, `'
     environment:
       << : *default-pgnode-env
       REPMGR_NODE_ID: 2
-      REPMGR_PRIMARY: pgnode1
+      REPMGR_PRIMARY: ifenvelse(`PGNODE_2_REPMGR_PRIMARY', pgnode1)
     deploy:
       placement:
         constraints: ifenvelse(`PGNODE_2_PLACEMENT_CONSTR', [node.labels.openslides-db == dbnode2])
@@ -133,7 +133,7 @@ ifelse(read_env(`PGNODE_3_ENABLED'), 1, `'
     environment:
       << : *default-pgnode-env
       REPMGR_NODE_ID: 3
-      REPMGR_PRIMARY: pgnode1
+      REPMGR_PRIMARY: ifenvelse(`PGNODE_3_REPMGR_PRIMARY', pgnode1)
     deploy:
       placement:
         constraints: ifenvelse(`PGNODE_3_PLACEMENT_CONSTR', [node.labels.openslides-db == dbnode3])
