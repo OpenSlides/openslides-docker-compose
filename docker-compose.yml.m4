@@ -148,8 +148,8 @@ ifelse(read_env(`PGNODE_3_ENABLED'), 1, `'
     build: ./postfix
     restart: always
     environment:
-      MYHOSTNAME: ifenvelse(`POSTFIX_MYHOSTNAME', localhost)
-      RELAYHOST: ifenvelse(`POSTFIX_RELAYHOST', localhost)
+      MYHOSTNAME: "ifenvelse(`POSTFIX_MYHOSTNAME', localhost)"
+      RELAYHOST: "ifenvelse(`POSTFIX_RELAYHOST', localhost)"
     networks:
       - back
   redis:
