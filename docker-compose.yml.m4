@@ -17,9 +17,13 @@ ifenvelse(`DOCKER_OPENSLIDES_BACKEND_TAG', latest))
 define(`FRONTEND_IMAGE',
 ifenvelse(`DOCKER_OPENSLIDES_FRONTEND_NAME', openslides/openslides-client):dnl
 ifenvelse(`DOCKER_OPENSLIDES_FRONTEND_TAG', latest))
+
 define(`PGBOUNCER_NODELIST',
 `ifelse(read_env(`PGNODE_2_ENABLED'), 1, `,pgnode2')`'dnl
 ifelse(read_env(`PGNODE_3_ENABLED'), 1, `,pgnode3')')
+
+define(`ADMIN_SECRET_AVAILABLE', `syscmd(`test -r secrets/adminsecret.env')sysval')
+define(`USER_SECRET_AVAILABLE', `syscmd(`test -r secrets/usersecret.env')sysval')
 divert(0)dnl
 dnl ----------------------------------------
 # This configuration was created from a template file.  Before making changes,
@@ -63,9 +67,6 @@ services:
     << : *default-osserver
     environment:
       << : *default-osserver-env
-    secrets:
-      - os_admin
-      - os_user
     command: "gunicorn -w 1 --preload -b 0.0.0.0:8000
       -k uvicorn.workers.UvicornWorker openslides.asgi:application"
     depends_on:
@@ -74,6 +75,9 @@ services:
       - redis
       - redis-slave
       - redis-channels
+    ifelse(ADMIN_SECRET_AVAILABLE, 0, secrets:, USER_SECRET_AVAILABLE, 0, secrets:)
+      ifelse(ADMIN_SECRET_AVAILABLE, 0,- os_admin)
+      ifelse(USER_SECRET_AVAILABLE, 0,- os_user)
   server:
     << : *default-osserver
     # Below is the default command.  You can uncomment it to override the
@@ -200,9 +204,9 @@ networks:
   dbnet:
 
 secrets:
-  os_admin:
-    file: ./secrets/adminsecret.env
-  os_user:
-    file: ./secrets/usersecret.env
+  ifelse(ADMIN_SECRET_AVAILABLE, 0,os_admin:
+    file: ./secrets/adminsecret.env)
+  ifelse(USER_SECRET_AVAILABLE, 0,os_user:
+    file: ./secrets/usersecret.env)
 
 # vim: set sw=2 et:
