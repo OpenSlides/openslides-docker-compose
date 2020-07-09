@@ -980,6 +980,8 @@ instance_update() {
     esac
   else
     echo "WARN: ${PROJECT_NAME} is not running."
+    echo "      The configuratation has been updated and the instance will" \
+         "be upgraded upon its next start."
   fi
 
   # Metadata
