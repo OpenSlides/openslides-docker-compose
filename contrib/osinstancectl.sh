@@ -434,7 +434,7 @@ instance_has_services_running() {
         grep -q "^${instance}_" || return 1
       ;;
     "stack")
-      docker stack ls | grep -q "$instance" || return 1
+      docker stack ls --format '{{ .Name }}' | grep -qw "$instance" || return 1
       ;;
   esac
 }
