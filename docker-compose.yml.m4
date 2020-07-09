@@ -18,6 +18,8 @@ define(`FRONTEND_IMAGE',
 ifenvelse(`DOCKER_OPENSLIDES_FRONTEND_NAME', openslides/openslides-client):dnl
 ifenvelse(`DOCKER_OPENSLIDES_FRONTEND_TAG', latest))
 
+define(`PRIMARY_DB', `ifenvelse(`PGNODE_REPMGR_PRIMARY', pgnode1)')
+
 define(`PGBOUNCER_NODELIST',
 `ifelse(read_env(`PGNODE_2_ENABLED'), 1, `,pgnode2')`'dnl
 ifelse(read_env(`PGNODE_3_ENABLED'), 1, `,pgnode3')')
@@ -113,7 +115,7 @@ services:
     environment:
       << : *default-pgnode-env
       REPMGR_NODE_ID: 1
-      REPMGR_PRIMARY: ifenvelse(`PGNODE_1_REPMGR_PRIMARY', `# This *is* the primary')
+      REPMGR_PRIMARY: ifelse(PRIMARY_DB, pgnode1, `# This is the primary', PRIMARY_DB)
     volumes:
       - "dbdata1:/var/lib/postgresql"
 ifelse(read_env(`PGNODE_2_ENABLED'), 1, `'
@@ -122,7 +124,7 @@ ifelse(read_env(`PGNODE_2_ENABLED'), 1, `'
     environment:
       << : *default-pgnode-env
       REPMGR_NODE_ID: 2
-      REPMGR_PRIMARY: ifenvelse(`PGNODE_2_REPMGR_PRIMARY', pgnode1)
+      REPMGR_PRIMARY: ifelse(PRIMARY_DB, pgnode2, `# This is the primary', PRIMARY_DB)
     volumes:
       - "dbdata2:/var/lib/postgresql")
 ifelse(read_env(`PGNODE_3_ENABLED'), 1, `'
@@ -131,7 +133,7 @@ ifelse(read_env(`PGNODE_3_ENABLED'), 1, `'
     environment:
       << : *default-pgnode-env
       REPMGR_NODE_ID: 3
-      REPMGR_PRIMARY: ifenvelse(`PGNODE_3_REPMGR_PRIMARY', pgnode1)
+      REPMGR_PRIMARY: ifelse(PRIMARY_DB, pgnode3, `# This is the primary', PRIMARY_DB)
     volumes:
       - "dbdata3:/var/lib/postgresql")
 
