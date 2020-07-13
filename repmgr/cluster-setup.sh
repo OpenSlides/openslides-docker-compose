@@ -208,26 +208,81 @@ sed -e "s/<NODEID>/${REPMGR_NODE_ID}/" \
 # Update pg_hba.conf from image template
 cp -fv /var/lib/postgresql/pg_hba.conf /etc/postgresql/11/main/pg_hba.conf
 
-if [[ -f "$MARKER" ]]; then
+# Check if another primary exists anyway
+CURRENT_PRIMARY=
+if pg_isready -q -h pgbouncer; then
+  echo "INFO: pgbouncer is already accepting connections."
+  # Use "hosts" column from pgbouncer output
+  CURRENT_PRIMARY="$(psql -qAt -h pgbouncer pgbouncer <<< "show databases;" |
+    awk -F"|" '$1 == "openslides" { print $2 }')"
+  echo "INFO: According to pgbouncer, the current primary is $CURRENT_PRIMARY."
+fi
+
+# Current primary node unknown (possibly cold instance start)
+if [[ -z "$CURRENT_PRIMARY" ]]; then
+  echo "INFO: The current primary node is unknown."
+  if [[ -f "$MARKER" ]]; then
+    echo "INFO: This cluster has been set up already."
+    echo "INFO: Assuming node configuration is correct.  Starting up."
     hidden_pg_start
     ssh_keys_from_db
-else
-  if [[ -z "$REPMGR_PRIMARY" ]]; then
+  elif [[ -z "$REPMGR_PRIMARY" ]]; then
+    echo "INFO: Configuring cluster as primary node according to configuration."
     primary_ssh_setup
     hidden_pg_start
     primary_node_setup
     # Create an initial basebackup
     echo "Creating base backup in ${BACKUP_DIR}..."
     backup
+    echo "Successful repmgr setup as node id $REPMGR_NODE_ID" | tee "$MARKER"
   else
+    echo "INFO: Configuring cluster as standby node according to configuration."
     standby_node_setup
     ssh_keys_from_db
+    echo "Successful repmgr setup as node id $REPMGR_NODE_ID" | tee "$MARKER"
   fi
+# This node has been set up and is a primary according to pgbouncer
+elif [[ -f "$MARKER" ]] && [[ "$CURRENT_PRIMARY" = "$REPMGR_NODE_NAME" ]]; then
+  echo "INFO: This node is a primary according to pgbouncer.  Starting up."
+  hidden_pg_start
+  ssh_keys_from_db
+# This node has been set up but it is not a primary according to pgbouncer
+elif [[ -f "$MARKER" ]] && [[ "$CURRENT_PRIMARY" != "$REPMGR_NODE_NAME" ]]; then
+  # Query primary about this node's role
+  echo "INFO: Checking repmgr cluster status on $CURRENT_PRIMARY."
+  THIS_NODE_TYPE="$(psql -qAt -U repmgr -d repmgr -h "$CURRENT_PRIMARY" \
+      -v this_node="pgnode${REPMGR_NODE_ID}" \
+      <<< "SELECT type FROM repmgr.nodes WHERE node_name = :'this_node';"
+  )"
+  if [[ "$THIS_NODE_TYPE" = primary ]]; then
+    # We apparently were a primary before and should become a standby
+    echo "WARN: This node (pgnode$REPMGR_NODE_ID) has been set up as a primary node" \
+      "but another primary node ($CURRENT_PRIMARY) exists!"
+    # Start and stop cluster in case it was not shut down cleanly
+    echo "INFO: Starting and stopping cluster to ensure clean shutdown state."
+    hidden_pg_start
+    sed -i -e '/^port/s/5433/5432/' /etc/postgresql/11/main/postgresql.conf
+    pg_ctlcluster 11 main stop
+    # Rejoin
+    echo "INFO: Rejoining as standby..."
+    repmgr -d "host='$CURRENT_PRIMARY' dbname=repmgr user=repmgr" \
+      node rejoin --force-rewind --verbose
+  else
+    # Regular standby startup
+    echo "INFO: This node has been set up as a standby before.  Starting up."
+    hidden_pg_start
+    ssh_keys_from_db
+  fi
+# There is a primary node for which this node should be come a standby
+else
+  echo "INFO: This is a new cluster.  Joining as standby for existing $CURRENT_PRIMARY."
+  REPMGR_PRIMARY="$CURRENT_PRIMARY"
+  standby_node_setup
+  ssh_keys_from_db
   echo "Successful repmgr setup as node id $REPMGR_NODE_ID" | tee "$MARKER"
 fi
 
 # Revert Postgres port in case it was temporarily changed above
-sed -i -e '/^port/s/5433/5432/' \
-  /etc/postgresql/11/main/postgresql.conf
+sed -i -e '/^port/s/5433/5432/' /etc/postgresql/11/main/postgresql.conf
 # Stop cluster, so it can be started by supervisord
-pg_ctlcluster 11 main stop
+pg_ctlcluster 11 main stop || true
