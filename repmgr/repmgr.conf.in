@@ -10,7 +10,7 @@ follow_command='/usr/bin/repmgr standby follow -f /etc/repmgr.conf --upstream-no
 reconnect_attempts=<RECONNECT_ATTEMPTS>
 reconnect_interval=<RECONNECT_INTERVAL>
 
-service_start_command   = '/usr/bin/pg_ctlcluster 11 main start'
+service_start_command   = 'supervisorctl start postgres'
 service_stop_command    = '/usr/bin/pg_ctlcluster 11 main stop'
 service_restart_command = '/usr/bin/pg_ctlcluster 11 main restart'
 service_reload_command  = '/usr/bin/pg_ctlcluster 11 main reload'
