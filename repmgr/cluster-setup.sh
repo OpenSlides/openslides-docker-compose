@@ -30,12 +30,16 @@ SSH_CONFIG_FILES=(
 
 primary_ssh_setup() {
   # Generate SSH keys
-  local PGNODES="pgnode1,pgnode2,pgnode3"
-  ssh-keygen -t ed25519 -N '' -f "$SSH_HOST_KEY"
-  ssh-keygen -t ed25519 -N '' -f "$SSH_REPMGR_USER_KEY" -C "repmgr node key"
+  local PGNODES="pgnode1,pgnode2,pgnode3" # XXX
+  echo "INFO: Generating $SSH_HOST_KEY."
+  ssh-keygen -t ed25519 -N '' -f "$SSH_HOST_KEY" > /dev/null
+  echo "INFO: Generating $SSH_REPMGR_USER_KEY."
+  ssh-keygen -t ed25519 -N '' -f "$SSH_REPMGR_USER_KEY" -C "repmgr node key" > /dev/null
+  echo "INFO: Generating $SSH_PGPROXY_USER_KEY."
   ssh-keygen -t ed25519 -N '' -f "$SSH_PGPROXY_USER_KEY" \
-    -C "Pgbouncer access key"
+    -C "Pgbouncer access key" > /dev/null
   # Setup access
+  echo "INFO: Setting up SSH keys and config for localhost."
   cp "${SSH_REPMGR_USER_KEY}.pub" /var/lib/postgresql/.ssh/authorized_keys
   printf 'command="/usr/local/bin/current-primary" %s\n' \
     "$(cat "${SSH_PGPROXY_USER_KEY}.pub")" \
@@ -67,7 +71,7 @@ insert_config_into_db() {
   target_filename="$2"
   access="$3"
   b64="$(base64 < "$real_filename")"
-  psql -v ON_ERROR_STOP=1 -1 -d instancecfg \
+  psql -q -v ON_ERROR_STOP=1 -1 -d instancecfg \
     -c "INSERT INTO dbcfg (filename, data, from_host, access)
       VALUES('${target_filename}',
         decode('$b64', 'base64'),
@@ -80,7 +84,7 @@ hidden_pg_start() {
   sed -i -e '/^port/s/5432/5433/' \
     /etc/postgresql/11/main/postgresql.conf
   pg_ctlcluster 11 main start
-  until pg_isready -p 5433; do
+  until pg_isready -q -p 5433; do
     echo "Waiting for Postgres cluster to become available..."
     sleep 3
   done
@@ -108,13 +112,19 @@ enable_wal_archiving() {
 }
 
 primary_node_setup() {
+  echo "INFO: Configuring cluster."
   update_pgconf
-  [[ "$REPMGR_ENABLE_ARCHIVE" = "off" ]] || enable_wal_archiving
+  [[ "$REPMGR_ENABLE_ARCHIVE" = "off" ]] || {
+    echo "INFO: Enabling WAL archiving."
+    enable_wal_archiving
+  }
   pg_ctlcluster 11 main restart
+  echo "INFO: Begin repmgr setup."
   createuser -s repmgr && createdb repmgr -O repmgr
   repmgr -f /etc/repmgr.conf -p 5433 primary register
   repmgr -f /etc/repmgr.conf -p 5433 cluster show
 
+  echo "INFO: Configuring cluster for OpenSlides."
   # create OpenSlides specific user and db
   createuser openslides && createdb openslides -O openslides
 
@@ -158,10 +168,11 @@ primary_node_setup() {
     "
 
   # Insert SSH files
+  echo "INFO: Begin inserting config files into database."
   for i in "${SSH_CONFIG_FILES[@]}"; do
     IFS=: read -r item target_filename access <<< "$i"
     [[ -n "$target_filename" ]] || target_filename="$item"
-    echo "Inserting ${item}→${target_filename} into database..."
+    echo "INFO: Inserting ${item}→${target_filename}."
     insert_config_into_db "$item" "$target_filename" "$access"
   done
 
@@ -208,11 +219,13 @@ backup() {
 
 mkdir -p "/var/lib/postgresql/wal-archive/"
 
-echo "Configuring repmgr"
+echo "INFO: Begin cluster setup"
+echo "INFO: Configuring repmgr (/etc/repmgr.conf)."
 REPMGR_SERVICE_START_COMMAND='/usr/bin/pg_ctlcluster 11 main start' \
-  envsubst < /etc/repmgr.conf.in | tee /etc/repmgr.conf
+  envsubst < /etc/repmgr.conf.in > /etc/repmgr.conf
 
 # Update pg_hba.conf from image template
+echo "INFO: Creating Postgres cluster's pg_hba.conf."
 cp -fv /var/lib/postgresql/pg_hba.conf /etc/postgresql/11/main/pg_hba.conf
 
 # Check if another primary exists anyway
@@ -239,9 +252,9 @@ if [[ -z "$CURRENT_PRIMARY" ]]; then
     hidden_pg_start
     primary_node_setup
     # Create an initial basebackup
-    echo "Creating base backup in ${BACKUP_DIR}..."
+    echo "Creating base backup in ${BACKUP_DIR}."
     backup "Initial base backup (entrypoint)"
-    echo "Successful repmgr setup as node id $REPMGR_NODE_ID" | tee "$MARKER"
+    echo "INFO: Successful repmgr setup as node id $REPMGR_NODE_ID" | tee "$MARKER"
   else
     echo "INFO: Configuring cluster as standby node according to configuration."
     standby_node_setup
@@ -292,11 +305,13 @@ else
   echo "Successful repmgr setup as node id $REPMGR_NODE_ID" | tee "$MARKER"
 fi
 
+echo "INFO: Setup finished.  Reverting temporary config changes."
 # Revert Postgres port in case it was temporarily changed above
 sed -i -e '/^port/s/5433/5432/' /etc/postgresql/11/main/postgresql.conf
 # Change repmgr's Postgres start to supervisorctl, so Postgres will be
 # recognized as running by supervisord in case of future failovers.
 REPMGR_SERVICE_START_COMMAND='supervisorctl start postgres' \
-  envsubst < /etc/repmgr.conf.in | tee /etc/repmgr.conf
+  envsubst < /etc/repmgr.conf.in > /etc/repmgr.conf
 # Stop cluster, so it can be started by supervisord
+echo "INFO: Stopping cluster, so it can be started by supervisord."
 pg_ctlcluster 11 main stop || true
