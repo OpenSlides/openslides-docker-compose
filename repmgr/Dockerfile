@@ -18,6 +18,7 @@ RUN apt-get update && \
     openssh-server \
     openssh-client \
     supervisor \
+    gettext-base \
   && rm -rf /var/lib/apt/lists/*
 
 COPY repmgr-promote.sh /usr/local/bin/repmgr-promote

@@ -208,10 +208,8 @@ backup() {
 mkdir -p "/var/lib/postgresql/wal-archive/"
 
 echo "Configuring repmgr"
-sed -e "s/<NODEID>/${REPMGR_NODE_ID}/" \
-  -e "s/<RECONNECT_ATTEMPTS>/${REPMGR_RECONNECT_ATTEMPTS}/" \
-  -e "s/<RECONNECT_INTERVAL>/${REPMGR_RECONNECT_INTERVAL}/" \
-  /etc/repmgr.conf.in | tee /etc/repmgr.conf
+REPMGR_SERVICE_START_COMMAND='/usr/bin/pg_ctlcluster 11 main start' \
+  envsubst < /etc/repmgr.conf.in | tee /etc/repmgr.conf
 
 # Update pg_hba.conf from image template
 cp -fv /var/lib/postgresql/pg_hba.conf /etc/postgresql/11/main/pg_hba.conf
@@ -292,5 +290,9 @@ fi
 
 # Revert Postgres port in case it was temporarily changed above
 sed -i -e '/^port/s/5433/5432/' /etc/postgresql/11/main/postgresql.conf
+# Change repmgr's Postgres start to supervisorctl, so Postgres will be
+# recognized as running by supervisord in case of future failovers.
+REPMGR_SERVICE_START_COMMAND='supervisorctl start postgres' \
+  envsubst < /etc/repmgr.conf.in | tee /etc/repmgr.conf
 # Stop cluster, so it can be started by supervisord
 pg_ctlcluster 11 main stop || true
