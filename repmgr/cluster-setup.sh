@@ -8,6 +8,7 @@ MARKER=/var/lib/postgresql/do-not-remove-this-file
 BACKUP_DIR="/var/lib/postgresql/backup/"
 
 # repmgr configuration through ENV
+REPMGR_NODE_NAME="pgnode${REPMGR_NODE_ID}"
 REPMGR_ENABLE_ARCHIVE="${REPMGR_WAL_ARCHIVE:-on}"
 REPMGR_RECONNECT_ATTEMPTS="${REPMGR_RECONNECT_ATTEMPTS:-30}" # upstream default: 6
 REPMGR_RECONNECT_INTERVAL="${REPMGR_RECONNECT_INTERVAL:-10}"
@@ -257,12 +258,12 @@ elif [[ -f "$MARKER" ]] && [[ "$CURRENT_PRIMARY" != "$REPMGR_NODE_NAME" ]]; then
   # Query primary about this node's role
   echo "INFO: Checking repmgr cluster status on $CURRENT_PRIMARY."
   THIS_NODE_TYPE="$(psql -qAt -U repmgr -d repmgr -h "$CURRENT_PRIMARY" \
-      -v this_node="pgnode${REPMGR_NODE_ID}" \
+      -v this_node="$REPMGR_NODE_NAME" \
       <<< "SELECT type FROM repmgr.nodes WHERE node_name = :'this_node';"
   )"
   if [[ "$THIS_NODE_TYPE" = primary ]]; then
     # We apparently were a primary before and should become a standby
-    echo "WARN: This node (pgnode$REPMGR_NODE_ID) has been set up as a primary node" \
+    echo "WARN: This node ($REPMGR_NODE_NAME) has been set up as a primary node" \
       "but another primary node ($CURRENT_PRIMARY) exists!"
     # Start and stop cluster in case it was not shut down cleanly
     echo "INFO: Starting and stopping cluster to ensure clean shutdown state."
