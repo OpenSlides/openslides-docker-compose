@@ -171,10 +171,18 @@ primary_node_setup() {
 standby_node_setup() {
   # Remove cluster data dir, so it can be cloned into
   rm -r "$PGDATA" && mkdir "$PGDATA"
-  # wait for master node
-  until pg_isready -h "$REPMGR_PRIMARY"; do
-    echo "Waiting for Postgres master server to become available..."
+  # Wait for master node
+  local max n
+  max=10
+  n=0
+  until pg_isready -q -h "$REPMGR_PRIMARY"; do
+    n=$(( n+1 ))
+    echo "Waiting for Postgres master server to become available ($n/$max)..."
     sleep 3
+    [[ $n -lt $max ]] || {
+      echo "ERROR: Could not connect to primary node after $max attempts.  Exiting."
+      exit 5
+    }
   done
   repmgr -h "$REPMGR_PRIMARY" -U repmgr -d repmgr \
     -f /etc/repmgr.conf standby clone --fast-checkpoint
