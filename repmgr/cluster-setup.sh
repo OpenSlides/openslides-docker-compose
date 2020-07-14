@@ -203,7 +203,7 @@ backup() {
     --wal-method=fetch --checkpoint=fast \
     --write-recovery-conf \
     --label="$*" |
-  gzip > "${BACKUP_DIR}/backup-$(date '+%F-%H:%M:%S').tar.bz2"
+  gzip > "${BACKUP_DIR}/backup-$(date '+%F-%H:%M:%S').tar.gz"
 }
 
 mkdir -p "/var/lib/postgresql/wal-archive/"

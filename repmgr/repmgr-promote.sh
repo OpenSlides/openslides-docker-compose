@@ -12,7 +12,7 @@ backup() {
     --wal-method=fetch --checkpoint=fast \
     --write-recovery-conf \
     --label="Base backup during repmgr promotion to primary" |
-  gzip > "${BACKUP_DIR}/backup-$(date '+%F-%H:%M:%S').tar.bz2"
+  gzip > "${BACKUP_DIR}/backup-$(date '+%F-%H:%M:%S').tar.gz"
 }
 
 # Promote node from standby to primary
