@@ -8,7 +8,7 @@ MARKER=/var/lib/postgresql/do-not-remove-this-file
 BACKUP_DIR="/var/lib/postgresql/backup/"
 
 # repmgr configuration through ENV
-REPMGR_NODE_NAME="pgnode${REPMGR_NODE_ID}"
+export REPMGR_NODE_NAME="pgnode${REPMGR_NODE_ID}"
 REPMGR_ENABLE_ARCHIVE="${REPMGR_WAL_ARCHIVE:-on}"
 REPMGR_RECONNECT_ATTEMPTS="${REPMGR_RECONNECT_ATTEMPTS:-30}" # upstream default: 6
 REPMGR_RECONNECT_INTERVAL="${REPMGR_RECONNECT_INTERVAL:-10}"
@@ -202,7 +202,7 @@ backup() {
   pg_basebackup -D - -Ft \
     --wal-method=fetch --checkpoint=fast \
     --write-recovery-conf \
-    --label="Initial base backup (entrypoint)" |
+    --label="$*" |
   gzip > "${BACKUP_DIR}/backup-$(date '+%F-%H:%M:%S').tar.bz2"
 }
 
@@ -240,7 +240,7 @@ if [[ -z "$CURRENT_PRIMARY" ]]; then
     primary_node_setup
     # Create an initial basebackup
     echo "Creating base backup in ${BACKUP_DIR}..."
-    backup
+    backup "Initial base backup (entrypoint)"
     echo "Successful repmgr setup as node id $REPMGR_NODE_ID" | tee "$MARKER"
   else
     echo "INFO: Configuring cluster as standby node according to configuration."
@@ -268,6 +268,9 @@ elif [[ -f "$MARKER" ]] && [[ "$CURRENT_PRIMARY" != "$REPMGR_NODE_NAME" ]]; then
     # Start and stop cluster in case it was not shut down cleanly
     echo "INFO: Starting and stopping cluster to ensure clean shutdown state."
     hidden_pg_start
+    echo "Creating base backup prior to rewind in ${BACKUP_DIR}..."
+    backup "Base backup prior to repmgr node rejoin"
+    # Stop cluster
     sed -i -e '/^port/s/5433/5432/' /etc/postgresql/11/main/postgresql.conf
     pg_ctlcluster 11 main stop
     # Rejoin
