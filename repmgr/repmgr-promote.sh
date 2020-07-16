@@ -5,16 +5,9 @@
 
 BACKUP_DIR="/var/lib/postgresql/backup/"
 
-backup() {
-  # Create base backup
-  mkdir -p "$BACKUP_DIR"
-  pg_basebackup -D - -Ft \
-    --wal-method=fetch --checkpoint=fast \
-    --write-recovery-conf \
-    --label="Base backup during repmgr promotion to primary" |
-  gzip > "${BACKUP_DIR}/backup-$(date '+%F-%H:%M:%S').tar.gz"
-}
+# Source the backup() function
+. /usr/local/lib/pg-basebackup.sh
 
 # Promote node from standby to primary
 /usr/bin/repmgr standby promote -f /etc/repmgr.conf &&
-  { backup || true; }
+  { backup "Base backup after standby promotion" || true; }

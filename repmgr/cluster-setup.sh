@@ -28,6 +28,9 @@ SSH_CONFIG_FILES=(
   "/var/lib/postgresql/.ssh/known_hosts::{\"repmgr\", \"pgproxy\"}"
 )
 
+# Source the backup() function
+. /usr/local/lib/pg-basebackup.sh
+
 primary_ssh_setup() {
   # Generate SSH keys
   local PGNODES="pgnode1,pgnode2,pgnode3" # XXX
@@ -206,15 +209,6 @@ standby_node_setup() {
   pg_ctlcluster 11 main restart
   repmgr -f /etc/repmgr.conf standby register --force
   repmgr -f /etc/repmgr.conf cluster show || true
-}
-
-backup() {
-  mkdir -p "$BACKUP_DIR"
-  pg_basebackup -D - -Ft \
-    --wal-method=fetch --checkpoint=fast \
-    --write-recovery-conf \
-    --label="$*" |
-  gzip > "${BACKUP_DIR}/backup-$(date '+%F-%H:%M:%S').tar.gz"
 }
 
 mkdir -p "/var/lib/postgresql/wal-archive/"

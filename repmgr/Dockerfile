@@ -21,6 +21,8 @@ RUN apt-get update && \
     gettext-base \
   && rm -rf /var/lib/apt/lists/*
 
+COPY repmgr-backup.sh /usr/local/bin/repmgr-backup
+COPY pg-basebackup.sh /usr/local/lib/
 COPY repmgr-promote.sh /usr/local/bin/repmgr-promote
 COPY repmgr.conf.in /etc/
 RUN touch /etc/repmgr.conf && chown postgres /etc/repmgr.conf
