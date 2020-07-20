@@ -264,17 +264,22 @@ elif [[ -f "$MARKER" ]] && [[ "$CURRENT_PRIMARY" = "$REPMGR_NODE_NAME" ]]; then
 elif [[ -f "$MARKER" ]] && [[ "$CURRENT_PRIMARY" != "$REPMGR_NODE_NAME" ]]; then
   # Query primary about this node's role
   echo "INFO: Checking repmgr cluster status on $CURRENT_PRIMARY."
-  THIS_NODE_TYPE="$(psql -qAt -U repmgr -d repmgr -h "$CURRENT_PRIMARY" \
+  # Node type registerd in primary's repmgr database
+  REG_NODE_TYPE="$(psql -qAt -U repmgr -d repmgr -h "$CURRENT_PRIMARY" \
+      -v this_node="$REPMGR_NODE_NAME" \
+      <<< "SELECT type FROM repmgr.nodes WHERE node_name = :'this_node';"
+  )" || true
+  # Self-perception
+  echo "INFO: Starting and stopping cluster to ensure clean shutdown state."
+  hidden_pg_start
+  SELF_NODE_TYPE="$(psql -p 5433 -qAt -U repmgr -d repmgr -h "$REPMGR_NODE_NAME" \
       -v this_node="$REPMGR_NODE_NAME" \
       <<< "SELECT type FROM repmgr.nodes WHERE node_name = :'this_node';"
   )"
-  if [[ "$THIS_NODE_TYPE" = primary ]]; then
+  if [[ "$REG_NODE_TYPE" = primary ]] || [[ "$SELF_NODE_TYPE" = 'primary' ]]; then
     # We apparently were a primary before and should become a standby
     echo "WARN: This node ($REPMGR_NODE_NAME) has been set up as a primary node" \
       "but another primary node ($CURRENT_PRIMARY) exists!"
-    # Start and stop cluster in case it was not shut down cleanly
-    echo "INFO: Starting and stopping cluster to ensure clean shutdown state."
-    hidden_pg_start
     echo "Creating base backup prior to rewind in ${BACKUP_DIR}..."
     backup "Base backup prior to repmgr node rejoin"
     # Stop cluster
@@ -287,7 +292,6 @@ elif [[ -f "$MARKER" ]] && [[ "$CURRENT_PRIMARY" != "$REPMGR_NODE_NAME" ]]; then
   else
     # Regular standby startup
     echo "INFO: This node has been set up as a standby before.  Starting up."
-    hidden_pg_start
     ssh_keys_from_db
   fi
 # There is a primary node for which this node should be come a standby
