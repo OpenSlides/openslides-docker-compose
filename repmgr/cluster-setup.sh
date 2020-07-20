@@ -58,7 +58,7 @@ ssh_keys_from_db() (
     WHERE 'repmgr' = ANY (access)
     ORDER BY filename, access, id DESC;" |
   while IFS= read -r -d $'\0' target_filename; do
-    echo "Fetching ${target_filename} from database..."
+    echo "Fetching ${target_filename} from database."
     psql -d instancecfg -qtA <<< "
       SELECT DISTINCT ON (filename, access) data FROM dbcfg
         WHERE filename = '${target_filename}'
@@ -82,13 +82,13 @@ insert_config_into_db() {
 }
 
 hidden_pg_start() {
-  # Temporarily change port of node to stay hidden from sevices that wait for
+  # Temporarily change port of node to stay hidden from services that wait for
   # it
   sed -i -e '/^port/s/5432/5433/' \
     /etc/postgresql/11/main/postgresql.conf
   pg_ctlcluster 11 main start
   until pg_isready -q -p 5433; do
-    echo "Waiting for Postgres cluster to become available..."
+    echo "Waiting for Postgres cluster to become available."
     sleep 3
   done
 }
@@ -192,7 +192,7 @@ standby_node_setup() {
   n=0
   until pg_isready -q -h "$REPMGR_PRIMARY"; do
     n=$(( n+1 ))
-    echo "Waiting for Postgres master server to become available ($n/$max)..."
+    echo "Waiting for Postgres master server to become available ($n/$max)."
     sleep 3
     [[ $n -lt $max ]] || {
       echo "ERROR: Could not connect to primary node after $max attempts.  Exiting."
@@ -203,7 +203,7 @@ standby_node_setup() {
     -f /etc/repmgr.conf standby clone --fast-checkpoint
   pg_ctlcluster 11 main start
   until pg_isready; do
-    echo "Waiting for Postgres cluster to become available..."
+    echo "Waiting for Postgres cluster to become available."
     sleep 3
   done
   pg_ctlcluster 11 main restart
@@ -264,29 +264,33 @@ elif [[ -f "$MARKER" ]] && [[ "$CURRENT_PRIMARY" = "$REPMGR_NODE_NAME" ]]; then
 elif [[ -f "$MARKER" ]] && [[ "$CURRENT_PRIMARY" != "$REPMGR_NODE_NAME" ]]; then
   # Query primary about this node's role
   echo "INFO: Checking repmgr cluster status on $CURRENT_PRIMARY."
-  # Node type registerd in primary's repmgr database
+  # Node type registered in primary's repmgr database
   REG_NODE_TYPE="$(psql -qAt -U repmgr -d repmgr -h "$CURRENT_PRIMARY" \
       -v this_node="$REPMGR_NODE_NAME" \
       <<< "SELECT type FROM repmgr.nodes WHERE node_name = :'this_node';"
   )" || true
+  echo "INFO: $CURRENT_PRIMARY tracks $REPMGR_NODE_NAME as a $REG_NODE_TYPE."
   # Self-perception
-  echo "INFO: Starting and stopping cluster to ensure clean shutdown state."
+  # Start cluster for the following query and to ensure that is has been shut
+  # down cleanly before attempting pg_rewind
+  echo "INFO: Temporarily starting cluster."
   hidden_pg_start
   SELF_NODE_TYPE="$(psql -p 5433 -qAt -U repmgr -d repmgr -h "$REPMGR_NODE_NAME" \
       -v this_node="$REPMGR_NODE_NAME" \
       <<< "SELECT type FROM repmgr.nodes WHERE node_name = :'this_node';"
   )"
+  echo "INFO: $REPMGR_NODE_NAME's local database lists itself as $SELF_NODE_TYPE."
   if [[ "$REG_NODE_TYPE" = primary ]] || [[ "$SELF_NODE_TYPE" = 'primary' ]]; then
     # We apparently were a primary before and should become a standby
     echo "WARN: This node ($REPMGR_NODE_NAME) has been set up as a primary node" \
       "but another primary node ($CURRENT_PRIMARY) exists!"
-    echo "Creating base backup prior to rewind in ${BACKUP_DIR}..."
+    echo "INFO: Creating base backup prior to rewind in ${BACKUP_DIR}."
     backup "Base backup prior to repmgr node rejoin"
-    # Stop cluster
+    # Stop cluster (cleanly)
     sed -i -e '/^port/s/5433/5432/' /etc/postgresql/11/main/postgresql.conf
     pg_ctlcluster 11 main stop
     # Rejoin
-    echo "INFO: Rejoining as standby..."
+    echo "INFO: Rejoining as standby."
     repmgr -d "host='$CURRENT_PRIMARY' dbname=repmgr user=repmgr" \
       node rejoin --force-rewind --verbose
   else
