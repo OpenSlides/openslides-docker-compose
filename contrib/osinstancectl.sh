@@ -404,7 +404,7 @@ remove() {
   echo "Removing instance repo dir..."
   rm -rf "${PROJECT_DIR}"
   echo "acmetool unwant..."
-  acmetool unwant "$PROJECT_NAME"
+  acmetool unwant "$PROJECT_NAME" "www.${PROJECT_NAME}"
   echo "remove HAProxy config..."
   rm_from_haproxy_cfg
   echo "Done."
