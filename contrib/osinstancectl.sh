@@ -1022,31 +1022,25 @@ instance_config() {
         --format '{{.Self}}\t{{.ID}}\t{{.Hostname}}' |
         awk '$1 == "true" { print $2, $3 }')"
 
-      # Try to find contanier on localhost
-      while read -r taskid; do
-        # This state check could potentially be handled more efficiently using
-        # another --filter.  The observed behavior is that multiple filter
-        # options get combined as an AND expression; however, the official
-        # documentation claims it should be treated as an OR expression.
-        [[ "$(docker inspect --format='{{.Status.State}}' "$taskid")" = "running" ]] || continue
-        containerid="$(docker inspect -f \
-          '{{.Status.ContainerStatus.ContainerID}}' ${taskid})"
-        break
-      done < <(docker service ps --filter "node=$this_node_id" \
-        --format '{{.ID}}' "${PROJECT_STACK_NAME}"_{prio,}server)
-
-      # Failed to find container on localhost; suggest alternatives
-      [[ -n "$containerid" ]] || {
-        echo "Could not find a suitable container for vicfg on local host ($this_node_name)."
-        while read -r node; do
-          printf " Try: ssh -t %s osstackctl vicfg %s\n" "$node" "$PROJECT_NAME"
-        done < <(docker service ps --filter "desired-state=running" \
-          --format '{{.Node}}' "${PROJECT_STACK_NAME}"_{prio,}server | sort -u)
-        exit 6
+      ls_nodes_with_service() {
+        docker service ps --filter "desired-state=running" \
+          --format '{{.Node}} {{.ID}}' "${PROJECT_STACK_NAME}"_{prio,}server | sort -u
       }
+      # Try to find the service on this node...
+      read -r node taskid < <(ls_nodes_with_service | grep "$this_node_name" | head -n1) ||
+      # ...or else pick a service from any node
+      read -r node taskid < <(ls_nodes_with_service | head -n1)
+      containerid="$(docker inspect -f '{{.Status.ContainerStatus.ContainerID}}' ${taskid})"
+      # Connect directly or else through SSH
+      if [[ "$node" = "$this_node_name" ]]; then
+        docker exec -it -e "STACK=${PROJECT_STACK_NAME}" "${containerid}" \
+          bash -c "${container_cmd}"
+      else
+        ssh -q -tt "$node" \
+          "docker exec -it -e 'STACK=${PROJECT_STACK_NAME}' '${containerid}' \\
+            bash -c '${container_cmd}'"
+      fi
 
-      docker exec -it -e "STACK=${PROJECT_STACK_NAME}" "${containerid}" \
-        bash -c "$container_cmd"
       read -p "Update server containers now? [Y/n] " start
       case "$start" in
         Y|y|Yes|yes|YES|"")
@@ -1324,6 +1318,7 @@ DEPS=(
   jq
   m4
   nc
+  ssh
 )
 # Check dependencies
 for i in "${DEPS[@]}"; do
