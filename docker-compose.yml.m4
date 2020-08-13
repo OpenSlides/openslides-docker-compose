@@ -24,8 +24,9 @@ define(`PGBOUNCER_NODELIST',
 `ifelse(read_env(`PGNODE_2_ENABLED'), 1, `,pgnode2')`'dnl
 ifelse(read_env(`PGNODE_3_ENABLED'), 1, `,pgnode3')')
 
-define(`ADMIN_SECRET_AVAILABLE', `syscmd(`test -r secrets/adminsecret.env')sysval')
-define(`USER_SECRET_AVAILABLE', `syscmd(`test -r secrets/usersecret.env')sysval')
+define(`PROJECT_DIR', ifdef(`PROJECT_DIR',PROJECT_DIR,.))
+define(`ADMIN_SECRET_AVAILABLE', `syscmd(`test -f 'PROJECT_DIR`/secrets/adminsecret.env')sysval')
+define(`USER_SECRET_AVAILABLE', `syscmd(`test -f 'PROJECT_DIR`/secrets/usersecret.env')sysval')
 divert(0)dnl
 dnl ----------------------------------------
 # This configuration was created from a template file.  Before making changes,
