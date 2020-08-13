@@ -1348,6 +1348,9 @@ for i in "${DEPS[@]}"; do
     check_for_dependency "$i"
 done
 
+# PROJECT_NAME should be lower-case
+PROJECT_NAME="$(echo "$PROJECT_NAME" | tr '[A-Z]' '[a-z]')"
+
 # Prevent --project-dir to be used together with a project name
 if [[ -n "$PROJECT_DIR" ]] && [[ -n "$PROJECT_NAME" ]]; then
   fatal "Mutually exclusive options"
