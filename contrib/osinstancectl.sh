@@ -947,6 +947,7 @@ instance_erase() {
     "stack")
       local vol=()
       instance_stop || true
+      run_hook mid-erase
       readarray -t vol < <(
         docker volume ls --format '{{ .Name }}' |
         grep "^${PROJECT_STACK_NAME}_"
@@ -956,9 +957,9 @@ instance_erase() {
         for i in "${vol[@]}"; do
           echo "  docker volume rm $i"
         done
+        echo "WARN: Please note that $ME does not take volumes" \
+          "on other nodes into account."
       fi
-      echo "WARN: Please note that $ME does not take volumes" \
-        "on other nodes into account."
       ;;
   esac
 }
@@ -1409,7 +1410,6 @@ case "$MODE" in
     read -rp "Really delete? (uppercase YES to confirm) " ANS
     [[ "$ANS" = "YES" ]] || exit 0
     remove "$PROJECT_NAME"
-    run_hook "post-${MODE}"
     ;;
   create)
     [[ -f "$CONFIG" ]] && echo "Applying options from ${CONFIG}." || true
@@ -1487,7 +1487,6 @@ case "$MODE" in
     read -rp "Really delete? (uppercase YES to confirm) " ANS
     [[ "$ANS" = "YES" ]] || exit 0
     instance_erase
-    run_hook "post-${MODE}"
     ;;
   update)
     [[ -f "$CONFIG" ]] && echo "Applying options from ${CONFIG}." || true
