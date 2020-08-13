@@ -269,7 +269,8 @@ create_config_from_template() {
   update_env_file "$temp_file" "POSTFIX_MYHOSTNAME" "$PROJECT_NAME"
   cp -af "$temp_file" "${_env}"
   # Create config from template + .env
-  ( set -a && source "${_env}" && m4 "$DCCONFIG_TEMPLATE" > "${DCCONFIG}" )
+  ( set -a && source "${_env}" &&
+    m4 -DPROJECT_DIR="$PROJECT_DIR" "$DCCONFIG_TEMPLATE" > "${DCCONFIG}" )
   rm -rf "$temp_file" # TODO: trap
 }
 
@@ -913,7 +914,8 @@ ask_start() {
 
 instance_start() {
   # Write YAML config
-  ( set -a  && source "${PROJECT_DIR}/.env" && m4 "$DCCONFIG_TEMPLATE" >| "${DCCONFIG}" )
+  ( set -a  && source "${PROJECT_DIR}/.env" &&
+    m4 -DPROJECT_DIR="$PROJECT_DIR" "$DCCONFIG_TEMPLATE" >| "${DCCONFIG}" )
   case "$DEPLOYMENT_MODE" in
     "compose")
       _docker_compose "$PROJECT_DIR" build
