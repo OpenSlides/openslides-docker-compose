@@ -800,6 +800,7 @@ clone_db() {
   local clone_from_id
   local clone_to_id
   local available_dbs
+  local port
   case "$DEPLOYMENT_MODE" in
     "compose")
       local clone_from_id
@@ -807,15 +808,30 @@ clone_db() {
       _docker_compose "$PROJECT_DIR" up -d --no-deps pgnode1
       clone_from_id="$(_docker_compose "$CLONE_FROM_DIR" ps -q "${PRIMARY_DATABASE_NODE}")"
       clone_to_id="$(_docker_compose "$PROJECT_DIR" ps -q pgnode1)"
-      sleep 20 # XXX
+      until _docker_compose "$PROJECT_DIR" exec pgnode1 pg_isready -q -p 5432; do
+        echo "Waiting for Postgres cluster to become available."
+        sleep 5
+      done
       ;;
     "stack")
       clone_from_id="$(get_clone_from_id "$CLONE_FROM_DIR")"
       PROJECT_STACK_NAME="$(value_from_env "${PROJECT_DIR}" PROJECT_STACK_NAME)"
+      port="$(value_from_env "${PROJECT_DIR}" EXTERNAL_HTTP_PORT)"
+      # Unlike in Compose mode, the complete instance is booted up.  For this
+      # reason, we will also wait for the complete instance to become ready and
+      # then shut down services that may access the database.
       instance_start
-      echo "Waiting 20 seconds for database to become available..."
-      sleep 20 # XXX
+      until [[ -n "$(ping_instance_websocket "$port")" ]]; do
+        echo "Waiting for new instance to become available."
+        sleep 5
+      done
       clone_to_id="$(containerid_from_service_name "${PROJECT_STACK_NAME}_pgnode1")"
+
+      echo "Shutting down other services."
+      docker service rm "${PROJECT_STACK_NAME}_pgbouncer"
+      docker service rm "${PROJECT_STACK_NAME}_prioserver"
+      docker service rm "${PROJECT_STACK_NAME}_server"
+      docker service rm "${PROJECT_STACK_NAME}_media"
       ;;
   esac
   echo "DEBUG: from: $clone_from_id to: $clone_to_id"
@@ -842,9 +858,15 @@ clone_db() {
       sleep 10
       continue
     }
+    until [[ "$(docker exec -u postgres "$clone_to_id" \
+      psql -qAt -c "select count(*) from pg_stat_activity WHERE datname='${db}';")" -eq 0 ]]
+    do
+      echo "DEBUG: Terminate connections to $db."
+      docker exec -u postgres "$clone_to_id" psql -q -c "SELECT pg_terminate_backend(pid)
+          FROM pg_stat_activity WHERE datname='${db}';"
+      sleep 5
+    done
     echo "Recreating db for new instance: ${db}..."
-    docker exec -u postgres "$clone_to_id" psql -q -c "SELECT pg_terminate_backend(pid)
-        FROM pg_stat_activity WHERE datname='${db}';"
     docker exec -u postgres "$clone_to_id" dropdb --if-exists "$db"
     docker exec -u postgres "$clone_to_id" createdb -O openslides "$db"
 
