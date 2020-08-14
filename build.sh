@@ -76,7 +76,7 @@ TARGETS=($@)
 for i in "${TARGETS[@]}"; do
   DOCKERFILE="$(dirname "${BASH_SOURCE[0]}")/${i}/Dockerfile"
   [[ -f "$DOCKERFILE" ]] || {
-    echo "ERROR: $DOCKERFILE can not found."
+    echo "ERROR: $DOCKERFILE not found."
     exit 2
   }
   DOCKERFILE=
