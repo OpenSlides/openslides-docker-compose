@@ -991,8 +991,7 @@ instance_update() {
   fi
 
   # Start/update if instance was already running
-  local port
-  port="$(value_from_env "$PROJECT_DIR" "EXTERNAL_HTTP_PORT")"
+  source "${PROJECT_DIR}/.env"
   if instance_has_services_running "$PROJECT_STACK_NAME"; then
     case "$DEPLOYMENT_MODE" in
       "compose")
