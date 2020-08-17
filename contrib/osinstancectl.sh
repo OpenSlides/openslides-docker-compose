@@ -7,7 +7,7 @@ set -o noclobber
 set -o pipefail
 
 # Defaults (override in /etc/osinstancectl)
-TEMPLATE_REPO="/srv/openslides/openslides-docker-compose"
+TEMPLATE_REPO="/srv/openslides/OpenSlides"
 # TEMPLATE_REPO="https://github.com/OpenSlides/openslides-docker-compose"
 OSDIR="/srv/openslides"
 INSTANCES="${OSDIR}/docker-instances"
@@ -277,21 +277,22 @@ create_instance_dir() {
   case "$DEPLOYMENT_MODE" in
     "compose")
       git clone "${TEMPLATE_REPO}" "${PROJECT_DIR}"
+      ln -s docker/docker-compose.yml.m4 "${PROJECT_DIR}/docker-compose.yml.m4"
+      cp "${TEMPLATE_REPO}/docker/.env" "${PROJECT_DIR}/.env"
       ;;
     "stack")
       # If the template repo is a local worktree, copy files from it
       if [[ -d "${TEMPLATE_REPO}" ]]; then
         mkdir -p "${PROJECT_DIR}"
-        # prepare secrets files
-        mkdir -p -m 700 "${PROJECT_DIR}/secrets"
-        cp -f "${TEMPLATE_REPO}/secrets/${ADMIN_SECRETS_FILE}" "${PROJECT_DIR}/secrets/"
-        cp -f "${TEMPLATE_REPO}/secrets/${USER_SECRETS_FILE}" "${PROJECT_DIR}/secrets/"
       else
         # Template repo appears to be remote, so clone it
         git clone "${TEMPLATE_REPO}" "${PROJECT_DIR}"
+        ln -s docker/docker-stack.yml.m4 "${PROJECT_DIR}/docker-stack.yml.m4"
+        cp docker/.env "${PROJECT_DIR}/.env"
       fi
       ;;
   esac
+  mkdir -p -m 700 "${PROJECT_DIR}/secrets"
   touch "${PROJECT_DIR}/${MARKER}"
   # Add .env if template available
   [[ ! -f "$DOT_ENV_TEMPLATE" ]] || cp -af "$DOT_ENV_TEMPLATE" "${PROJECT_DIR}/.env"
@@ -300,7 +301,8 @@ create_instance_dir() {
 }
 
 gen_pw() {
-  read -r -n 15 PW < <(LC_ALL=C tr -dc "[:alnum:]" < /dev/urandom)
+  local len="${1:-15}"
+  read -r -n "$len" PW < <(LC_ALL=C tr -dc "[:alnum:]" < /dev/urandom)
   echo "$PW"
 }
 
@@ -309,7 +311,7 @@ create_admin_secrets_file() {
   [[ -d "${PROJECT_DIR}/secrets" ]] ||
     mkdir -m 700 "${PROJECT_DIR}/secrets"
   printf "OPENSLIDES_ADMIN_PASSWORD=%s\n" "$(gen_pw)" \
-    >> "${PROJECT_DIR}/secrets/${ADMIN_SECRETS_FILE}"
+    > "${PROJECT_DIR}/secrets/${ADMIN_SECRETS_FILE}"
 }
 
 create_user_secrets_file() {
@@ -325,8 +327,7 @@ create_user_secrets_file() {
     last_name="$2"
     email="$3"
     PW="$(gen_pw)"
-    cat << EOF >> "${PROJECT_DIR}/secrets/${USER_SECRETS_FILE}"
-
+    cat << EOF > "${PROJECT_DIR}/secrets/${USER_SECRETS_FILE}"
 # Configured by $ME:
 OPENSLIDES_USER_FIRSTNAME="$first_name"
 OPENSLIDES_USER_LASTNAME="$last_name"
@@ -334,6 +335,12 @@ OPENSLIDES_USER_PASSWORD="$PW"
 OPENSLIDES_USER_EMAIL="$email"
 EOF
   fi
+}
+
+create_django_secrets_file() {
+  echo "Generating Django secret key..."
+  printf "DJANGO_SECRET_KEY='%s'\n" "$(gen_pw 64)" \
+    > "${PROJECT_DIR}/secrets/django.env"
 }
 
 gen_tls_cert() {
@@ -829,7 +836,7 @@ clone_db() {
 
       echo "Shutting down other services."
       docker service rm "${PROJECT_STACK_NAME}_pgbouncer"
-      docker service rm "${PROJECT_STACK_NAME}_prioserver"
+      docker service rm "${PROJECT_STACK_NAME}_server-setup"
       docker service rm "${PROJECT_STACK_NAME}_server"
       docker service rm "${PROJECT_STACK_NAME}_media"
       ;;
@@ -1325,11 +1332,11 @@ DCCONFIG="${PROJECT_DIR}/${CONFIG_FILE}"
 # If a template repo exists as a local worktree, copy files from there;
 # otherwise, clone a repo and use its included files as templates
 if [[ -d "${TEMPLATE_REPO}" ]]; then
-  DEFAULT_DCCONFIG_TEMPLATE="${TEMPLATE_REPO}/${CONFIG_FILE}.m4"
-  DEFAULT_DOT_ENV_TEMPLATE="${TEMPLATE_REPO}/.env"
+  DEFAULT_DCCONFIG_TEMPLATE="${TEMPLATE_REPO}/docker/${CONFIG_FILE}.m4"
+  DEFAULT_DOT_ENV_TEMPLATE="${TEMPLATE_REPO}/docker/.env"
 else
-  DEFAULT_DCCONFIG_TEMPLATE="${PROJECT_DIR}/${CONFIG_FILE}.m4"
-  DEFAULT_DOT_ENV_TEMPLATE="${PROJECT_DIR}/.env"
+  DEFAULT_DCCONFIG_TEMPLATE="${PROJECT_DIR}/docker/${CONFIG_FILE}.m4"
+  DEFAULT_DOT_ENV_TEMPLATE="${PROJECT_DIR}/docker/.env"
 fi
 DCCONFIG_TEMPLATE="${YAML_TEMPLATE:-${DEFAULT_DCCONFIG_TEMPLATE}}"
 DOT_ENV_TEMPLATE="${DOT_ENV_TEMPLATE:-${DEFAULT_DOT_ENV_TEMPLATE}}"
@@ -1362,6 +1369,7 @@ case "$MODE" in
     create_admin_secrets_file
     create_user_secrets_file "${OPENSLIDES_USER_FIRSTNAME}" \
       "${OPENSLIDES_USER_LASTNAME}" "${OPENSLIDES_USER_EMAIL}"
+    create_django_secrets_file
     append_metadata "$PROJECT_DIR" ""
     append_metadata "$PROJECT_DIR" \
       "$(date +"%F %H:%M"): Instance created (${DEPLOYMENT_MODE})"
