@@ -38,11 +38,29 @@ provided by [acmetool](https://hlandau.github.io/acmetool/).
 With this setup, `osinstancectl`/`osstackctl` can add instances, configure
 HAProxy, and generate TLS certificates.
 
+## Legacy Instances
 
-## Importing Data from Legacy Instances
+### Exporting Configuration from the Database to .env
 
-There is no straight migration path for upgrades from legacy setups.  Instead,
-please create a fresh instance and import the legacy instance's data into it.
-A script to export data from legacy instances is provided in the legacy branch.
+Legacy instances stored their configuration files in the database which is no
+longer true for the current configuration concept.  Instead, instances are
+configured through variables in .env.
 
-To import the exported legacy data, use `./contrib/legacy-import.sh`.
+Migration steps:
+
+1. Make a backup of your instance directory
+2. Update the management environment
+    1. Clone the main OpenSlides repository to /srv/openslides/OpenSlides/
+    2. Follow the included instructions for building new server and client images
+    3. Update osinstancectl/osstackctl from this repository
+3. Run `./contrib/export-db-settings.sh <instance directory>`
+4. Update server and client to the new images
+5. Remove the instance's deprecated prioserver service
+
+
+### Importing Data from Compose-only Legacy Instances
+
+The migration path for the initial type of Compose-only instances has become
+incompatible with the current setup.  To migrate very old instances, you will
+have to go through an intermediate version such as 168646d first, and then
+follow the above instructions to migrate them to the most current setup.
