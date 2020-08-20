@@ -889,28 +889,12 @@ append_metadata() {
 
 ask_start() {
   local start=
-  case "$DEPLOYMENT_MODE" in
-    "compose")
-      read -rp "Start containers? [Y/n] " start
-      case "$start" in
-        Y|y|Yes|yes|YES|"")
-          instance_start ;;
-        *)
-          echo "Not starting containers." ;;
-      esac
-      ;;
-    "stack")
-      # Never start in swarm mode b/c the config files needs to be edited
-      # first
-      printf "%s\n%s\n" \
-        "Next, you should review the configuration file, paying special attention to" \
-        "service placement constraints."
-      printf "\n%s\n  %s\n" "The configuration file is:" \
-        "$PROJECT_DIR/.env"
-      printf "\n%s\n  %s\n" "Afterwards, you can start this instance with:" \
-        "\`osstackctl start $PROJECT_NAME\`."
-      return 0
-      ;;
+  read -rp "Start the instance? [Y/n] " start
+  case "$start" in
+    Y|y|Yes|yes|YES|"")
+      instance_start ;;
+    *)
+      echo "Not starting instance." ;;
   esac
 }
 
