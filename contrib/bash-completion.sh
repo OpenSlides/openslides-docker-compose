@@ -10,10 +10,16 @@ _osinstancectl()
   opts+=" --image-info --version"
   opts+=" --server-image --server-tag --client-image --client-tag --all-tags"
   opts+=" --local-only --no-add-account"
+  opts+=" --yaml-template --env-template"
   diropts="ls|rm|start|stop|update|erase|vicfg|--clone-from"
 
   if [[ ${prev} =~ ${diropts} ]]; then
     COMPREPLY=( $(cd /srv/openslides/docker-instances && compgen -d -- ${cur}) )
+    return 0
+  fi
+
+  if [[ ${prev} == --*template ]]; then
+    _filedir
     return 0
   fi
 

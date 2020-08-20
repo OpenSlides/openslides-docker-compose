@@ -98,6 +98,8 @@ Actions:
 
 Options:
   -d, --project-dir    Directly specify the project directory
+  --yaml-template      Specify a YAML template
+  --env-template       Specify a .env template
   --force              Disable various safety checks
   --color=WHEN         Enable/disable color output.  WHEN is never, always, or
                        auto.
@@ -1124,6 +1126,10 @@ longopt=(
   project-dir:
   force
 
+  # Template opions
+  yaml-template:
+  env-template:
+
   # filtering
   all
   online
@@ -1166,6 +1172,14 @@ while true; do
   case "$1" in
     -d|--project-dir)
       PROJECT_DIR="$2"
+      shift 2
+      ;;
+    --yaml-template)
+      YAML_TEMPLATE="$2"
+      shift 2
+      ;;
+    --env-template)
+      DOT_ENV_TEMPLATE="$2"
       shift 2
       ;;
     --server-image)
@@ -1397,6 +1411,7 @@ else
   DEFAULT_DCCONFIG_TEMPLATE="${PROJECT_DIR}/${CONFIG_FILE}.m4"
   DEFAULT_DOT_ENV_TEMPLATE="${PROJECT_DIR}/.env"
 fi
+# Override default settings from either the config file or command-line options
 DCCONFIG_TEMPLATE="${YAML_TEMPLATE:-${DEFAULT_DCCONFIG_TEMPLATE}}"
 DOT_ENV_TEMPLATE="${DOT_ENV_TEMPLATE:-${DEFAULT_DOT_ENV_TEMPLATE}}"
 
