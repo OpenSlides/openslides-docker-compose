@@ -2,24 +2,18 @@
 
 set -e
 
-REPOSITORY_URL="https://github.com/OpenSlides/OpenSlides.git"
-GIT_CHECKOUT="master"
 DOCKER_REPOSITORY="openslides"
 DOCKER_TAG="latest"
 CONFIG="/etc/osinstancectl"
 OPTIONS=()
 BUILT_IMAGES=()
-DEFAULT_TARGETS=(server client)
+DEFAULT_TARGETS=(repmgr)
 
 usage() {
   cat << EOF
 Usage: $(basename ${BASH_SOURCE[0]}) [<options>] [<dir>...]
 
 Options:
-  -r, --revision     The OpenSlides version to check out
-                     (default: $GIT_CHECKOUT)
-  -R, --repo         The OpenSlides repository to clone
-                     (default: $REPOSITORY_URL)
   -D, --docker-repo  Specify a Docker repository
                      (default: unspecified, i.e., system default)
   -t, --tag          Tag the Docker image (default: $DOCKER_TAG)
@@ -33,8 +27,8 @@ if [[ -f "$CONFIG" ]]; then
   source "$CONFIG"
 fi
 
-shortopt="hr:R:D:t:"
-longopt="help,revision:,repo:,docker-repo:,tag:,no-cache"
+shortopt="hr:D:t:"
+longopt="help,docker-repo:,tag:,no-cache"
 ARGS=$(getopt -o "$shortopt" -l "$longopt" -n "$ME" -- "$@")
 if [ $? -ne 0 ]; then usage; exit 1; fi
 eval set -- "$ARGS";
@@ -43,14 +37,6 @@ unset ARGS
 # Parse options
 while true; do
   case "$1" in
-    -r|--revision)
-      GIT_CHECKOUT="$2"
-      shift 2
-      ;;
-    -R|--repo)
-      REPOSITORY_URL="$2"
-      shift 2
-      ;;
     -D|--docker-repo)
       DOCKER_REPOSITORY="$2"
       shift 2
@@ -93,13 +79,7 @@ for i in "${TARGETS[@]}"; do
     cd "$(dirname "${BASH_SOURCE[0]}")/${i}"
     echo "Building $IMG..."
     set -x
-    docker build \
-      --build-arg "REPOSITORY_URL=${REPOSITORY_URL}" \
-      --build-arg "GIT_CHECKOUT=${GIT_CHECKOUT}" \
-      --tag "$IMG" \
-      --pull \
-      "${OPTIONS[@]}" \
-      .
+    docker build --tag "$IMG" --pull "${OPTIONS[@]}" .
     set +x
   )
   BUILT_IMAGES+=("$IMG")
