@@ -10,7 +10,7 @@ variables = (
     "ENABLE_ELECTRONIC_VOTING",
     "JITSI_DOMAIN",
     "JITSI_ROOM_NAME",
-    "JITSI_PASSWORD")
+    "JITSI_ROOM_PASSWORD")
 
 # prepare temp file
 with open("settings.py", "r") as f:
