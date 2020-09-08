@@ -30,6 +30,7 @@ PORT=
 DEPLOYMENT_MODE=
 MODE=
 OPT_LONGLIST=
+OPT_SECRETS=
 OPT_METADATA=
 OPT_METADATA_SEARCH=
 OPT_IMAGE_INFO=
@@ -106,6 +107,7 @@ Options:
   for ls:
     -a, --all          Equivalent to -l -m -i
     -l, --long         Include more information in extended listing format
+    -s, --secrets      Include sensitive information such as login credentials
     -m, --metadata     Include metadata in instance list
     -i, --image-info   Show image version info (requires instance to be
                        started)
@@ -571,6 +573,10 @@ ls_instance() {
     client_tag="$(value_from_env "$instance" DOCKER_OPENSLIDES_FRONTEND_TAG)"
     server_image="${server_image}:${server_tag}"
     client_image="${client_image}:${client_tag}"
+  fi
+
+  # --secrets
+  if [[ -n "$OPT_SECRETS" ]] || [[ -n "$OPT_JSON" ]]; then
     # Parse admin credentials file
     if [[ -f "${instance}/secrets/${ADMIN_SECRETS_FILE}" ]]; then
       source "${instance}/secrets/${ADMIN_SECRETS_FILE}"
@@ -678,6 +684,10 @@ ls_instance() {
     printf "   ├ %-13s %s\n" "Server image:" "$server_image"
     printf "   ├ %-13s %s\n" "Client image:" "$client_image"
     printf "   ├ %-13s %s\n" "Local port:" "$port"
+  fi
+
+  # --secrets
+  if [[ -n "$OPT_SECRETS" ]]; then
     printf "   ├ %-13s %s : %s\n" "Login:" "admin" "$OPENSLIDES_ADMIN_PASSWORD"
     # Include secondary account credentials if available
     [[ -n "$user_name" ]] &&
@@ -1048,11 +1058,12 @@ case "$(basename "${BASH_SOURCE[0]}")" in
     ;;
 esac
 
-shortopt="haljmiMnfed:t:"
+shortopt="halsjmiMnfed:t:"
 longopt=(
   help
   color:
   long
+  secrets
   json
   project-dir:
   force
@@ -1142,10 +1153,15 @@ while true; do
       OPT_LONGLIST=1
       OPT_METADATA=1
       OPT_IMAGE_INFO=1
+      OPT_SECRETS=1
       shift 1
       ;;
     -l|--long)
       OPT_LONGLIST=1
+      shift 1
+      ;;
+    -s|--secrets)
+      OPT_SECRETS=1
       shift 1
       ;;
     -m|--metadata)
