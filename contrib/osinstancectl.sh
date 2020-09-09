@@ -720,7 +720,9 @@ ls_instance() {
 colorize_ls() {
   # Colorize the status indicators
   if [[ -n "$NCOLORS" ]] && [[ -z "$OPT_JSON" ]]; then
-    gawk \
+    # XXX: 2>/dev/null is used here to hide warnings such as
+    # gawk: warning: escape sequence `\.' treated as plain `.'
+    gawk 2>/dev/null \
       -v m="$PROJECT_NAME" \
       -v hlstart="$(tput smso)" \
       -v hlstop="$(tput rmso)" \
