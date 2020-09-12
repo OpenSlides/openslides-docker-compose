@@ -829,7 +829,8 @@ clone_db() {
       _docker_compose "$PROJECT_DIR" up -d --no-deps pgnode1
       clone_from_id="$(_docker_compose "$CLONE_FROM_DIR" ps -q "${PRIMARY_DATABASE_NODE}")"
       clone_to_id="$(_docker_compose "$PROJECT_DIR" ps -q pgnode1)"
-      until _docker_compose "$PROJECT_DIR" exec pgnode1 pg_isready -q -p 5432; do
+      until _docker_compose "$PROJECT_DIR" exec -T pgnode1 pg_isready -q -p 5432
+      do
         echo "Waiting for Postgres cluster to become available."
         sleep 5
       done
