@@ -399,7 +399,7 @@ rm_from_haproxy_cfg() {
     }
     $0 ~ begin_block { b = 1 }
     $0 ~ end_block   { e = 1 }
-    b && !e && $0 ~ target { next }
+    b && !e && $2 == target { next }
     1
   ' /etc/haproxy/haproxy.cfg.osbak >| /etc/haproxy/haproxy.cfg &&
     systemctl reload haproxy
