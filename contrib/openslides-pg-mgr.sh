@@ -34,7 +34,7 @@ while true; do
       ACTION="$2"
       case "$ACTION" in
         "start" | "stop") : ;;
-        *) "ERROR"; exit 2 ;;
+        *) echo "ERROR"; exit 2 ;;
       esac
       break
       ;;
@@ -43,7 +43,7 @@ while true; do
       ACTION="$2"
       case "$ACTION" in
         "pause" | "unpause") : ;;
-        *) "ERROR"; exit 2 ;;
+        *) echo "ERROR"; exit 2 ;;
       esac
       break
       ;;
