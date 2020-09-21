@@ -487,9 +487,8 @@ ls_instance() {
   local user_name=
   local OPENSLIDES_ADMIN_PASSWORD="—"
 
-  [[ -f "${instance}/${CONFIG_FILE}" ]] ||
+  [[ -f "${instance}/${CONFIG_FILE}" ]] && [[ -f "${instance}/.env" ]] ||
     fatal "$shortname is not a $DEPLOYMENT_MODE instance."
-  [[ -f "${instance}/.env" ]] || fatal "${instance}/.env not found."
 
   #  For stacks, get the normalized shortname
   PROJECT_STACK_NAME="$(value_from_env "$instance" PROJECT_STACK_NAME)"
@@ -760,7 +759,7 @@ list_instances() {
   )
   for instance in "${i[@]}"; do
     # skip directories that aren't instances
-    [[ -f "${instance}/${CONFIG_FILE}" ]] || continue
+    [[ -f "${instance}/${CONFIG_FILE}" ]] && [[ -f "${instance}/.env" ]] || continue
 
     # Filter instances
     # 1. instance name/project dir matches
