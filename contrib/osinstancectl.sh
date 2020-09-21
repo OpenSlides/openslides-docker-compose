@@ -996,21 +996,6 @@ instance_update() {
 
   # Start/update if instance was already running
   source "${PROJECT_DIR}/.env"
-  if instance_has_services_running "$PROJECT_STACK_NAME"; then
-    case "$DEPLOYMENT_MODE" in
-      "compose")
-        echo "Creating services"
-        _docker_compose "$PROJECT_DIR" up -d
-        ;;
-      "stack")
-        instance_start
-        ;;
-    esac
-  else
-    echo "WARN: ${PROJECT_NAME} is not running."
-    echo "      The configuratation has been updated and the instance will" \
-         "be upgraded upon its next start."
-  fi
 
   # Metadata
   if [[ "$server_changed" ]]; then
@@ -1021,6 +1006,60 @@ instance_update() {
     append_metadata "$PROJECT_DIR" "$(date +"%F %H:%M"): Updated client to" \
       "${DOCKER_IMAGE_NAME_CLIENT}:${DOCKER_IMAGE_TAG_CLIENT}"
   fi
+
+  instance_has_services_running "$PROJECT_STACK_NAME" || {
+    echo "WARN: ${PROJECT_NAME} is not running."
+    echo "      The configuration has been updated and the instance will" \
+         "be upgraded upon its next start."
+    return 0
+  }
+
+  case "$DEPLOYMENT_MODE" in
+    "compose")
+      echo "Creating services"
+      _docker_compose "$PROJECT_DIR" up -d
+      ;;
+    "stack")
+      # Set missing variables from currently running service
+      if [[ -z "$DOCKER_IMAGE_NAME_OPENSLIDES" ]]; then
+        DOCKER_IMAGE_NAME_OPENSLIDES="$(docker service inspect \
+          -f '{{.Spec.TaskTemplate.ContainerSpec.Image}}' \
+          "$PROJECT_STACK_NAME"_server |
+          gawk -F '[:@]' '{ print $1 }')"
+      fi
+      if [[ -z "$DOCKER_IMAGE_TAG_OPENSLIDES" ]]; then
+        DOCKER_IMAGE_TAG_OPENSLIDES="$(docker service inspect \
+          -f '{{.Spec.TaskTemplate.ContainerSpec.Image}}' \
+          "$PROJECT_STACK_NAME"_server |
+          gawk -F '[:@]' '{ print $2 }')"
+      fi
+      if [[ -z "$DOCKER_IMAGE_NAME_CLIENT" ]]; then
+        DOCKER_IMAGE_NAME_CLIENT="$(docker service inspect \
+          -f '{{.Spec.TaskTemplate.ContainerSpec.Image}}' \
+          "$PROJECT_STACK_NAME"_client |
+          gawk -F '[:@]' '{ print $1 }')"
+      fi
+      if [[ -z "$DOCKER_IMAGE_TAG_CLIENT" ]]; then
+        DOCKER_IMAGE_TAG_CLIENT="$(docker service inspect \
+          -f '{{.Spec.TaskTemplate.ContainerSpec.Image}}' \
+          "$PROJECT_STACK_NAME"_client |
+          gawk -F '[:@]' '{ print $2 }')"
+      fi
+      # Update services
+      if [[ "$server_changed" ]]; then
+        for i in server-setup server; do
+          docker service update --image \
+            "${DOCKER_IMAGE_NAME_OPENSLIDES}:${DOCKER_IMAGE_TAG_OPENSLIDES}" \
+            "${PROJECT_STACK_NAME}_${i}"
+        done
+      fi
+      if [[ "$client_changed" ]]; then
+        docker service update --image \
+          "${DOCKER_IMAGE_NAME_CLIENT}:${DOCKER_IMAGE_TAG_CLIENT}" \
+          "${PROJECT_STACK_NAME}_client"
+      fi
+      ;;
+  esac
 }
 
 run_hook() (
