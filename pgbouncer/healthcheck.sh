@@ -25,6 +25,7 @@ fi
 
 if [[ "$OLD_PRIMARY" != "$PRIMARY" ]]; then
   echo "Primary changed from '$OLD_PRIMARY' to '$PRIMARY'!"
+  printf "PRIMARY: %s\n" "$PRIMARY" > /etc/primary
   /usr/local/bin/update-config.sh "$PRIMARY"
   pkill -HUP pgbouncer &&
   pkill -SIGUSR2 pgbouncer # RESUME

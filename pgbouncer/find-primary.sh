@@ -23,10 +23,21 @@ if [[ -n "$PRIMARY" ]]; then
   echo "Found primary node: $PRIMARY"
   printf "PRIMARY: %s\n" "$PRIMARY" > /etc/primary
 else
-  echo "ERROR: Failed to find primary node."
+  echo "ERROR: Failed to find primary node.  Pausing all connections."
   > /etc/primary
-  pkill -SIGUSR1 pgbouncer # PAUSE
-  exit 2
+  # PAUSE
+  pkill -SIGUSR1 pgbouncer || true
+
+  # Exit without an error.  The HEALTHCHECK script is responsible for retrying
+  # connections to a primary cluster; it is not necessary to start a new
+  # container every time.  HEALTHCHECK's timeout setting should eventually
+  # cause the container to be stopped if there was an unexpected problem.
+  #
+  # Finally, it is important to exit cleanly here, so that PgBouncer can be
+  # paused manually, e.g., for database maintenance tasks.  If the script were
+  # to exit with an error, HEALTHCHECK would stop the container and spawn a new
+  # one which would be unpaused!
+  exit 0
 fi
 
 # vim: set ft=sh sw=2 et:
