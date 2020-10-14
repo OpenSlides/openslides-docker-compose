@@ -69,7 +69,7 @@ manage_repmgrd_status() {
   action="$1"
   id="$2"
   name="$3"
-  printf "INFO: %s repgrmd on node %s (%s)...\n" "$action" "$name" "$id"
+  printf "INFO: %s repmgr on node %s (%s)...\n" "$action" "$name" "$id"
   docker exec -u postgres "$id" repmgr daemon "$action"
 }
 
