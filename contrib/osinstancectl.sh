@@ -577,11 +577,11 @@ ls_instance() {
   # --secrets
   if [[ -n "$OPT_SECRETS" ]] || [[ -n "$OPT_JSON" ]]; then
     # Parse admin credentials file
-    if [[ -f "${instance}/secrets/${ADMIN_SECRETS_FILE}" ]]; then
+    if [[ -r "${instance}/secrets/${ADMIN_SECRETS_FILE}" ]]; then
       source "${instance}/secrets/${ADMIN_SECRETS_FILE}"
     fi
     # Parse user credentials file
-    if [[ -f "${instance}/secrets/${USER_SECRETS_FILE}" ]]; then
+    if [[ -r "${instance}/secrets/${USER_SECRETS_FILE}" ]]; then
       local OPENSLIDES_USER_FIRSTNAME=
       local OPENSLIDES_USER_LASTNAME=
       local OPENSLIDES_USER_PASSWORD=
