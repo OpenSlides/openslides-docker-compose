@@ -455,7 +455,8 @@ ping_instance_websocket() {
   #
   # This is a way to test the availability of the app.  Most grave errors in
   # OpenSlides lead to this function failing.
-  LC_ALL=C curl --silent --max-time 0.25 \
+  LC_ALL=C curl --silent --max-time 1 \
+    --retry 2 --retry-delay 1 --retry-max-time 3 \
     "http://127.0.0.1:${1}/apps/core/version/" |
   gawk 'BEGIN { FPAT = "\"[^\"]*\"" } { gsub(/"/, "", $2); print $2}' || true
 }
