@@ -254,7 +254,7 @@ elif [[ -f "$MARKER" ]] && [[ "$CURRENT_PRIMARY" != "$REPMGR_NODE_NAME" ]]; then
       -v this_node="$REPMGR_NODE_NAME" \
       <<< "SELECT type FROM repmgr.nodes WHERE node_name = :'this_node';"
   )" || true
-  echo "INFO: $CURRENT_PRIMARY tracks $REPMGR_NODE_NAME as a $REG_NODE_TYPE."
+  echo "INFO: $REPMGR_NODE_NAME tracks $CURRENT_PRIMARY as a $REG_NODE_TYPE."
   # Self-perception
   # Start cluster for the following query and to ensure that is has been shut
   # down cleanly before attempting pg_rewind
