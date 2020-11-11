@@ -3,12 +3,13 @@
 ME="$(basename -s .sh "${BASH_SOURCE[0]}")"
 CMD=
 ERRORS=
+PATTERN=.
 
 readonly CMD_SWITCHOVER="repmgr standby switchover --fast-checkpoint --siblings-follow"
 
 usage() {
 cat << EOF
-Usage: $ME <command>
+Usage: $ME <command> [<container name pattern>]
 
 Batch tool to control various aspects of OpenSlides database containers.
 
@@ -41,22 +42,24 @@ unset ARGS
 while true; do
   case "$1" in
     -b|--backup-mode)
+      [[ -z "$ACTION" ]] || { usage; exit 2; }
       CMD="manage_backup_mode"
       ACTION="$2"
       case "$ACTION" in
         "start" | "stop") : ;;
         *) echo "ERROR"; exit 2 ;;
       esac
-      break
+      shift 2
       ;;
     -r|--repmgrd)
+      [[ -z "$ACTION" ]] || { usage; exit 2; }
       CMD="manage_repmgrd_status"
       ACTION="$2"
       case "$ACTION" in
         "pause" | "unpause") : ;;
         *) echo "ERROR"; exit 2 ;;
       esac
-      break
+      shift 2
       ;;
     --switch-from)
       CMD="repmgrd_switchover"
@@ -73,6 +76,8 @@ while true; do
     *) usage; exit 1 ;;
   esac
 done
+
+PATTERN=$1
 
 [[ -n "$CMD" ]] || { usage; exit 2; }
 
@@ -177,6 +182,7 @@ CONTAINERS=("$(docker ps \
   --filter label=org.openslides.role=postgres \
   --format '{{.ID}}\t{{.Names}}' |
     grep -v '_postgres_' | # exclude legacy containers
+    awk -v "p=$PATTERN" '$2 ~ p' |
     sort -k2)")
 
 [[ -n "${CONTAINERS[@]}" ]] || {
