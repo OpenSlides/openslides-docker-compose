@@ -2,6 +2,16 @@
 
 # This script iterates over a number of OpenSlides Docker instances and updates
 # them to the given tag.
+#
+# -------------------------------------------------------------------
+# Copyright (C) 2020 by Intevation GmbH
+# Author(s):
+# Gernot Schulz <gernot@intevation.de>
+#
+# This program is distributed under the MIT license, as described
+# in the LICENSE file included with the distribution.
+# SPDX-License-Identifier: MIT
+# -------------------------------------------------------------------
 
 INSTANCES=()
 MODE=swarm

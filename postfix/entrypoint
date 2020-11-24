@@ -1,5 +1,15 @@
 #!/bin/bash
 
+# -------------------------------------------------------------------
+# Copyright (C) 2020 by Intevation GmbH
+# Author(s):
+# Gernot Schulz <gernot@intevation.de>
+#
+# This program is distributed under the MIT license, as described
+# in the LICENSE file included with the distribution.
+# SPDX-License-Identifier: MIT
+# -------------------------------------------------------------------
+
 # Use Docker host system as mail smarthost if RELAYHOST is unconfigured
 if [[ -z "$RELAYHOST" ]] || [[ "$RELAYHOST" = "localhost" ]]; then
   RELAYHOST=$(ip route | awk 'NR==1 {print $3}')

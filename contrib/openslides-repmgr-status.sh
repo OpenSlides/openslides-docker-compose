@@ -1,6 +1,16 @@
 #!/bin/bash
 
 # Check repmgr cluster status on all OpenSlides database nodes.
+#
+# -------------------------------------------------------------------
+# Copyright (C) 2020 by Intevation GmbH
+# Author(s):
+# Gernot Schulz <gernot@intevation.de>
+#
+# This program is distributed under the MIT license, as described
+# in the LICENSE file included with the distribution.
+# SPDX-License-Identifier: MIT
+# -------------------------------------------------------------------
 
 ME=$(basename -s .sh "${BASH_SOURCE[0]}")
 

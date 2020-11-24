@@ -1,6 +1,16 @@
 #!/bin/bash
 
 # Determine and print out the current primary node
+#
+# -------------------------------------------------------------------
+# Copyright (C) 2019 by Intevation GmbH
+# Author(s):
+# Gernot Schulz <gernot@intevation.de>
+#
+# This program is distributed under the MIT license, as described
+# in the LICENSE file included with the distribution.
+# SPDX-License-Identifier: MIT
+# -------------------------------------------------------------------
 
 PRIMARY=
 
