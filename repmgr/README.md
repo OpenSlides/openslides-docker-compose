@@ -1,3 +1,23 @@
+# Configuration of Primary and Standby Clusters
+
+Upon starting, OpenSlides repmgr containers will always try to contact the
+PgBouncer service to check whether a primary database cluster already exists.
+If it does not, they will configure themselves according to the
+`REPMGR_PRIMARY` environment variable if they are new clusters or simply
+continue to start up according their existing configurations.
+
+If, according to PgBouncer, a primary exists, the starting containers will
+attempt to configure themselves to become hot standby clusters, following this
+primary.  This is true even for clusters that are, up to that point, configured
+as primaries themselves.  Ideally, failed primaries can automatically
+reintegrate into their replication clusters this way.
+
+Various factors can make automatic reintegration impossible, e.g., the specific
+kind of failure that the primary has suffered or the amount of time for which
+it was offline.  In such cases, user interaction is required to repair failed
+nodes; however, additional self-healing measures could be added to the start-up
+logic as needed.
+
 # Security Considerations
 
 ## Postgres Permissions & Trusted Subnet
