@@ -446,10 +446,13 @@ ping_instance_websocket() {
   #
   # This is a way to test the availability of the app.  Most grave errors in
   # OpenSlides lead to this function failing.
-  LC_ALL=C curl --silent --max-time 1 \
-    --retry 2 --retry-delay 1 --retry-max-time 3 \
-    "http://127.0.0.1:${1}/apps/core/version/" |
-  gawk 'BEGIN { FPAT = "\"[^\"]*\"" } { gsub(/"/, "", $2); print $2}' || true
+  local curl_opts=(--silent --max-time 1 --retry 2 --retry-delay 1 --retry-max-time 3)
+  {
+    # Try OS3+ setup (HTTPS)
+    LC_ALL=C curl "${curl_opts[@]}" --insecure "https://127.0.0.1:${1}/apps/core/version/" ||
+    # If that fails, try legacy setup (HTTP)
+    LC_ALL=C curl "${curl_opts[@]}" "http://127.0.0.1:${1}/apps/core/version/"
+  } | gawk 'BEGIN { FPAT = "\"[^\"]*\"" } { gsub(/"/, "", $2); print $2}' || true
 }
 
 value_from_env() {
@@ -599,8 +602,12 @@ ls_instance() {
   local server_image_info= client_image_info=
   if [[ -n "$OPT_IMAGE_INFO" ]] || [[ -n "$OPT_JSON" ]]; then
     if [[ -n "$version" ]]; then
+      # Try HTTPS and, in case of failure, HTTP (legacy)
+      server_image_info="$(curl -k -s "https://localhost:${port}/server-version.txt")" ||
       server_image_info="$(curl -s "http://localhost:${port}/server-version.txt")"
       [[ "$server_image_info" =~ built\ on ]] || server_image_info=
+      # Try HTTPS and, in case of failure, HTTP (legacy)
+      client_image_info="$(curl -k -s "https://localhost:${port}/client-version.txt")" ||
       client_image_info="$(curl -s "http://localhost:${port}/client-version.txt")"
       [[ "$client_image_info" =~ built\ on ]] || client_image_info=
     fi
