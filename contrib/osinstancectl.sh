@@ -33,6 +33,10 @@ DOCKER_IMAGE_NAME_OPENSLIDES=
 DOCKER_IMAGE_TAG_OPENSLIDES=
 DOCKER_IMAGE_NAME_CLIENT=
 DOCKER_IMAGE_TAG_CLIENT=
+DOCKER_IMAGE_NAME_HAPROXY=
+DOCKER_IMAGE_TAG_HAPROXY=
+DOCKER_IMAGE_NAME_AUTOUPDATE=
+DOCKER_IMAGE_TAG_AUTOUPDATE=
 PROJECT_NAME=
 PROJECT_DIR=
 PROJECT_STACK_NAME=
@@ -100,9 +104,9 @@ Actions:
                        a grep ERE search pattern in this case.
   add                  Add a new instance for the given domain (requires FQDN)
   rm                   Remove <instance> (requires FQDN)
-  start                Start an existing instance
+  start                Start, i.e., (re)deploy an existing instance
   stop                 Stop a running instance
-  update               Update OpenSlides to a new --image
+  update               Update OpenSlides services to a new images
   erase                Remove an instance's volumes (stops the instance if
                        necessary)
 
@@ -125,18 +129,27 @@ Options:
     -f, --offline      Show only stopped instances
     -e, --error        Show only running but unreachable instances
     -M,
-    --search-metadata  Include metadata in instance list
+    --search-metadata  Include metadata
     --fast             Include less information to increase listing speed
     --version          Filter results based on the version reported by
                        OpenSlides (implies --online)
     -j, --json         Enable JSON output format
 
   for add & update:
-    --server-image     Specify the OpenSlides server Docker image name
-    --server-tag       Specify the OpenSlides server Docker image tag
-    --client-image     Specify the OpenSlides client Docker image name
-    --client-tag       Specify the OpenSlides client Docker image tag
-    -t, --all-tags     Specify the OpenSlides server and client Docker image tag
+    --server-image,
+    --backend-image    Specify the OpenSlides server Docker image name
+    --server-tag,
+    --backend-tag      Specify the OpenSlides server Docker image tag
+    --client-image,
+    --frontend-image   Specify the OpenSlides client Docker image name
+    --client-tag,
+    --frontend-tag     Specify the OpenSlides client Docker image tag
+    --haproxy-image    Specify the OpenSlides HAProxy service Docker image name
+    --haproxy-tag      Specify the OpenSlides HAProxy service Docker image tag
+    --autoupdate-image Specify the OpenSlides autoupdate service Docker image name
+    --autoupdate-tag   Specify the OpenSlides autoupdate service Docker image tag
+    -t, --all-tags     Specify the image tags for all OpenSlides components
+                       (see above)
     --no-add-account   Do not add an additional, customized local admin account
     --local-only       Create an instance without setting up HAProxy and Let's
                        Encrypt certificates.  Such an instance is only
@@ -253,6 +266,9 @@ next_free_port() {
 }
 
 update_env_file() {
+  # This function updates variables in given .env files.
+  # The variable to be updated must already be present in the file; the
+  # function can not be used to add new values to the .env file!
   [[ -f "$1" ]] || fatal "$1 not found."
   # Exit if variable is non-empty because it indicates a template customization
   [[ "${4:-NOFORCE}" = "--force" ]] || ( source "$1" && [[ -z "${!2}" ]] ) || return 0
@@ -261,7 +277,9 @@ update_env_file() {
     BEGIN { FS = "="; OFS=FS }
     $1 == env_var_name { $2 = env_var_val; s=1 }
     1
-    END { if (!s) printf("%s=%s\n", env_var_name, env_var_val) }
+    # TODO: --force could be leveraged to enable appending variables not
+    # already present in the template:
+    # END { if (!s) printf("%s=%s\n", env_var_name, env_var_val) }
   ' "$1" >| "$temp_file"
   cp -f "$temp_file" "$1"
   rm "$temp_file"
@@ -279,6 +297,10 @@ create_config_from_template() {
   update_env_file "$temp_file" "DOCKER_OPENSLIDES_BACKEND_TAG" "$DOCKER_IMAGE_TAG_OPENSLIDES"
   update_env_file "$temp_file" "DOCKER_OPENSLIDES_FRONTEND_NAME" "$DOCKER_IMAGE_NAME_CLIENT"
   update_env_file "$temp_file" "DOCKER_OPENSLIDES_FRONTEND_TAG" "$DOCKER_IMAGE_TAG_CLIENT"
+  update_env_file "$temp_file" "DOCKER_OPENSLIDES_HAPROXY_NAME" "$DOCKER_IMAGE_NAME_HAPROXY"
+  update_env_file "$temp_file" "DOCKER_OPENSLIDES_HAPROXY_TAG" "$DOCKER_IMAGE_TAG_HAPROXY"
+  update_env_file "$temp_file" "DOCKER_OPENSLIDES_AUTOUPDATE_NAME" "$DOCKER_IMAGE_NAME_AUTOUPDATE"
+  update_env_file "$temp_file" "DOCKER_OPENSLIDES_AUTOUPDATE_TAG" "$DOCKER_IMAGE_TAG_AUTOUPDATE"
   update_env_file "$temp_file" "POSTFIX_MYHOSTNAME" "$PROJECT_NAME"
   cp -af "$temp_file" "${_env}"
   # Create config from template + .env
@@ -974,7 +996,10 @@ instance_erase() {
 
 instance_update() {
   local server_changed= client_changed=
+  local haproxy_changed=
+  local autoupdate_changed=
   # Update values in .env
+  # Backend
   if [[ -n "$DOCKER_IMAGE_NAME_OPENSLIDES" ]]; then
     update_env_file "${PROJECT_DIR}/.env" \
       "DOCKER_OPENSLIDES_BACKEND_NAME" "$DOCKER_IMAGE_NAME_OPENSLIDES" --force
@@ -985,6 +1010,7 @@ instance_update() {
       "DOCKER_OPENSLIDES_BACKEND_TAG" "$DOCKER_IMAGE_TAG_OPENSLIDES" --force
     server_changed=1
   fi
+  # Frontend
   if [[ -n "$DOCKER_IMAGE_NAME_CLIENT" ]]; then
     update_env_file "${PROJECT_DIR}/.env" \
       "DOCKER_OPENSLIDES_FRONTEND_NAME" "$DOCKER_IMAGE_NAME_CLIENT" --force
@@ -994,6 +1020,28 @@ instance_update() {
     update_env_file "${PROJECT_DIR}/.env" \
       "DOCKER_OPENSLIDES_FRONTEND_TAG" "$DOCKER_IMAGE_TAG_CLIENT" --force
     client_changed=1
+  fi
+  # HAProxy
+  if [[ -n "$DOCKER_IMAGE_NAME_HAPROXY" ]]; then
+    update_env_file "${PROJECT_DIR}/.env" \
+      "DOCKER_OPENSLIDES_HAPROXY_NAME" "$DOCKER_IMAGE_NAME_HAPROXY" --force
+    haproxy_changed=1
+  fi
+  if [[ -n "$DOCKER_IMAGE_TAG_HAPROXY" ]]; then
+    update_env_file "${PROJECT_DIR}/.env" \
+      "DOCKER_OPENSLIDES_HAPROXY_TAG" "$DOCKER_IMAGE_TAG_HAPROXY" --force
+    haproxy_changed=1
+  fi
+  # Autoupdate
+  if [[ -n "$DOCKER_IMAGE_NAME_AUTOUPDATE" ]]; then
+    update_env_file "${PROJECT_DIR}/.env" \
+      "DOCKER_OPENSLIDES_AUTOUPDATE_NAME" "$DOCKER_IMAGE_NAME_AUTOUPDATE" --force
+    autoupdate_changed=1
+  fi
+  if [[ -n "$DOCKER_IMAGE_TAG_AUTOUPDATE" ]]; then
+    update_env_file "${PROJECT_DIR}/.env" \
+      "DOCKER_OPENSLIDES_AUTOUPDATE_TAG" "$DOCKER_IMAGE_TAG_AUTOUPDATE" --force
+    autoupdate_changed=1
   fi
 
   # Start/update if instance was already running
@@ -1007,6 +1055,14 @@ instance_update() {
   if [[ -n "$client_changed" ]]; then
     append_metadata "$PROJECT_DIR" "$(date +"%F %H:%M"): Updated client to" \
       "${DOCKER_IMAGE_NAME_CLIENT}:${DOCKER_IMAGE_TAG_CLIENT}"
+  fi
+  if [[ -n "$haproxy_changed" ]]; then
+    append_metadata "$PROJECT_DIR" "$(date +"%F %H:%M"): Updated HAProxy to" \
+      "${DOCKER_IMAGE_NAME_HAPROXY}:${DOCKER_IMAGE_TAG_HAPROXY}"
+  fi
+  if [[ -n "$autoupdate_changed" ]]; then
+    append_metadata "$PROJECT_DIR" "$(date +"%F %H:%M"): Updated autoupdate to" \
+      "${DOCKER_IMAGE_NAME_AUTOUPDATE}:${DOCKER_IMAGE_TAG_AUTOUPDATE}"
   fi
 
   instance_has_services_running "$PROJECT_STACK_NAME" || {
@@ -1023,31 +1079,58 @@ instance_update() {
       ;;
     "stack")
       # Set missing variables from currently running service
-      if [[ -z "$DOCKER_IMAGE_NAME_OPENSLIDES" ]]; then
+      # Backend
+      if [[ -z "$DOCKER_IMAGE_NAME_OPENSLIDES" ]] && [[ -n "$DOCKER_IMAGE_TAG_OPENSLIDES" ]]; then
         DOCKER_IMAGE_NAME_OPENSLIDES="$(docker service inspect \
           -f '{{.Spec.TaskTemplate.ContainerSpec.Image}}' \
           "$PROJECT_STACK_NAME"_server |
           gawk -F '[:@]' '{ print $1 }')"
-      fi
-      if [[ -z "$DOCKER_IMAGE_TAG_OPENSLIDES" ]]; then
+      elif [[ -n "$DOCKER_IMAGE_NAME_OPENSLIDES" ]] && [[ -z "$DOCKER_IMAGE_TAG_OPENSLIDES" ]]; then
         DOCKER_IMAGE_TAG_OPENSLIDES="$(docker service inspect \
           -f '{{.Spec.TaskTemplate.ContainerSpec.Image}}' \
           "$PROJECT_STACK_NAME"_server |
           gawk -F '[:@]' '{ print $2 }')"
       fi
-      if [[ -z "$DOCKER_IMAGE_NAME_CLIENT" ]]; then
+      # Frontend
+      if [[ -z "$DOCKER_IMAGE_NAME_CLIENT" ]] && [[ -n "$DOCKER_IMAGE_TAG_CLIENT" ]]; then
         DOCKER_IMAGE_NAME_CLIENT="$(docker service inspect \
           -f '{{.Spec.TaskTemplate.ContainerSpec.Image}}' \
           "$PROJECT_STACK_NAME"_client |
           gawk -F '[:@]' '{ print $1 }')"
-      fi
-      if [[ -z "$DOCKER_IMAGE_TAG_CLIENT" ]]; then
+      elif [[ -n "$DOCKER_IMAGE_NAME_CLIENT" ]] && [[ -z "$DOCKER_IMAGE_TAG_CLIENT" ]]; then
         DOCKER_IMAGE_TAG_CLIENT="$(docker service inspect \
           -f '{{.Spec.TaskTemplate.ContainerSpec.Image}}' \
           "$PROJECT_STACK_NAME"_client |
           gawk -F '[:@]' '{ print $2 }')"
       fi
+      # HAProxy
+      if [[ -z "$DOCKER_IMAGE_NAME_HAPROXY" ]] && [[ -n "$DOCKER_IMAGE_TAG_HAPROXY" ]]; then
+        DOCKER_IMAGE_NAME_HAPROXY="$(docker service inspect \
+          -f '{{.Spec.TaskTemplate.ContainerSpec.Image}}' \
+          "$PROJECT_STACK_NAME"_haproxy |
+          gawk -F '[:@]' '{ print $1 }')"
+      elif [[ -n "$DOCKER_IMAGE_NAME_HAPROXY" ]] && [[ -z "$DOCKER_IMAGE_TAG_HAPROXY" ]]; then
+        DOCKER_IMAGE_TAG_HAPROXY="$(docker service inspect \
+          -f '{{.Spec.TaskTemplate.ContainerSpec.Image}}' \
+          "$PROJECT_STACK_NAME"_haproxy |
+          gawk -F '[:@]' '{ print $2 }')"
+      fi
+      # Autoupdate
+      if [[ -z "$DOCKER_IMAGE_NAME_AUTOUPDATE" ]] && [[ -n "$DOCKER_IMAGE_TAG_AUTOUPDATE" ]]; then
+        DOCKER_IMAGE_NAME_AUTOUPDATE="$(docker service inspect \
+          -f '{{.Spec.TaskTemplate.ContainerSpec.Image}}' \
+          "$PROJECT_STACK_NAME"_autoupdate |
+          gawk -F '[:@]' '{ print $1 }')"
+      elif [[ -n "$DOCKER_IMAGE_NAME_AUTOUPDATE" ]] && [[ -z "$DOCKER_IMAGE_TAG_AUTOUPDATE" ]]; then
+        DOCKER_IMAGE_TAG_AUTOUPDATE="$(docker service inspect \
+          -f '{{.Spec.TaskTemplate.ContainerSpec.Image}}' \
+          "$PROJECT_STACK_NAME"_autoupdate |
+          gawk -F '[:@]' '{ print $2 }')"
+      fi
+
       # Update services
+      # ---------------
+      # Backend
       if [[ "$server_changed" ]]; then
         for i in server-setup server; do
           docker service update --image \
@@ -1055,10 +1138,23 @@ instance_update() {
             "${PROJECT_STACK_NAME}_${i}"
         done
       fi
+      # Frontend
       if [[ "$client_changed" ]]; then
         docker service update --image \
           "${DOCKER_IMAGE_NAME_CLIENT}:${DOCKER_IMAGE_TAG_CLIENT}" \
           "${PROJECT_STACK_NAME}_client"
+      fi
+      # Haproxy
+      if [[ "$haproxy_changed" ]]; then
+        docker service update --image \
+          "${DOCKER_IMAGE_NAME_HAPROXY}:${DOCKER_IMAGE_TAG_HAPROXY}" \
+          "${PROJECT_STACK_NAME}_haproxy"
+      fi
+      # Autoupdate
+      if [[ "$autoupdate_changed" ]]; then
+        docker service update --image \
+          "${DOCKER_IMAGE_NAME_AUTOUPDATE}:${DOCKER_IMAGE_TAG_AUTOUPDATE}" \
+          "${PROJECT_STACK_NAME}_autoupdate"
       fi
       ;;
   esac
@@ -1135,8 +1231,16 @@ longopt=(
   # adding & upgrading instances
   server-image:
   server-tag:
+  backend-image:
+  backend-tag:
   client-image:
   client-tag:
+  frontend-image:
+  frontend-tag:
+  haproxy-image:
+  haproxy-tag:
+  autoupdate-image:
+  autoupdate-tag:
   all-tags:
 )
 # format options array to comma-separated string for getopt
@@ -1167,25 +1271,43 @@ while true; do
       DOT_ENV_TEMPLATE="$2"
       shift 2
       ;;
-    --server-image)
+    --server-image | --backend-image)
       DOCKER_IMAGE_NAME_OPENSLIDES="$2"
       shift 2
       ;;
-    --server-tag)
+    --server-tag | --backend-tag)
       DOCKER_IMAGE_TAG_OPENSLIDES="$2"
       shift 2
       ;;
-    --client-image)
+    --client-image | frontend-image)
       DOCKER_IMAGE_NAME_CLIENT="$2"
       shift 2
       ;;
-    --client-tag)
+    --client-tag | frontend-tag)
       DOCKER_IMAGE_TAG_CLIENT="$2"
+      shift 2
+      ;;
+    --haproxy-image)
+      DOCKER_IMAGE_NAME_HAPROXY="$2"
+      shift 2
+      ;;
+    --haproxy-tag)
+      DOCKER_IMAGE_TAG_HAPROXY="$2"
+      shift 2
+      ;;
+    --autoupdate-image)
+      DOCKER_IMAGE_NAME_AUTOUPDATE="$2"
+      shift 2
+      ;;
+    --autoupdate-tag)
+      DOCKER_IMAGE_TAG_AUTOUPDATE="$2"
       shift 2
       ;;
     -t|--all-tags)
       DOCKER_IMAGE_TAG_OPENSLIDES="$2"
       DOCKER_IMAGE_TAG_CLIENT="$2"
+      DOCKER_IMAGE_TAG_HAPROXY="$2"
+      DOCKER_IMAGE_TAG_AUTOUPDATE="$2"
       shift 2
       ;;
     --no-add-account)
@@ -1309,7 +1431,11 @@ for arg; do
       [[ -n "$DOCKER_IMAGE_NAME_OPENSLIDES" ]] ||
           [[ -n "$DOCKER_IMAGE_TAG_OPENSLIDES" ]] ||
           [[ -n "$DOCKER_IMAGE_NAME_CLIENT" ]] ||
-          [[ -n "$DOCKER_IMAGE_TAG_CLIENT" ]] || {
+          [[ -n "$DOCKER_IMAGE_TAG_CLIENT" ]] ||
+          [[ -n "$DOCKER_IMAGE_NAME_HAPROXY" ]] ||
+          [[ -n "$DOCKER_IMAGE_TAG_HAPROXY" ]] ||
+          [[ -n "$DOCKER_IMAGE_NAME_AUTOUPDATE" ]] ||
+          [[ -n "$DOCKER_IMAGE_TAG_AUTOUPDATE" ]] || {
         fatal "Need at least one image name or tag for update"
       }
       shift 1
@@ -1453,6 +1579,14 @@ case "$MODE" in
       DOCKER_IMAGE_NAME_CLIENT="$(value_from_env "$CLONE_FROM_DIR" DOCKER_OPENSLIDES_FRONTEND_NAME)"
     [[ -n "$DOCKER_IMAGE_TAG_CLIENT" ]] ||
       DOCKER_IMAGE_TAG_CLIENT="$(value_from_env "$CLONE_FROM_DIR" DOCKER_OPENSLIDES_FRONTEND_TAG)"
+    [[ -n "$DOCKER_IMAGE_NAME_AUTOUPDATE" ]] ||
+      DOCKER_IMAGE_NAME_AUTOUPDATE="$(value_from_env "$CLONE_FROM_DIR" DOCKER_OPENSLIDES_AUTOUPDATE_NAME)"
+    [[ -n "$DOCKER_IMAGE_TAG_AUTOUPDATE" ]] ||
+      DOCKER_IMAGE_TAG_AUTOUPDATE="$(value_from_env "$CLONE_FROM_DIR" DOCKER_OPENSLIDES_AUTOUPDATE_TAG)"
+    [[ -n "$DOCKER_IMAGE_NAME_HAPROXY" ]] ||
+      DOCKER_IMAGE_NAME_HAPROXY="$(value_from_env "$CLONE_FROM_DIR" DOCKER_OPENSLIDES_HAPROXY_NAME)"
+    [[ -n "$DOCKER_IMAGE_TAG_HAPROXY" ]] ||
+      DOCKER_IMAGE_TAG_HAPROXY="$(value_from_env "$CLONE_FROM_DIR" DOCKER_OPENSLIDES_HAPROXY_TAG)"
     create_instance_dir
     create_config_from_template
     clone_secrets
