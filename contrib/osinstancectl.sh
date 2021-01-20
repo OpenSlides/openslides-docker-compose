@@ -173,6 +173,24 @@ fatal() {
     exit 23
 }
 
+check_config_compatibility() {
+  # XXX: During transition period, check that the YAML template and given
+  # instance's .env configuration are either consistently based on a legacy OS3
+  # or OS3+ setup
+  local legacy_yaml=0 legacy_env=0
+  grep -q DOCKER_OPENSLIDES_AUTOUPDATE_NAME "$DCCONFIG_TEMPLATE"  || legacy_yaml=1
+  if [[ -f "${PROJECT_DIR}/.env" ]]; then
+    # prevent start
+    grep -q DOCKER_OPENSLIDES_AUTOUPDATE_NAME "${PROJECT_DIR}/.env" || legacy_env=1
+  else
+    # prevent create
+    grep -q DOCKER_OPENSLIDES_AUTOUPDATE_NAME "${DOT_ENV_TEMPLATE}" || legacy_env=1
+  fi
+  if [[ $legacy_env -ne $legacy_yaml ]]; then
+    fatal "Incompatible configuration (OS3 vs. OS3+)"
+  fi
+}
+
 check_for_dependency () {
     [[ -n "$1" ]] || return 0
     which "$1" > /dev/null || { fatal "Dependency not found: $1"; }
@@ -963,6 +981,7 @@ ask_start() {
 }
 
 instance_start() {
+  check_config_compatibility
   # Write YAML config
   ( set -a  && source "${PROJECT_DIR}/.env" &&
     m4 -DPROJECT_DIR="$PROJECT_DIR" "$DCCONFIG_TEMPLATE" >| "${DCCONFIG}" )
@@ -1568,6 +1587,7 @@ case "$MODE" in
   create)
     [[ -f "$CONFIG" ]] && echo "Applying options from ${CONFIG}." || true
     arg_check || { usage; exit 2; }
+    check_config_compatibility
     # Use defaults in the absence of options
     query_user_account_name
     echo "Creating new instance: $PROJECT_NAME"
