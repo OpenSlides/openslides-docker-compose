@@ -381,8 +381,13 @@ create_django_secrets_file() {
 
 add_to_haproxy_cfg() {
   [[ -z "$OPT_LOCALONLY" ]] || return 0
+  # XXX: During transition period, determine if the HAProxy backend server
+  # needs to use TLS or not.  The non-TLS mode will be deprecated soon.
+  local legacy=0
+  grep -q DOCKER_OPENSLIDES_AUTOUPDATE_NAME "${PROJECT_DIR}/.env" || legacy=1
+  #
   cp -f /etc/haproxy/haproxy.cfg /etc/haproxy/haproxy.cfg.osbak &&
-  gawk -v target="${PROJECT_NAME}" -v port="${PORT}" -v www="${OPT_WWW}" '
+  gawk -v target="${PROJECT_NAME}" -v port="${PORT}" -v www="${OPT_WWW}" -v legacy="$legacy" '
     BEGIN {
       begin_block = "-----BEGIN AUTOMATIC OPENSLIDES CONFIG-----"
       end_block   = "-----END AUTOMATIC OPENSLIDES CONFIG-----"
@@ -390,7 +395,9 @@ add_to_haproxy_cfg() {
       if ( www == 1 ) {
         use_server_tmpl = "\tuse-server %s if { ssl_fc_sni_reg -i ^(www\\.)?%s$ }"
       }
-      server_tmpl     = "\tserver     %s 127.1:%d  weight 0 check"
+      server_tmpl = "\tserver     %s 127.1:%d  weight 0 check ssl verify none maxconn 50000"
+      server_tmpl_legacy = "\tserver     %s 127.1:%d  weight 0 check"
+      if (legacy == 1) server_tmpl = server_tmpl_legacy
     }
     $0 ~ begin_block { b = 1 }
     $0 ~ end_block   { e = 1 }
