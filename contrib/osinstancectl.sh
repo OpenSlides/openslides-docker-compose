@@ -62,6 +62,7 @@ USER_SECRETS_FILE="usersecret.env"
 OPENSLIDES_USER_FIRSTNAME=
 OPENSLIDES_USER_LASTNAME=
 OPENSLIDES_USER_EMAIL=
+OPENSLIDES_USER_PASSWORD=
 
 # Color and formatting settings
 OPT_COLOR=auto
@@ -271,7 +272,7 @@ update_env_file() {
   # function can not be used to add new values to the .env file!
   [[ -f "$1" ]] || fatal "$1 not found."
   # Exit if variable is non-empty because it indicates a template customization
-  [[ "${4:-NOFORCE}" = "--force" ]] || ( source "$1" && [[ -z "${!2}" ]] ) || return 0
+  [[ "${4:-NOFORCE}" = "--force" ]] || ( set +u; source "$1" && [[ -z "${!2}" ]] ) || return 0
   local temp_file="$(mktemp)"
   gawk -v env_var_name="$2" -v env_var_val="$3" '
     BEGIN { FS = "="; OFS=FS }
@@ -489,7 +490,7 @@ value_from_env() {
   instance="$1"
   target="$2"
   [[ -f "${instance}/.env" ]] || return 0
-  ( source "${1}/.env" && printf "${!target}" )
+  ( source "${1}/.env" && printf "${!target:-""}" )
 }
 
 highlight_match() {
@@ -590,12 +591,20 @@ ls_instance() {
   if [[ -n "$OPT_LONGLIST" ]] || [[ -n "$OPT_JSON" ]]; then
     # Parse docker-compose.yml
     local server_image client_image server_tag client_tag
+    local autoupdate_image autoupdate_tag
+    local haproxy_image haproxy_tag
     server_image="$(value_from_env "$instance" DOCKER_OPENSLIDES_BACKEND_NAME)"
     server_tag="$(value_from_env "$instance" DOCKER_OPENSLIDES_BACKEND_TAG)"
     client_image="$(value_from_env "$instance" DOCKER_OPENSLIDES_FRONTEND_NAME)"
     client_tag="$(value_from_env "$instance" DOCKER_OPENSLIDES_FRONTEND_TAG)"
     server_image="${server_image}:${server_tag}"
     client_image="${client_image}:${client_tag}"
+    haproxy_image="$(value_from_env "$instance" DOCKER_OPENSLIDES_HAPROXY_NAME)"
+    haproxy_tag="$(value_from_env "$instance" DOCKER_OPENSLIDES_HAPROXY_TAG)"
+    haproxy_image="${haproxy_image}:${haproxy_tag}"
+    autoupdate_image="$(value_from_env "$instance" DOCKER_OPENSLIDES_AUTOUPDATE_NAME)"
+    autoupdate_tag="$(value_from_env "$instance" DOCKER_OPENSLIDES_AUTOUPDATE_TAG)"
+    autoupdate_image="${autoupdate_image}:${autoupdate_tag}"
   fi
 
   # --secrets
@@ -658,6 +667,8 @@ ls_instance() {
       --arg "status"        "$sym" \
       --arg "server_image"  "$server_image" \
       --arg "client_image"  "$client_image" \
+      --arg "haproxy_image"  "$haproxy_image" \
+      --arg "autoupdate_image" "$autoupdate_image" \
       --arg "port"          "$port" \
       --arg "admin"         "$OPENSLIDES_ADMIN_PASSWORD" \
       --arg "user_name"     "$user_name" \
@@ -676,6 +687,8 @@ ls_instance() {
             status:    $status,
             server_image: $server_image,
             client_image: $client_image,
+            haproxy_image: $haproxy_image,
+            autoupdate_image: $autoupdate_image,
             port:      $port,
             admin:     $admin,
             user: {
@@ -703,25 +716,27 @@ ls_instance() {
 
   # Additional output
   if [[ -n "$OPT_LONGLIST" ]]; then
-    printf "   ├ %-13s %s\n" "Directory:" "$instance"
+    printf "   ├ %-17s %s\n" "Directory:" "$instance"
     if [[ -n "$normalized_shortname" ]]; then
-      printf "   ├ %-13s %s\n" "Stack name:" "$normalized_shortname"
+      printf "   ├ %-17s %s\n" "Stack name:" "$normalized_shortname"
     fi
-    printf "   ├ %-13s %s\n" "Version:" "$version"
-    printf "   ├ %-13s %s\n" "Server image:" "$server_image"
-    printf "   ├ %-13s %s\n" "Client image:" "$client_image"
-    printf "   ├ %-13s %s\n" "Local port:" "$port"
+    printf "   ├ %-17s %s\n" "Version:" "$version"
+    printf "   ├ %-17s %s\n" "Server image:" "$server_image"
+    printf "   ├ %-17s %s\n" "Client image:" "$client_image"
+    printf "   ├ %-17s %s\n" "HAProxy image:" "$haproxy_image"
+    printf "   ├ %-17s %s\n" "Autoupdate image:" "$autoupdate_image"
+    printf "   ├ %-17s %s\n" "Local port:" "$port"
   fi
 
   # --secrets
   if [[ -n "$OPT_SECRETS" ]]; then
-    printf "   ├ %-13s %s : %s\n" "Login:" "admin" "$OPENSLIDES_ADMIN_PASSWORD"
+    printf "   ├ %-17s %s : %s\n" "Login:" "admin" "$OPENSLIDES_ADMIN_PASSWORD"
     # Include secondary account credentials if available
     [[ -n "$user_name" ]] &&
-      printf "   ├ %-13s \"%s\" : %s\n" \
+      printf "   ├ %-17s \"%s\" : %s\n" \
         "Login:" "$user_name" "$OPENSLIDES_USER_PASSWORD"
     [[ -n "$OPENSLIDES_USER_EMAIL" ]] &&
-      printf "   ├ %-13s %s\n" "Contact:" "$OPENSLIDES_USER_EMAIL"
+      printf "   ├ %-17s %s\n" "Contact:" "$OPENSLIDES_USER_EMAIL"
   fi
 
   # --metadata
