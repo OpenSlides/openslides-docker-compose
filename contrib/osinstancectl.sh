@@ -745,9 +745,12 @@ colorize_ls() {
     'BEGIN {
       FPAT = "([[:space:]]*[^[:space:]]+)"
       OFS = ""
+      IGNORECASE = 1
     }
     # highlight matches in instance name
     /^[^ ]/ { gsub(m, hlstart "&" hlstop, $2) }
+    # highlight matches in metadata
+    $1 ~ /[[:space:]]+┆/ { gsub(m, hlstart "&" hlstop, $0) }
     # bullets
     /^OK/   { $1 = " " green  bullet normal }
     /^\?\?/ { $1 = " " yellow bullet normal }
@@ -773,11 +776,11 @@ list_instances() {
     [[ -f "${instance}/${CONFIG_FILE}" ]] && [[ -f "${instance}/.env" ]] || continue
 
     # Filter instances
-    # 1. instance name/project dir matches
-    if grep -E -q "$PROJECT_NAME" <<< "$(basename "$instance")"; then :
-    # 2. metadata matches
+    # 1. instance name/project dir matches (case-insensitive)
+    if grep -i -E -q "$PROJECT_NAME" <<< "$(basename "$instance")"; then :
+    # 2. metadata matches (case-insensitive)
     elif [[ -n "$OPT_METADATA_SEARCH" ]] && [[ -f "${instance}/metadata.txt" ]] &&
-      grep -E -q "$PROJECT_NAME" "${instance}/metadata.txt"; then :
+      grep -i -E -q "$PROJECT_NAME" "${instance}/metadata.txt"; then :
     else
       continue
     fi
