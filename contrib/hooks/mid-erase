@@ -1,0 +1,8 @@
+# This is an example mid-erase hook script.  It is run during an instance's
+# removal and before its project directory is deleted.
+#
+# This example removes the deleted instance's
+# domain from acmetool's list of domains.
+
+echo "acmetool unwant..."
+acmetool unwant "$PROJECT_NAME" "www.${PROJECT_NAME}"

@@ -1,0 +1,16 @@
+# This is an example post-create hook script that uses acmetool to generate
+# a certificate for the instance domain.
+
+# Generate Let's Encrypt certificate
+if [[ -z "$OPT_LOCALONLY" ]]; then
+  # add optional www subdomain
+  [[ -z "$OPT_WWW" ]] || www="www.${PROJECT_NAME}"
+
+  # Generate Let's Encrypt certificate
+  echo "Generating certificate..."
+  if [[ -z "$OPT_WWW" ]]; then
+    acmetool want "${PROJECT_NAME}"
+  else
+    acmetool want "${PROJECT_NAME}" "${www}"
+  fi
+fi

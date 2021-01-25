@@ -35,8 +35,8 @@ An HAProxy configuration file (`haproxy.cfg.example`) illustrates a possible
 setup for hosting multiple instances.  It assumes a setup with Let's Encrypt
 provided by [acmetool](https://hlandau.github.io/acmetool/).
 
-With this setup, `osinstancectl`/`osstackctl` can add instances, configure
-HAProxy, and generate TLS certificates.
+Please see the provided example hook scripts for a way to integrate `acmetool`
+into `osinstancectl`.  Other ACME clients can be configured accordingly.
 
 ## Legacy Instances
 

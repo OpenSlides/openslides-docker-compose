@@ -144,7 +144,7 @@ Options:
     --clone-from       Create the new instance based on the specified existing
                        instance
     --www              Add a www subdomain in addition to the specified
-                       instance domain
+                       instance domain (to be passed to ACME clients)
 
 Colored status indicators in ls mode:
   green                The instance appears to be fully functional
@@ -357,23 +357,6 @@ create_django_secrets_file() {
     > "${PROJECT_DIR}/secrets/django.env"
 }
 
-gen_tls_cert() {
-  # Generate Let's Encrypt certificate
-  [[ -z "$OPT_LOCALONLY" ]] || return 0
-
-  # add optional www subdomain
-  local www=
-  [[ -z "$OPT_WWW" ]] || www="www.${PROJECT_NAME}"
-
-  # Generate Let's Encrypt certificate
-  echo "Generating certificate..."
-  if [[ -z "$OPT_WWW" ]]; then
-    acmetool want "${PROJECT_NAME}"
-  else
-    acmetool want "${PROJECT_NAME}" "${www}"
-  fi
-}
-
 add_to_haproxy_cfg() {
   [[ -z "$OPT_LOCALONLY" ]] || return 0
   cp -f /etc/haproxy/haproxy.cfg /etc/haproxy/haproxy.cfg.osbak &&
@@ -424,8 +407,6 @@ remove() {
   instance_erase
   echo "Removing instance repo dir..."
   rm -rf "${PROJECT_DIR}"
-  echo "acmetool unwant..."
-  acmetool unwant "$PROJECT_NAME" "www.${PROJECT_NAME}"
   echo "remove HAProxy config..."
   rm_from_haproxy_cfg
   echo "Done."
@@ -1346,7 +1327,6 @@ esac
 
 
 DEPS=(
-  acmetool
   docker
   gawk
   jq
@@ -1437,7 +1417,6 @@ case "$MODE" in
     query_user_account_name
     echo "Creating new instance: $PROJECT_NAME"
     PORT=$(next_free_port)
-    gen_tls_cert
     create_instance_dir
     create_config_from_template
     create_admin_secrets_file
@@ -1467,7 +1446,6 @@ case "$MODE" in
       DOCKER_IMAGE_NAME_CLIENT="$(value_from_env "$CLONE_FROM_DIR" DOCKER_OPENSLIDES_FRONTEND_NAME)"
     [[ -n "$DOCKER_IMAGE_TAG_CLIENT" ]] ||
       DOCKER_IMAGE_TAG_CLIENT="$(value_from_env "$CLONE_FROM_DIR" DOCKER_OPENSLIDES_FRONTEND_TAG)"
-    gen_tls_cert
     create_instance_dir
     create_config_from_template
     clone_secrets
