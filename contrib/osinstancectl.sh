@@ -1345,12 +1345,16 @@ esac
 DEPS=(
   acmetool
   docker
-  docker-compose
   gawk
   jq
   m4
   nc
 )
+case "$DEPLOYMENT_MODE" in
+  "compose")
+    DEPS+=(docker-compose)
+    ;;
+esac
 # Check dependencies
 for i in "${DEPS[@]}"; do
     check_for_dependency "$i"
