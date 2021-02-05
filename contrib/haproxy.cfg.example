@@ -62,7 +62,7 @@ listen ha_stats
 	stats auth admin:cnffjbeq
 
 listen port_443
-	bind *:443 ssl crt /var/lib/acme/haproxy/
+	bind *:443 ssl crt /var/lib/acme/haproxy/ alpn h2,http/1.1
 	mode http
 	http-request set-header X-Forwarded-For %[src]
 	reqadd X-Forwarded-Proto:\ https
@@ -73,5 +73,5 @@ listen port_443
 
 	# -----BEGIN AUTOMATIC OPENSLIDES CONFIG-----
 	#use-server openslides.example.com if { ssl_fc_sni_end -i ^openslides.example.com$ }
-	#server     openslides.example.com  127.1:61001  weight 0 check
+	#server     openslides.example.com  127.1:61001  weight 0 check ssl verify none maxconn 50000
 	# -----END AUTOMATIC OPENSLIDES CONFIG-----
