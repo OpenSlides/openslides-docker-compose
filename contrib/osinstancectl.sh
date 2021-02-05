@@ -33,8 +33,8 @@ DOCKER_IMAGE_NAME_OPENSLIDES=
 DOCKER_IMAGE_TAG_OPENSLIDES=
 DOCKER_IMAGE_NAME_CLIENT=
 DOCKER_IMAGE_TAG_CLIENT=
-DOCKER_IMAGE_NAME_HAPROXY=
-DOCKER_IMAGE_TAG_HAPROXY=
+DOCKER_IMAGE_NAME_PROXY=
+DOCKER_IMAGE_TAG_PROXY=
 DOCKER_IMAGE_NAME_AUTOUPDATE=
 DOCKER_IMAGE_TAG_AUTOUPDATE=
 PROJECT_NAME=
@@ -145,8 +145,8 @@ Options:
     --frontend-image   Specify the OpenSlides client Docker image name
     --client-tag,
     --frontend-tag     Specify the OpenSlides client Docker image tag
-    --haproxy-image    Specify the OpenSlides HAProxy service Docker image name
-    --haproxy-tag      Specify the OpenSlides HAProxy service Docker image tag
+    --proxy-image      Specify the OpenSlides proxy service Docker image name
+    --proxy-tag        Specify the OpenSlides proxy service Docker image tag
     --autoupdate-image Specify the OpenSlides autoupdate service Docker image name
     --autoupdate-tag   Specify the OpenSlides autoupdate service Docker image tag
     -t, --all-tags     Specify the image tags for all OpenSlides components
@@ -316,8 +316,8 @@ create_config_from_template() {
   update_env_file "$temp_file" "DOCKER_OPENSLIDES_BACKEND_TAG" "$DOCKER_IMAGE_TAG_OPENSLIDES"
   update_env_file "$temp_file" "DOCKER_OPENSLIDES_FRONTEND_NAME" "$DOCKER_IMAGE_NAME_CLIENT"
   update_env_file "$temp_file" "DOCKER_OPENSLIDES_FRONTEND_TAG" "$DOCKER_IMAGE_TAG_CLIENT"
-  update_env_file "$temp_file" "DOCKER_OPENSLIDES_HAPROXY_NAME" "$DOCKER_IMAGE_NAME_HAPROXY"
-  update_env_file "$temp_file" "DOCKER_OPENSLIDES_HAPROXY_TAG" "$DOCKER_IMAGE_TAG_HAPROXY"
+  update_env_file "$temp_file" "DOCKER_OPENSLIDES_PROXY_NAME" "$DOCKER_IMAGE_NAME_PROXY"
+  update_env_file "$temp_file" "DOCKER_OPENSLIDES_PROXY_TAG" "$DOCKER_IMAGE_TAG_PROXY"
   update_env_file "$temp_file" "DOCKER_OPENSLIDES_AUTOUPDATE_NAME" "$DOCKER_IMAGE_NAME_AUTOUPDATE"
   update_env_file "$temp_file" "DOCKER_OPENSLIDES_AUTOUPDATE_TAG" "$DOCKER_IMAGE_TAG_AUTOUPDATE"
   update_env_file "$temp_file" "POSTFIX_MYHOSTNAME" "$PROJECT_NAME"
@@ -610,16 +610,16 @@ ls_instance() {
     # Parse docker-compose.yml
     local server_image client_image server_tag client_tag
     local autoupdate_image autoupdate_tag
-    local haproxy_image haproxy_tag
+    local proxy_image proxy_tag
     server_image="$(value_from_env "$instance" DOCKER_OPENSLIDES_BACKEND_NAME)"
     server_tag="$(value_from_env "$instance" DOCKER_OPENSLIDES_BACKEND_TAG)"
     client_image="$(value_from_env "$instance" DOCKER_OPENSLIDES_FRONTEND_NAME)"
     client_tag="$(value_from_env "$instance" DOCKER_OPENSLIDES_FRONTEND_TAG)"
     server_image="${server_image}:${server_tag}"
     client_image="${client_image}:${client_tag}"
-    haproxy_image="$(value_from_env "$instance" DOCKER_OPENSLIDES_HAPROXY_NAME)"
-    haproxy_tag="$(value_from_env "$instance" DOCKER_OPENSLIDES_HAPROXY_TAG)"
-    haproxy_image="${haproxy_image}:${haproxy_tag}"
+    proxy_image="$(value_from_env "$instance" DOCKER_OPENSLIDES_PROXY_NAME)"
+    proxy_tag="$(value_from_env "$instance" DOCKER_OPENSLIDES_PROXY_TAG)"
+    proxy_image="${proxy_image}:${proxy_tag}"
     autoupdate_image="$(value_from_env "$instance" DOCKER_OPENSLIDES_AUTOUPDATE_NAME)"
     autoupdate_tag="$(value_from_env "$instance" DOCKER_OPENSLIDES_AUTOUPDATE_TAG)"
     autoupdate_image="${autoupdate_image}:${autoupdate_tag}"
@@ -685,7 +685,7 @@ ls_instance() {
       --arg "status"        "$sym" \
       --arg "server_image"  "$server_image" \
       --arg "client_image"  "$client_image" \
-      --arg "haproxy_image"  "$haproxy_image" \
+      --arg "proxy_image"  "$proxy_image" \
       --arg "autoupdate_image" "$autoupdate_image" \
       --arg "port"          "$port" \
       --arg "admin"         "$OPENSLIDES_ADMIN_PASSWORD" \
@@ -705,7 +705,7 @@ ls_instance() {
             status:    $status,
             server_image: $server_image,
             client_image: $client_image,
-            haproxy_image: $haproxy_image,
+            proxy_image: $proxy_image,
             autoupdate_image: $autoupdate_image,
             port:      $port,
             admin:     $admin,
@@ -741,7 +741,7 @@ ls_instance() {
     printf "   ├ %-17s %s\n" "Version:" "$version"
     printf "   ├ %-17s %s\n" "Server image:" "$server_image"
     printf "   ├ %-17s %s\n" "Client image:" "$client_image"
-    printf "   ├ %-17s %s\n" "HAProxy image:" "$haproxy_image"
+    printf "   ├ %-17s %s\n" "Proxy image:" "$proxy_image"
     printf "   ├ %-17s %s\n" "Autoupdate image:" "$autoupdate_image"
     printf "   ├ %-17s %s\n" "Local port:" "$port"
   fi
@@ -1037,7 +1037,7 @@ instance_erase() {
 
 instance_update() {
   local server_changed= client_changed=
-  local haproxy_changed=
+  local proxy_changed=
   local autoupdate_changed=
   # Update values in .env
   # Backend
@@ -1062,16 +1062,16 @@ instance_update() {
       "DOCKER_OPENSLIDES_FRONTEND_TAG" "$DOCKER_IMAGE_TAG_CLIENT" --force
     client_changed=1
   fi
-  # HAProxy
-  if [[ -n "$DOCKER_IMAGE_NAME_HAPROXY" ]]; then
+  # Proxy
+  if [[ -n "$DOCKER_IMAGE_NAME_PROXY" ]]; then
     update_env_file "${PROJECT_DIR}/.env" \
-      "DOCKER_OPENSLIDES_HAPROXY_NAME" "$DOCKER_IMAGE_NAME_HAPROXY" --force
-    haproxy_changed=1
+      "DOCKER_OPENSLIDES_PROXY_NAME" "$DOCKER_IMAGE_NAME_PROXY" --force
+    proxy_changed=1
   fi
-  if [[ -n "$DOCKER_IMAGE_TAG_HAPROXY" ]]; then
+  if [[ -n "$DOCKER_IMAGE_TAG_PROXY" ]]; then
     update_env_file "${PROJECT_DIR}/.env" \
-      "DOCKER_OPENSLIDES_HAPROXY_TAG" "$DOCKER_IMAGE_TAG_HAPROXY" --force
-    haproxy_changed=1
+      "DOCKER_OPENSLIDES_PROXY_TAG" "$DOCKER_IMAGE_TAG_PROXY" --force
+    proxy_changed=1
   fi
   # Autoupdate
   if [[ -n "$DOCKER_IMAGE_NAME_AUTOUPDATE" ]]; then
@@ -1097,9 +1097,9 @@ instance_update() {
     append_metadata "$PROJECT_DIR" "$(date +"%F %H:%M"): Updated client to" \
       "${DOCKER_IMAGE_NAME_CLIENT}:${DOCKER_IMAGE_TAG_CLIENT}"
   fi
-  if [[ -n "$haproxy_changed" ]]; then
-    append_metadata "$PROJECT_DIR" "$(date +"%F %H:%M"): Updated HAProxy to" \
-      "${DOCKER_IMAGE_NAME_HAPROXY}:${DOCKER_IMAGE_TAG_HAPROXY}"
+  if [[ -n "$proxy_changed" ]]; then
+    append_metadata "$PROJECT_DIR" "$(date +"%F %H:%M"): Updated proxy to" \
+      "${DOCKER_IMAGE_NAME_PROXY}:${DOCKER_IMAGE_TAG_PROXY}"
   fi
   if [[ -n "$autoupdate_changed" ]]; then
     append_metadata "$PROJECT_DIR" "$(date +"%F %H:%M"): Updated autoupdate to" \
@@ -1144,16 +1144,16 @@ instance_update() {
           "$PROJECT_STACK_NAME"_client |
           gawk -F '[:@]' '{ print $2 }')"
       fi
-      # HAProxy
-      if [[ -z "$DOCKER_IMAGE_NAME_HAPROXY" ]] && [[ -n "$DOCKER_IMAGE_TAG_HAPROXY" ]]; then
-        DOCKER_IMAGE_NAME_HAPROXY="$(docker service inspect \
+      # Proxy
+      if [[ -z "$DOCKER_IMAGE_NAME_PROXY" ]] && [[ -n "$DOCKER_IMAGE_TAG_PROXY" ]]; then
+        DOCKER_IMAGE_NAME_PROXY="$(docker service inspect \
           -f '{{.Spec.TaskTemplate.ContainerSpec.Image}}' \
-          "$PROJECT_STACK_NAME"_haproxy |
+          "$PROJECT_STACK_NAME"_proxy |
           gawk -F '[:@]' '{ print $1 }')"
-      elif [[ -n "$DOCKER_IMAGE_NAME_HAPROXY" ]] && [[ -z "$DOCKER_IMAGE_TAG_HAPROXY" ]]; then
-        DOCKER_IMAGE_TAG_HAPROXY="$(docker service inspect \
+      elif [[ -n "$DOCKER_IMAGE_NAME_PROXY" ]] && [[ -z "$DOCKER_IMAGE_TAG_PROXY" ]]; then
+        DOCKER_IMAGE_TAG_PROXY="$(docker service inspect \
           -f '{{.Spec.TaskTemplate.ContainerSpec.Image}}' \
-          "$PROJECT_STACK_NAME"_haproxy |
+          "$PROJECT_STACK_NAME"_proxy |
           gawk -F '[:@]' '{ print $2 }')"
       fi
       # Autoupdate
@@ -1186,10 +1186,10 @@ instance_update() {
           "${PROJECT_STACK_NAME}_client"
       fi
       # Haproxy
-      if [[ "$haproxy_changed" ]]; then
+      if [[ "$proxy_changed" ]]; then
         docker service update --image \
-          "${DOCKER_IMAGE_NAME_HAPROXY}:${DOCKER_IMAGE_TAG_HAPROXY}" \
-          "${PROJECT_STACK_NAME}_haproxy"
+          "${DOCKER_IMAGE_NAME_PROXY}:${DOCKER_IMAGE_TAG_PROXY}" \
+          "${PROJECT_STACK_NAME}_proxy"
       fi
       # Autoupdate
       if [[ "$autoupdate_changed" ]]; then
@@ -1278,8 +1278,8 @@ longopt=(
   client-tag:
   frontend-image:
   frontend-tag:
-  haproxy-image:
-  haproxy-tag:
+  proxy-image:
+  proxy-tag:
   autoupdate-image:
   autoupdate-tag:
   all-tags:
@@ -1328,12 +1328,12 @@ while true; do
       DOCKER_IMAGE_TAG_CLIENT="$2"
       shift 2
       ;;
-    --haproxy-image)
-      DOCKER_IMAGE_NAME_HAPROXY="$2"
+    --proxy-image)
+      DOCKER_IMAGE_NAME_PROXY="$2"
       shift 2
       ;;
-    --haproxy-tag)
-      DOCKER_IMAGE_TAG_HAPROXY="$2"
+    --proxy-tag)
+      DOCKER_IMAGE_TAG_PROXY="$2"
       shift 2
       ;;
     --autoupdate-image)
@@ -1347,7 +1347,7 @@ while true; do
     -t|--all-tags)
       DOCKER_IMAGE_TAG_OPENSLIDES="$2"
       DOCKER_IMAGE_TAG_CLIENT="$2"
-      DOCKER_IMAGE_TAG_HAPROXY="$2"
+      DOCKER_IMAGE_TAG_PROXY="$2"
       DOCKER_IMAGE_TAG_AUTOUPDATE="$2"
       shift 2
       ;;
@@ -1473,8 +1473,8 @@ for arg; do
           [[ -n "$DOCKER_IMAGE_TAG_OPENSLIDES" ]] ||
           [[ -n "$DOCKER_IMAGE_NAME_CLIENT" ]] ||
           [[ -n "$DOCKER_IMAGE_TAG_CLIENT" ]] ||
-          [[ -n "$DOCKER_IMAGE_NAME_HAPROXY" ]] ||
-          [[ -n "$DOCKER_IMAGE_TAG_HAPROXY" ]] ||
+          [[ -n "$DOCKER_IMAGE_NAME_PROXY" ]] ||
+          [[ -n "$DOCKER_IMAGE_TAG_PROXY" ]] ||
           [[ -n "$DOCKER_IMAGE_NAME_AUTOUPDATE" ]] ||
           [[ -n "$DOCKER_IMAGE_TAG_AUTOUPDATE" ]] || {
         fatal "Need at least one image name or tag for update"
@@ -1625,10 +1625,10 @@ case "$MODE" in
       DOCKER_IMAGE_NAME_AUTOUPDATE="$(value_from_env "$CLONE_FROM_DIR" DOCKER_OPENSLIDES_AUTOUPDATE_NAME)"
     [[ -n "$DOCKER_IMAGE_TAG_AUTOUPDATE" ]] ||
       DOCKER_IMAGE_TAG_AUTOUPDATE="$(value_from_env "$CLONE_FROM_DIR" DOCKER_OPENSLIDES_AUTOUPDATE_TAG)"
-    [[ -n "$DOCKER_IMAGE_NAME_HAPROXY" ]] ||
-      DOCKER_IMAGE_NAME_HAPROXY="$(value_from_env "$CLONE_FROM_DIR" DOCKER_OPENSLIDES_HAPROXY_NAME)"
-    [[ -n "$DOCKER_IMAGE_TAG_HAPROXY" ]] ||
-      DOCKER_IMAGE_TAG_HAPROXY="$(value_from_env "$CLONE_FROM_DIR" DOCKER_OPENSLIDES_HAPROXY_TAG)"
+    [[ -n "$DOCKER_IMAGE_NAME_PROXY" ]] ||
+      DOCKER_IMAGE_NAME_PROXY="$(value_from_env "$CLONE_FROM_DIR" DOCKER_OPENSLIDES_PROXY_NAME)"
+    [[ -n "$DOCKER_IMAGE_TAG_PROXY" ]] ||
+      DOCKER_IMAGE_TAG_PROXY="$(value_from_env "$CLONE_FROM_DIR" DOCKER_OPENSLIDES_PROXY_TAG)"
     create_instance_dir
     create_config_from_template
     clone_secrets
