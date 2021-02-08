@@ -73,5 +73,5 @@ listen port_443
 
 	# -----BEGIN AUTOMATIC OPENSLIDES CONFIG-----
 	#use-server openslides.example.com if { ssl_fc_sni_end -i ^openslides.example.com$ }
-	#server     openslides.example.com  127.1:61001  weight 0 check ssl verify none maxconn 50000
+	#server     openslides.example.com  127.1:61001  weight 0 check
 	# -----END AUTOMATIC OPENSLIDES CONFIG-----

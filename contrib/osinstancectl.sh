@@ -400,13 +400,8 @@ create_django_secrets_file() {
 
 add_to_haproxy_cfg() {
   [[ -z "$OPT_LOCALONLY" ]] || return 0
-  # XXX: During transition period, determine if the HAProxy backend server
-  # needs to use TLS or not.  The non-TLS mode will be deprecated soon.
-  local legacy=0
-  grep -q DOCKER_OPENSLIDES_AUTOUPDATE_NAME "${PROJECT_DIR}/.env" || legacy=1
-  #
   cp -f /etc/haproxy/haproxy.cfg /etc/haproxy/haproxy.cfg.osbak &&
-  gawk -v target="${PROJECT_NAME}" -v port="${PORT}" -v www="${OPT_WWW}" -v legacy="$legacy" '
+    gawk -v target="${PROJECT_NAME}" -v port="${PORT}" -v www="${OPT_WWW}" '
     BEGIN {
       begin_block = "-----BEGIN AUTOMATIC OPENSLIDES CONFIG-----"
       end_block   = "-----END AUTOMATIC OPENSLIDES CONFIG-----"
@@ -414,9 +409,7 @@ add_to_haproxy_cfg() {
       if ( www == 1 ) {
         use_server_tmpl = "\tuse-server %s if { ssl_fc_sni_reg -i ^(www\\.)?%s$ }"
       }
-      server_tmpl = "\tserver     %s 127.1:%d  weight 0 check ssl verify none maxconn 50000"
-      server_tmpl_legacy = "\tserver     %s 127.1:%d  weight 0 check"
-      if (legacy == 1) server_tmpl = server_tmpl_legacy
+      server_tmpl = "\tserver     %s 127.1:%d  weight 0 check"
     }
     $0 ~ begin_block { b = 1 }
     $0 ~ end_block   { e = 1 }
@@ -496,9 +489,6 @@ ping_instance_websocket() {
   # OpenSlides lead to this function failing.
   local curl_opts=(--silent --max-time 1 --retry 2 --retry-delay 1 --retry-max-time 3)
   {
-    # Try OS3+ setup (HTTPS)
-    LC_ALL=C curl "${curl_opts[@]}" --insecure "https://127.0.0.1:${1}/apps/core/version/" ||
-    # If that fails, try legacy setup (HTTP)
     LC_ALL=C curl "${curl_opts[@]}" "http://127.0.0.1:${1}/apps/core/version/"
   } | gawk 'BEGIN { FPAT = "\"[^\"]*\"" } { gsub(/"/, "", $2); print $2}' || true
 }
@@ -658,12 +648,8 @@ ls_instance() {
   local server_image_info= client_image_info=
   if [[ -n "$OPT_IMAGE_INFO" ]] || [[ -n "$OPT_JSON" ]]; then
     if [[ -n "$version" ]]; then
-      # Try HTTPS and, in case of failure, HTTP (legacy)
-      server_image_info="$(curl -k -s "https://localhost:${port}/server-version.txt")" ||
       server_image_info="$(curl -s "http://localhost:${port}/server-version.txt")"
       [[ "$server_image_info" =~ built\ on ]] || server_image_info=
-      # Try HTTPS and, in case of failure, HTTP (legacy)
-      client_image_info="$(curl -k -s "https://localhost:${port}/client-version.txt")" ||
       client_image_info="$(curl -s "http://localhost:${port}/client-version.txt")"
       [[ "$client_image_info" =~ built\ on ]] || client_image_info=
     fi
