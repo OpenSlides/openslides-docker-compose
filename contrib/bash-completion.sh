@@ -9,7 +9,6 @@ _osinstancectl()
   opts+=" --clone-from --force --color --project-dir --fast"
   opts+=" --image-info --version"
   opts+=" --server-image --server-tag --client-image --client-tag --all-tags"
-  opts+=" --proxy-image --proxy-tag"
   opts+=" --autoupdate-image --autoupdate-tag"
   opts+=" --local-only --no-add-account"
   opts+=" --yaml-template --env-template"
