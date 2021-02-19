@@ -3,7 +3,7 @@
 # Manage dockerized OpenSlides instances
 #
 # -------------------------------------------------------------------
-# Copyright (C) 2019 by Intevation GmbH
+# Copyright (C) 2019,2021 by Intevation GmbH
 # Author(s):
 # Gernot Schulz <gernot@intevation.de>
 #
@@ -471,7 +471,7 @@ instance_has_services_running() {
         grep -q "^${instance}_" || return 1
       ;;
     "stack")
-      docker stack ls --format '{{ .Name }}' | grep -qw "$instance" || return 1
+      docker stack ls --format '{{ .Name }}' | grep -qw "^$instance\$" || return 1
       ;;
   esac
 }
