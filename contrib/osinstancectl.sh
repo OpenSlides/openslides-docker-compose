@@ -61,6 +61,7 @@ OPENSLIDES_USER_FIRSTNAME=
 OPENSLIDES_USER_LASTNAME=
 OPENSLIDES_USER_EMAIL=
 OPENSLIDES_USER_PASSWORD=
+DEFAULT_DOCKER_REGISTRY=
 
 # Color and formatting settings
 OPT_COLOR=auto
@@ -308,6 +309,7 @@ create_config_from_template() {
   [[ ! -f "${_env}" ]] || cp -af "${_env}" "$temp_file"
   update_env_file "$temp_file" "EXTERNAL_HTTP_PORT" "$PORT"
   update_env_file "$temp_file" "INSTANCE_DOMAIN" "https://${PROJECT_NAME}"
+  update_env_file "$temp_file" "DEFAULT_DOCKER_REGISTRY" "$DEFAULT_DOCKER_REGISTRY"
   update_env_file "$temp_file" "DOCKER_OPENSLIDES_BACKEND_NAME" "$DOCKER_IMAGE_NAME_OPENSLIDES"
   update_env_file "$temp_file" "DOCKER_OPENSLIDES_BACKEND_TAG" "$DOCKER_IMAGE_TAG_OPENSLIDES"
   update_env_file "$temp_file" "DOCKER_OPENSLIDES_FRONTEND_NAME" "$DOCKER_IMAGE_NAME_CLIENT"
@@ -1538,6 +1540,7 @@ case "$MODE" in
     arg_check || { usage; exit 2; }
     echo "Creating new instance: $PROJECT_NAME (based on $CLONE_FROM)"
     PORT=$(next_free_port)
+    DEFAULT_DOCKER_REGISTRY="$(value_from_env "$CLONE_FROM_DIR" DEFAULT_DOCKER_REGISTRY)"
     # Parse image and/or tag from original config if necessary
     [[ -n "$DOCKER_IMAGE_NAME_OPENSLIDES" ]] ||
       DOCKER_IMAGE_NAME_OPENSLIDES="$(value_from_env "$CLONE_FROM_DIR" DOCKER_OPENSLIDES_BACKEND_NAME)"
