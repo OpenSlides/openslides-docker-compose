@@ -27,7 +27,7 @@ COPY repmgr-promote.sh /usr/local/bin/repmgr-promote
 COPY repmgr.conf.in /etc/
 RUN touch /etc/repmgr.conf && chown postgres /etc/repmgr.conf
 
-COPY pg_hba.conf /var/lib/postgresql/
+COPY pg_hba.conf /var/lib/
 
 COPY current-primary.sh /usr/local/bin/current-primary
 COPY entrypoint.sh /usr/local/bin/entrypoint

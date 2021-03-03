@@ -215,7 +215,7 @@ REPMGR_SERVICE_START_COMMAND='/usr/bin/pg_ctlcluster 11 main start' \
 
 # Update pg_hba.conf from image template
 echo "INFO: Creating Postgres cluster's pg_hba.conf."
-cp -fv /var/lib/postgresql/pg_hba.conf /etc/postgresql/11/main/pg_hba.conf
+cp -fv /var/lib/pg_hba.conf /etc/postgresql/11/main/pg_hba.conf
 
 # Check if another primary exists anyway
 CURRENT_PRIMARY=
