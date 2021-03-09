@@ -19,6 +19,12 @@ BACKUP_DIR="/var/lib/postgresql/backup/"
 
 PG_NODE_LIST="${PG_NODE_LIST:-pgnode1,pgnode2,pgnode3}"
 
+# Set the option to skip primary node checks either by env var or by creating
+# a file
+if [[ "$FAST_START" ]] || [[ -f /var/lib/postgresql/FAST_START ]]; then
+  FAST_START=1
+fi
+
 # repmgr configuration through ENV
 export REPMGR_NODE_NAME="pgnode${REPMGR_NODE_ID}"
 REPMGR_ENABLE_ARCHIVE="${REPMGR_WAL_ARCHIVE:-on}"
@@ -256,7 +262,10 @@ primary_from_pgbouncer() {
 # 1. Best case scenario: pgbouncer is ready and chose a primary
 if primary_from_pgbouncer; then
   notice "According to pgbouncer, the current primary is $CURRENT_PRIMARY."
-# 2. pgbouncer is not ready.  Check if other nodes are available in order to
+# 2. User requested skipping the check
+elif [[ "$FAST_START" ]]; then
+  warn "Skipping all primary/standby checks (FAST_START is set)"
+# 3. pgbouncer is not ready.  Check if other nodes are available in order to
 # decide whether we should wait for pgbouncer or not.
 #
 # It is possible that other pgnode services are running even though pgbouncer
