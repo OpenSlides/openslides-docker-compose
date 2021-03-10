@@ -579,14 +579,22 @@ ls_instance() {
     # Shorten if necessary.  This string will be printed as a column of the
     # general output, so it should not cause linebreaks.  Since the same
     # information will additionally be displayed in the extended output,
-    # we can just cut if off here.
+    # we can just cut it off here.
     # Ideally, we'd dynamically adjust to how much space is available.
-    [[ "${#first_metadatum}" -lt 31 ]] || {
-      first_metadatum="${first_metadatum:0:30}"
-      # append ellipsis and reset formatting.  The latter may be necessary
-      # because we might be cutting this off above.
-      first_metadatum+="…[0m"
-    }
+    [[ "${#first_metadatum}" -lt 31 ]] ||
+      first_metadatum="${first_metadatum:0:30}…"
+    # Tasks for color support
+    if [[ -n "$NCOLORS" ]]; then
+      # Colors are enabled.  Since metadata.txt may include escape sequences,
+      # reset them at the end
+      if grep -Fq $'\e' <<< "$first_metadatum"; then
+        first_metadatum+="[0m"
+      fi
+    else
+      # Remove all escapes from comment.  This is the simplest method and will
+      # leave behind the disabled escape codes.
+      first_metadatum="$(echo "$first_metadatum" | tr -d $'\e')"
+    fi
   fi
 
   # Extended parsing
