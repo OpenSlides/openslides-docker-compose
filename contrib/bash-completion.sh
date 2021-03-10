@@ -6,7 +6,7 @@ _osinstancectl()
   prev="${COMP_WORDS[COMP_CWORD-1]}"
   opts="ls add rm start stop update erase"
   opts+=" --help --long --metadata --online --offline --error"
-  opts+=" --clone-from --force --color --project-dir --fast"
+  opts+=" --clone-from --force --color --project-dir --fast --patient"
   opts+=" --image-info --version"
   opts+=" --server-image --server-tag --client-image --client-tag --all-tags"
   opts+=" --autoupdate-image --autoupdate-tag"

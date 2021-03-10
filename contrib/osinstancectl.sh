@@ -52,6 +52,8 @@ OPT_LOCALONLY=
 OPT_FORCE=
 OPT_WWW=
 OPT_FAST=
+OPT_PATIENT=
+OPT_USE_PARALLEL="${OPT_USE_PARALLEL:-1}"
 FILTER_STATE=
 FILTER_VERSION=
 CLONE_FROM=
@@ -62,6 +64,8 @@ OPENSLIDES_USER_LASTNAME=
 OPENSLIDES_USER_EMAIL=
 OPENSLIDES_USER_PASSWORD=
 DEFAULT_DOCKER_REGISTRY=
+OPT_PRECISE_PROJECT_NAME=
+CURL_OPTS=(--max-time 1 --retry 2 --retry-delay 1 --retry-max-time 3)
 
 # Color and formatting settings
 OPT_COLOR=auto
@@ -76,10 +80,6 @@ SYM_ERROR="XX"
 SYM_UNKNOWN="??"
 SYM_STOPPED="__"
 JQ="jq --monochrome-output"
-
-# Internal options
-OPT_USE_PARALLEL=
-OPT_PRECISE_PROJECT_NAME=
 
 enable_color() {
   NCOLORS=$(tput colors) # no. of colors
@@ -131,6 +131,7 @@ Options:
     -M,
     --search-metadata  Include metadata
     --fast             Include less information to increase listing speed
+    --patient          Increase timeouts
     --version          Filter results based on the version reported by
                        OpenSlides (implies --online)
     -j, --json         Enable JSON output format
@@ -483,9 +484,8 @@ ping_instance_websocket() {
   #
   # This is a way to test the availability of the app.  Most grave errors in
   # OpenSlides lead to this function failing.
-  local curl_opts=(--silent --max-time 1 --retry 2 --retry-delay 1 --retry-max-time 3)
   {
-    LC_ALL=C curl "${curl_opts[@]}" "http://127.0.0.1:${1}/apps/core/version/"
+    LC_ALL=C curl -s "${CURL_OPTS[@]}" "http://127.0.0.1:${1}/apps/core/version/"
   } | gawk 'BEGIN { FPAT = "\"[^\"]*\"" } { gsub(/"/, "", $2); print $2}' || true
 }
 
@@ -825,7 +825,7 @@ list_instances() {
   }
 
   # list instances, either one by one or in parallel
-  if [[ $OPT_USE_PARALLEL ]]; then
+  if [[ $OPT_USE_PARALLEL -ne 0 ]]; then
     env_parallel --no-notice --keep-order ls_instance ::: "${j[@]}"
   else
     for instance in "${j[@]}"; do
@@ -1158,12 +1158,6 @@ run_hook() (
   )
 
 
-# Use GNU parallel if found
-if [[ -f /usr/bin/env_parallel.bash ]]; then
-  source /usr/bin/env_parallel.bash
-  OPT_USE_PARALLEL=1
-fi
-
 # Decide mode from invocation
 case "$(basename "${BASH_SOURCE[0]}")" in
   "osinstancectl" | "osinstancectl.sh")
@@ -1201,6 +1195,7 @@ longopt=(
   metadata
   image-info
   fast
+  patient
   search-metadata
   version:
 
@@ -1354,6 +1349,14 @@ while true; do
       ;;
     --fast)
       OPT_FAST=1
+      OPT_PATIENT=
+      shift 1
+      ;;
+    --patient)
+      OPT_PATIENT=1
+      OPT_USE_PARALLEL=0
+      OPT_FAST=
+      CURL_OPTS=(--max-time 60 --retry 5 --retry-delay 1 --retry-max-time 0)
       shift 1
       ;;
     -h|--help) usage; exit 0 ;;
@@ -1416,6 +1419,12 @@ for arg; do
       ;;
   esac
 done
+
+# Use GNU parallel if found
+if [[ "$OPT_USE_PARALLEL" -ne 0 ]] && [[ -f /usr/bin/env_parallel.bash ]]; then
+  source /usr/bin/env_parallel.bash
+  OPT_USE_PARALLEL=1
+fi
 
 case "$OPT_COLOR" in
   auto)
