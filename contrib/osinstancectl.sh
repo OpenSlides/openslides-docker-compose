@@ -264,7 +264,7 @@ next_free_port() {
   HIGHEST_PORT_IN_USE=$(
     find "${INSTANCES}" -type f -name ".env" -print0 |
     xargs -0 grep -h "EXTERNAL_HTTP_PORT" |
-    cut -d= -f2 | sort -rn | head -1
+    cut -d= -f2 | tr -d "[\"\']" | sort -rn | head -1
   )
   [[ -n "$HIGHEST_PORT_IN_USE" ]] || HIGHEST_PORT_IN_USE=61000
   PORT=$((HIGHEST_PORT_IN_USE + 1))
