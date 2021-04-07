@@ -458,7 +458,7 @@ ping_instance_simple() {
   # reverse proxy container rarely fails itself, so it is always running when
   # an instance has been started.  Errors usually happen in the server
   # container which is checked with ping_instance_websocket.
-  nc -z localhost "$1" || return 1
+  nc -z 127.1 "$1" || return 1
 }
 
 instance_has_services_running() {
@@ -648,9 +648,9 @@ ls_instance() {
   local server_image_info= client_image_info=
   if [[ -n "$OPT_IMAGE_INFO" ]] || [[ -n "$OPT_JSON" ]]; then
     if [[ -n "$version" ]]; then
-      server_image_info="$(curl -s "http://localhost:${port}/server-version.txt")"
+      server_image_info="$(curl -s "http://127.1:${port}/server-version.txt")"
       [[ "$server_image_info" =~ built\ on ]] || server_image_info=
-      client_image_info="$(curl -s "http://localhost:${port}/client-version.txt")"
+      client_image_info="$(curl -s "http://127.1:${port}/client-version.txt")"
       [[ "$client_image_info" =~ built\ on ]] || client_image_info=
     fi
   fi
