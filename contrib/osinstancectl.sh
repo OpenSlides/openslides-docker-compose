@@ -574,7 +574,7 @@ ls_instance() {
 
   # Parse metadata for first line (used in overview)
   local first_metadatum=
-  if [[ -z "$OPT_FAST" ]] && [[ -r "${instance}/metadata.txt" ]]; then
+  if [[ -r "${instance}/metadata.txt" ]]; then
     first_metadatum=$(head -1 "${instance}/metadata.txt")
     # Shorten if necessary.  This string will be printed as a column of the
     # general output, so it should not cause linebreaks.  Since the same
