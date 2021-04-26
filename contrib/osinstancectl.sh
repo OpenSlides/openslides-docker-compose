@@ -311,8 +311,10 @@ create_config_from_template() {
   temp_file="$(mktemp)"
   # Create .env
   [[ ! -f "${_env}" ]] || cp -af "${_env}" "$temp_file"
+  update_env_file "$temp_file" "ALLOWED_HOSTS" "\"127.0.0.1 ${PROJECT_NAME} www.${PROJECT_NAME}\""
   update_env_file "$temp_file" "EXTERNAL_HTTP_PORT" "$PORT"
-  update_env_file "$temp_file" "INSTANCE_DOMAIN" "https://${PROJECT_NAME}"
+  update_env_file "$temp_file" "INSTANCE_DOMAIN" "${PROJECT_NAME}"
+  update_env_file "$temp_file" "INSTANCE_URL_SCHEME" "http"
   update_env_file "$temp_file" "DEFAULT_DOCKER_REGISTRY" "$DEFAULT_DOCKER_REGISTRY"
   update_env_file "$temp_file" "DOCKER_OPENSLIDES_BACKEND_REGISTRY" "$DOCKER_IMAGE_REGISTRY_OPENSLIDES"
   update_env_file "$temp_file" "DOCKER_OPENSLIDES_BACKEND_TAG" "$DOCKER_IMAGE_TAG_OPENSLIDES"
@@ -321,6 +323,7 @@ create_config_from_template() {
   update_env_file "$temp_file" "DOCKER_OPENSLIDES_AUTOUPDATE_REGISTRY" "$DOCKER_IMAGE_REGISTRY_AUTOUPDATE"
   update_env_file "$temp_file" "DOCKER_OPENSLIDES_AUTOUPDATE_TAG" "$DOCKER_IMAGE_TAG_AUTOUPDATE"
   update_env_file "$temp_file" "POSTFIX_MYHOSTNAME" "$PROJECT_NAME"
+
   cp -af "$temp_file" "${_env}"
   # Create config from template + .env
   ( set -a && source "${_env}" &&
