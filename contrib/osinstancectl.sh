@@ -402,9 +402,9 @@ add_to_haproxy_cfg() {
     BEGIN {
       begin_block = "-----BEGIN AUTOMATIC OPENSLIDES CONFIG-----"
       end_block   = "-----END AUTOMATIC OPENSLIDES CONFIG-----"
-      use_server_tmpl = "\tuse-server %s if { ssl_fc_sni_reg -i ^%s$ }"
+      use_server_tmpl = "\tuse-server %s if { hdr_reg(Host) -i ^%s$ }"
       if ( www == 1 ) {
-        use_server_tmpl = "\tuse-server %s if { ssl_fc_sni_reg -i ^(www\\.)?%s$ }"
+        use_server_tmpl = "\tuse-server %s if { hdr_reg(Host) -i ^(www\\.)?%s$ }"
       }
       server_tmpl = "\tserver     %s 127.1:%d  weight 0 check"
     }
