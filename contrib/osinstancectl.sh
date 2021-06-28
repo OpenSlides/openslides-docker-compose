@@ -154,7 +154,7 @@ Options:
     --no-add-account   Do not add an additional, customized local admin account
     --local-only       Create an instance without setting up HAProxy and Let's
                        Encrypt certificates.  Such an instance is only
-                       accessible on localhost, e.g., http://127.1:61000.
+                       accessible on localhost, e.g., http://127.0.0.1:61000.
     --clone-from       Create the new instance based on the specified existing
                        instance
     --www              Add a www subdomain in addition to the specified
@@ -412,7 +412,7 @@ add_to_haproxy_cfg() {
       if ( www == 1 ) {
         use_server_tmpl = "\tuse-server %s if { hdr_reg(Host) -i ^(www\\.)?%s$ }"
       }
-      server_tmpl = "\tserver     %s 127.1:%d  weight 0 check"
+      server_tmpl = "\tserver     %s 127.0.0.1:%d  weight 0 check"
     }
     $0 ~ begin_block { b = 1 }
     $0 ~ end_block   { e = 1 }
@@ -464,7 +464,7 @@ ping_instance_simple() {
   # reverse proxy container rarely fails itself, so it is always running when
   # an instance has been started.  Errors usually happen in the server
   # container which is checked with ping_instance_websocket.
-  nc -z 127.1 "$1" || return 1
+  nc -z 127.0.0.1 "$1" || return 1
 }
 
 instance_has_services_running() {
@@ -678,9 +678,9 @@ ls_instance() {
   local server_image_info= client_image_info=
   if [[ -n "$OPT_IMAGE_INFO" ]] || [[ -n "$OPT_JSON" ]]; then
     if [[ -n "$version" ]]; then
-      server_image_info="$(curl -s "http://127.1:${port}/server-version.txt")"
+      server_image_info="$(curl -s "http://127.0.0.1:${port}/server-version.txt")"
       [[ "$server_image_info" =~ built\ on ]] || server_image_info=
-      client_image_info="$(curl -s "http://127.1:${port}/client-version.txt")"
+      client_image_info="$(curl -s "http://127.0.0.1:${port}/client-version.txt")"
       [[ "$client_image_info" =~ built\ on ]] || client_image_info=
     fi
   fi
